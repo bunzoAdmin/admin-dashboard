@@ -20,7 +20,7 @@ for loose attribution in server logs. Admin actions are audited via qcom's struc
 ```bash
 cp .env.example .env
 npm install
-npm run dev                 # http://localhost:3000
+npm run dev                 # http://localhost:3100 (not 3000 — that's BunzoWeb)
 ```
 
 The backend must run with the `ADMIN_KEY` env var set; use that same value to log in.
@@ -38,11 +38,11 @@ This app is a standard Next.js 15 project — Vercel is the simplest host.
 
    | Name | Value |
    |------|--------|
-   | `NEXT_PUBLIC_API_BASE_URL` | `https://api.bunzodeliver.com` |
+   | `NEXT_PUBLIC_API_BASE_URL` | `https://api.bunzodelivery.com` |
 
 5. Deploy. Vercel gives you a URL like `https://bunzo-admin-dashboard.vercel.app`.
 
-Optional: add a custom domain under **Project → Settings → Domains** (e.g. `admin.bunzodeliver.com`).
+Optional: add a custom domain under **Project → Settings → Domains** (e.g. `admin.bunzodelivery.com`).
 
 ### Option B — Vercel CLI
 
@@ -54,7 +54,7 @@ vercel login
 vercel --prod
 ```
 
-When prompted for env vars, add `NEXT_PUBLIC_API_BASE_URL=https://api.bunzodeliver.com`, or set it in the Vercel dashboard after the first deploy.
+When prompted for env vars, add `NEXT_PUBLIC_API_BASE_URL=https://api.bunzodelivery.com`, or set it in the Vercel dashboard after the first deploy.
 
 ### After deploy
 

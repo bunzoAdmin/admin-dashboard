@@ -11,7 +11,7 @@ import type {
   Rule
 } from './types';
 
-const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.bunzodeliver.com';
+const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.bunzodelivery.com';
 
 export class ApiClientError extends Error {
   status: number;
