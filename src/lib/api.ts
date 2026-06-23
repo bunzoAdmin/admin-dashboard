@@ -5,6 +5,7 @@ import type {
   CashLedger,
   Disbursement,
   DriverDetail,
+  DriverTripResponse,
   EarningsSummary,
   LoginResponse,
   PresignResponse,
@@ -139,6 +140,14 @@ export const api = {
 
   // --- Driver lookup + detail ---
   getDriver: (phone: string) => request<DriverDetail>(`/admin/drivers/${encodePhone(phone)}`),
+  getDriverTrip: (phone: string) => request<DriverTripResponse>(`/admin/drivers/${encodePhone(phone)}/trip`),
+  adminCompletePickup: (phone: string) =>
+    request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/pickup/complete`, { method: 'POST' }),
+  adminCompleteDrop: (phone: string, otp: string) =>
+    request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/drop/complete`, {
+      method: 'POST',
+      body: { otp }
+    }),
   getDriverEarnings: (phone: string, cursor?: string) =>
     request<EarningsSummary>(`/admin/drivers/${encodePhone(phone)}/earnings`, { query: { cursor } }),
   getDriverDisbursements: (phone: string) =>

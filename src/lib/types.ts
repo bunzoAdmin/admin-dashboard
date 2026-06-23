@@ -26,6 +26,64 @@ export interface DailyMilestone {
   [key: string]: unknown;
 }
 
+export type TripStatus =
+  | 'created'
+  | 'assigned'
+  | 'accepted'
+  | 'out_for_delivery'
+  | 'completed'
+  | 'cancelled';
+
+export type TaskType = 'pickup' | 'drop';
+export type TaskStatus = 'created' | 'completed';
+
+export interface TripTask {
+  task_id: string;
+  type: TaskType;
+  status: TaskStatus;
+  created_at?: string;
+  completed_at?: string;
+  phone: string;
+  address: string;
+  lat: number;
+  lng: number;
+  recipient_name?: string;
+}
+
+export interface TripItem {
+  name: string;
+  image_url: string;
+  quantity: number;
+  sku?: string;
+}
+
+export interface TripPayment {
+  collect_cash: boolean;
+  amount_zmw: number;
+  currency?: string;
+}
+
+export interface Trip {
+  trip_id: string;
+  order_id: string;
+  store_id: string;
+  de_id?: string;
+  de_phone?: string;
+  status: TripStatus;
+  tasks: TripTask[];
+  items?: TripItem[];
+  payment?: TripPayment;
+  distance_km?: number;
+  base_pay_zmw?: number;
+  created_at: string;
+  updated_at: string;
+  assigned_at?: string;
+}
+
+export interface DriverTripResponse {
+  trip: Trip | null;
+}
+
 export interface DriverDetail {
   de_id: string;
   phone_number: string;

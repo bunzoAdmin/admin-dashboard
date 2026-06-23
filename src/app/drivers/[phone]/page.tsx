@@ -6,13 +6,14 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Banknote, Wallet, ExternalLink } from 'lucide-react';
 import { api, ApiClientError } from '@/lib/api';
 import type { DriverDetail } from '@/lib/types';
-import { Card, ErrorBox, Loading, Stat, StatusBadge, Badge, money, formatDate, SectionTitle, EmptyState } from '@/components/ui';
+import { Card, ErrorBox, Loading, Stat, StatusBadge, Badge, money, formatDate, SectionTitle } from '@/components/ui';
 import { EarningsTab } from '@/components/driver/EarningsTab';
 import { DisbursementsTab } from '@/components/driver/DisbursementsTab';
 import { CashTab } from '@/components/driver/CashTab';
 import { ReferralsTab } from '@/components/driver/ReferralsTab';
 import { CashDepositModal } from '@/components/driver/CashDepositModal';
 import { DisbursementModal } from '@/components/driver/DisbursementModal';
+import { CurrentTripCard } from '@/components/driver/CurrentTripCard';
 
 type Tab = 'overview' | 'earnings' | 'disbursements' | 'cash' | 'referrals';
 const TABS: { id: Tab; label: string }[] = [
@@ -57,6 +58,7 @@ export default function DriverDetailPage() {
   const [cashModal, setCashModal] = useState(false);
   const [disbModal, setDisbModal] = useState(false);
   const [cashRefresh, setCashRefresh] = useState(0);
+  const [tripRefresh, setTripRefresh] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -78,6 +80,7 @@ export default function DriverDetailPage() {
   const afterAction = () => {
     load();
     setCashRefresh((n) => n + 1);
+    setTripRefresh((n) => n + 1);
   };
 
   return (
@@ -150,6 +153,8 @@ export default function DriverDetailPage() {
 
           {tab === 'overview' && (
             <div className="space-y-6">
+              <CurrentTripCard phone={phone} refreshKey={tripRefresh} onTripChanged={afterAction} />
+
               <Card>
                 <SectionTitle>Documents</SectionTitle>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -159,30 +164,15 @@ export default function DriverDetailPage() {
                 </div>
               </Card>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                <Card>
-                  <SectionTitle>Current assignment</SectionTitle>
-                  {driver.current_order_id || driver.current_trip_id || driver.current_store_id ? (
-                    <dl className="space-y-2 text-sm">
-                      <Row label="Store" value={driver.current_store_id || '—'} />
-                      <Row label="Order" value={driver.current_order_id || '—'} mono />
-                      <Row label="Trip" value={driver.current_trip_id || '—'} mono />
-                    </dl>
-                  ) : (
-                    <EmptyState>No active assignment.</EmptyState>
-                  )}
-                </Card>
-
-                <Card>
-                  <SectionTitle>Account</SectionTitle>
-                  <dl className="space-y-2 text-sm">
-                    <Row label="Referral code" value={driver.referral_code || '—'} mono />
-                    <Row label="Last disbursed" value={formatDate(driver.last_disbursed_at)} />
-                    <Row label="Joined" value={formatDate(driver.created_at)} />
-                    <Row label="Updated" value={formatDate(driver.updated_at)} />
-                  </dl>
-                </Card>
-              </div>
+              <Card>
+                <SectionTitle>Account</SectionTitle>
+                <dl className="space-y-2 text-sm">
+                  <Row label="Referral code" value={driver.referral_code || '—'} mono />
+                  <Row label="Last disbursed" value={formatDate(driver.last_disbursed_at)} />
+                  <Row label="Joined" value={formatDate(driver.created_at)} />
+                  <Row label="Updated" value={formatDate(driver.updated_at)} />
+                </dl>
+              </Card>
             </div>
           )}
 
