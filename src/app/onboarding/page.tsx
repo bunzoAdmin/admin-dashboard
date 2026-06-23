@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { UploadCloud, CheckCircle2, Loader2 } from 'lucide-react';
+import { PhoneInput } from '@/components/PhoneInput';
 import { api, ApiClientError, uploadToS3 } from '@/lib/api';
+import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 import { Card, Field, Spinner, ErrorBox, useToast } from '@/components/ui';
 
 type DocKind = 'profile' | 'nrc' | 'license';
@@ -17,16 +19,11 @@ interface DocState {
 
 const EMPTY_DOC: DocState = { uploading: false, objectKey: null, preview: null, error: null };
 
-function normalizePhone(raw: string): string {
-  const p = raw.trim();
-  if (!p) return '';
-  return p.startsWith('+') ? p : '+' + p.replace(/^\+*/, '');
-}
-
 export default function OnboardingPage() {
   const router = useRouter();
   const toast = useToast();
-  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_DIAL);
+  const [localNumber, setLocalNumber] = useState('');
   const [name, setName] = useState('');
   const [referral, setReferral] = useState('');
   const [docs, setDocs] = useState<Record<DocKind, DocState>>({
@@ -37,9 +34,10 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fullPhone = buildPhoneNumber(countryCode, localNumber);
+
   async function handleFile(kind: DocKind, file: File) {
-    const p = normalizePhone(phone);
-    if (!p) {
+    if (!fullPhone) {
       setDocs((d) => ({ ...d, [kind]: { ...d[kind], error: 'Enter the phone number first.' } }));
       return;
     }
@@ -47,7 +45,7 @@ export default function OnboardingPage() {
     try {
       const presign = await api.presignDriverDoc({
         kind,
-        phone: p,
+        phone: fullPhone,
         file_name: file.name,
         file_type: file.type,
         file_size: file.size
@@ -67,8 +65,7 @@ export default function OnboardingPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const p = normalizePhone(phone);
-    if (!p || !name.trim()) {
+    if (!fullPhone || !name.trim()) {
       setError('Phone and name are required.');
       return;
     }
@@ -80,7 +77,7 @@ export default function OnboardingPage() {
     setError(null);
     try {
       await api.createDriver({
-        phone_number: p,
+        phone_number: fullPhone,
         name: name.trim(),
         profile_url: docs.profile.objectKey!,
         nrc_url: docs.nrc.objectKey!,
@@ -88,7 +85,7 @@ export default function OnboardingPage() {
         referral_code: referral.trim() || undefined
       });
       toast.push('success', `Driver ${name.trim()} onboarded.`);
-      router.push(`/drivers/${encodeURIComponent(p)}`);
+      router.push(`/drivers/${encodeURIComponent(fullPhone)}`);
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'DE_ALREADY_EXISTS') {
         setError('A driver with this phone number already exists.');
@@ -111,7 +108,12 @@ export default function OnboardingPage() {
         <Card className="max-w-xl space-y-4">
           {error && <ErrorBox message={error} />}
           <Field label="Phone number" hint="Required before uploading documents.">
-            <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+260970000000" inputMode="tel" />
+            <PhoneInput
+              countryCode={countryCode}
+              localNumber={localNumber}
+              onCountryCodeChange={setCountryCode}
+              onLocalNumberChange={setLocalNumber}
+            />
           </Field>
           <Field label="Full name">
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Driver's full name" />
@@ -124,9 +126,9 @@ export default function OnboardingPage() {
         <Card>
           <h2 className="mb-4 text-base font-semibold text-gray-900">Documents</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <DocUpload kind="profile" label="Profile photo" state={docs.profile} disabled={!phone.trim()} onFile={handleFile} />
-            <DocUpload kind="nrc" label="NRC" state={docs.nrc} disabled={!phone.trim()} onFile={handleFile} />
-            <DocUpload kind="license" label="Driver license" state={docs.license} disabled={!phone.trim()} onFile={handleFile} />
+            <DocUpload kind="profile" label="Profile photo" state={docs.profile} disabled={!fullPhone} onFile={handleFile} />
+            <DocUpload kind="nrc" label="NRC" state={docs.nrc} disabled={!fullPhone} onFile={handleFile} />
+            <DocUpload kind="license" label="Driver license" state={docs.license} disabled={!fullPhone} onFile={handleFile} />
           </div>
         </Card>
 

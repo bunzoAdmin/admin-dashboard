@@ -3,17 +3,19 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Search } from 'lucide-react';
+import { PhoneInput } from '@/components/PhoneInput';
 import { Card } from '@/components/ui';
+import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 
 export default function DriversLookupPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_DIAL);
+  const [localNumber, setLocalNumber] = useState('');
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    let p = phone.trim();
+    const p = buildPhoneNumber(countryCode, localNumber);
     if (!p) return;
-    if (!p.startsWith('+')) p = '+' + p.replace(/^\+*/, '');
     router.push(`/drivers/${encodeURIComponent(p)}`);
   }
 
@@ -28,20 +30,20 @@ export default function DriversLookupPage() {
         <form onSubmit={onSubmit} className="space-y-3">
           <span className="label">Driver phone number</span>
           <div className="flex gap-2">
-            <input
+            <PhoneInput
               autoFocus
-              className="input"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+260970000000"
-              inputMode="tel"
+              className="flex-1"
+              countryCode={countryCode}
+              localNumber={localNumber}
+              onCountryCodeChange={setCountryCode}
+              onLocalNumberChange={setLocalNumber}
             />
-            <button type="submit" className="btn-primary shrink-0">
+            <button type="submit" className="btn-primary shrink-0 self-start">
               <Search className="h-4 w-4" />
               Look up
             </button>
           </div>
-          <p className="text-xs text-gray-400">Enter the full number including country code. The leading + is optional.</p>
+          <p className="text-xs text-gray-400">Select the country code and enter the mobile number without the leading zero.</p>
         </form>
       </Card>
     </div>

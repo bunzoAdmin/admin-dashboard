@@ -3,22 +3,25 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { PackageCheck, ArrowRight } from 'lucide-react';
+import { PhoneInput } from '@/components/PhoneInput';
 import { api, ApiClientError } from '@/lib/api';
+import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 import { Card, Field, Spinner, ErrorBox, useToast } from '@/components/ui';
 
 export default function AssignPage() {
   const toast = useToast();
   const [orderId, setOrderId] = useState('');
-  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_DIAL);
+  const [localNumber, setLocalNumber] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assigned, setAssigned] = useState<{ order: string; phone: string } | null>(null);
 
+  const fullPhone = buildPhoneNumber(countryCode, localNumber);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    let p = phone.trim();
-    if (!p.startsWith('+')) p = '+' + p.replace(/^\+*/, '');
-    if (!orderId.trim() || !p) {
+    if (!orderId.trim() || !fullPhone) {
       setError('Both order ID and driver phone are required.');
       return;
     }
@@ -26,9 +29,9 @@ export default function AssignPage() {
     setError(null);
     setAssigned(null);
     try {
-      await api.assignOrder(orderId.trim(), p);
-      toast.push('success', `Order assigned to ${p}.`);
-      setAssigned({ order: orderId.trim(), phone: p });
+      await api.assignOrder(orderId.trim(), fullPhone);
+      toast.push('success', `Order assigned to ${fullPhone}.`);
+      setAssigned({ order: orderId.trim(), phone: fullPhone });
       setOrderId('');
     } catch (err) {
       setError(err instanceof ApiClientError ? err.message : 'Failed to assign order.');
@@ -57,11 +60,16 @@ export default function AssignPage() {
             <input className="input" value={orderId} onChange={(e) => setOrderId(e.target.value)} placeholder="order_abc123" autoFocus />
           </Field>
           <Field label="Driver phone" hint="The driver must be on duty (eligible) and not currently busy.">
-            <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+260970000000" inputMode="tel" />
+            <PhoneInput
+              countryCode={countryCode}
+              localNumber={localNumber}
+              onCountryCodeChange={setCountryCode}
+              onLocalNumberChange={setLocalNumber}
+            />
           </Field>
           <div className="flex items-center justify-between">
-            {phone.trim() && (
-              <Link href={`/drivers/${encodeURIComponent(phone.trim().startsWith('+') ? phone.trim() : '+' + phone.trim())}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
+            {fullPhone && (
+              <Link href={`/drivers/${encodeURIComponent(fullPhone)}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700">
                 Check driver status <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             )}
