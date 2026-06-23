@@ -9,7 +9,8 @@ import type {
   LoginResponse,
   PresignResponse,
   ReferralScreen,
-  Rule
+  Rule,
+  StoreQR
 } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.bunzodelivery.com';
@@ -106,6 +107,21 @@ async function login(username: string, password: string): Promise<LoginResponse>
   return data as LoginResponse;
 }
 
+// Public endpoints (no admin auth). Used for store QR display kiosks.
+async function publicRequest<T>(path: string): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/v1${path}`);
+  } catch {
+    throw new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach the server. Check the API base URL and that qcom is running.');
+  }
+  const data = await parseBody(res);
+  if (!res.ok) {
+    throw errorFrom(res, data, `Request failed (${res.status}).`);
+  }
+  return data as T;
+}
+
 const encodePhone = (phone: string) => encodeURIComponent(phone.trim());
 
 export const api = {
@@ -117,6 +133,9 @@ export const api = {
     request<AdminUser>(`/admin/users`, { method: 'POST', body }),
   changePassword: (username: string, password: string) =>
     request<void>(`/admin/users/${encodeURIComponent(username)}/password`, { method: 'POST', body: { password } }),
+
+  // --- Store QR (public API, hourly rotation) ---
+  getStoreQR: (storeId: string) => publicRequest<StoreQR>(`/stores/${encodeURIComponent(storeId.trim())}/qr`),
 
   // --- Driver lookup + detail ---
   getDriver: (phone: string) => request<DriverDetail>(`/admin/drivers/${encodePhone(phone)}`),

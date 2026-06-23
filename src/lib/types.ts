@@ -12,6 +12,12 @@ export interface LoginResponse {
   user: AdminUser;
 }
 
+export interface StoreQR {
+  store_id: string;
+  qr_code: string;
+  valid_until: string;
+}
+
 export interface DailyMilestone {
   trips_today: number;
   next_threshold?: number;

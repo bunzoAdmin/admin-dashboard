@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Users, UserPlus, PackageCheck, SlidersHorizontal, UserCog, LogOut, ShieldCheck } from 'lucide-react';
+import { Users, UserPlus, PackageCheck, SlidersHorizontal, UserCog, QrCode, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/store';
 import { ToastProvider, Spinner } from './ui';
 
@@ -12,6 +12,7 @@ const NAV = [
   { href: '/drivers', label: 'Drivers', icon: Users },
   { href: '/onboarding', label: 'Onboard Driver', icon: UserPlus },
   { href: '/assign', label: 'Assign Order', icon: PackageCheck },
+  { href: '/store-qr', label: 'Store QR', icon: QrCode },
   { href: '/rules', label: 'Payout Rules', icon: SlidersHorizontal },
   { href: '/users', label: 'Admin Users', icon: UserCog }
 ];
