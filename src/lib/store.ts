@@ -1,52 +1,62 @@
 'use client';
 
 import { create } from 'zustand';
+import type { AdminUser } from './types';
 
-const STORAGE_KEY = 'bunzo_admin_key';
-const LABEL_KEY = 'bunzo_admin_label';
+export type { AdminUser };
+
+const TOKEN_KEY = 'bunzo_admin_token';
+const USER_KEY = 'bunzo_admin_user';
 
 interface AuthState {
-  adminKey: string | null;
-  adminLabel: string;
+  token: string | null;
+  user: AdminUser | null;
   hydrated: boolean;
   hydrate: () => void;
-  login: (key: string, label: string) => void;
+  login: (token: string, user: AdminUser) => void;
   logout: () => void;
 }
 
+function readUser(): AdminUser | null {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(USER_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as AdminUser;
+  } catch {
+    return null;
+  }
+}
+
 export const useAuth = create<AuthState>((set) => ({
-  adminKey: null,
-  adminLabel: '',
+  token: null,
+  user: null,
   hydrated: false,
   hydrate: () => {
     if (typeof window === 'undefined') return;
     set({
-      adminKey: window.localStorage.getItem(STORAGE_KEY),
-      adminLabel: window.localStorage.getItem(LABEL_KEY) ?? '',
+      token: window.localStorage.getItem(TOKEN_KEY),
+      user: readUser(),
       hydrated: true
     });
   },
-  login: (key, label) => {
+  login: (token, user) => {
     if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, key);
-      window.localStorage.setItem(LABEL_KEY, label);
+      window.localStorage.setItem(TOKEN_KEY, token);
+      window.localStorage.setItem(USER_KEY, JSON.stringify(user));
     }
-    set({ adminKey: key, adminLabel: label });
+    set({ token, user });
   },
   logout: () => {
     if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(STORAGE_KEY);
+      window.localStorage.removeItem(TOKEN_KEY);
+      window.localStorage.removeItem(USER_KEY);
     }
-    set({ adminKey: null });
+    set({ token: null, user: null });
   }
 }));
 
-export function getStoredAdminKey(): string | null {
+export function getStoredToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return window.localStorage.getItem(STORAGE_KEY);
-}
-
-export function getStoredAdminLabel(): string {
-  if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem(LABEL_KEY) ?? '';
+  return window.localStorage.getItem(TOKEN_KEY);
 }

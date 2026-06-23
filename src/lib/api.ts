@@ -1,11 +1,12 @@
 'use client';
 
-import { getStoredAdminKey, getStoredAdminLabel } from './store';
+import { getStoredToken, useAuth, type AdminUser } from './store';
 import type {
   CashLedger,
   Disbursement,
   DriverDetail,
   EarningsSummary,
+  LoginResponse,
   PresignResponse,
   ReferralScreen,
   Rule
@@ -30,8 +31,23 @@ interface RequestOptions {
   query?: Record<string, string | undefined>;
 }
 
+async function parseBody(res: Response): Promise<unknown> {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+function errorFrom(res: Response, data: unknown, fallback: string): ApiClientError {
+  const err = (data as { error?: { code?: string; message?: string } } | null)?.error;
+  return new ApiClientError(res.status, err?.code ?? 'ERROR', err?.message ?? fallback);
+}
+
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
-  const key = getStoredAdminKey();
+  const token = getStoredToken();
   const url = new URL(`${BASE}/api/v1${path}`);
   if (opts.query) {
     for (const [k, v] of Object.entries(opts.query)) {
@@ -39,10 +55,8 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     }
   }
 
-  const headers: Record<string, string> = {
-    'X-Admin-Key': key ?? '',
-    'X-Admin-Label': getStoredAdminLabel()
-  };
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
 
   let res: Response;
@@ -58,30 +72,52 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
 
   if (res.status === 204) return undefined as T;
 
-  let data: unknown = null;
-  const text = await res.text();
-  if (text) {
-    try {
-      data = JSON.parse(text);
-    } catch {
-      data = text;
-    }
-  }
+  const data = await parseBody(res);
 
   if (!res.ok) {
-    const err = (data as { error?: { code?: string; message?: string } } | null)?.error;
     if (res.status === 401) {
-      throw new ApiClientError(401, err?.code ?? 'UNAUTHORIZED', err?.message ?? 'Invalid admin key.');
+      // Session expired or token rejected: clear it so the app routes to login.
+      useAuth.getState().logout();
+      throw errorFrom(res, data, 'Your session has expired. Please sign in again.');
     }
-    throw new ApiClientError(res.status, err?.code ?? 'ERROR', err?.message ?? `Request failed (${res.status}).`);
+    throw errorFrom(res, data, `Request failed (${res.status}).`);
   }
 
   return data as T;
 }
 
+// login authenticates with username/password. It does not go through request()
+// because a 401 here means bad credentials, not an expired session.
+async function login(username: string, password: string): Promise<LoginResponse> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}/api/v1/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+  } catch {
+    throw new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach the server. Check the API base URL and that qcom is running.');
+  }
+  const data = await parseBody(res);
+  if (!res.ok) {
+    throw errorFrom(res, data, 'Login failed.');
+  }
+  return data as LoginResponse;
+}
+
 const encodePhone = (phone: string) => encodeURIComponent(phone.trim());
 
 export const api = {
+  // --- Auth + admin users ---
+  login,
+  getMe: () => request<AdminUser>(`/admin/me`),
+  listUsers: () => request<AdminUser[]>(`/admin/users`),
+  createUser: (body: { username: string; password: string; name: string }) =>
+    request<AdminUser>(`/admin/users`, { method: 'POST', body }),
+  changePassword: (username: string, password: string) =>
+    request<void>(`/admin/users/${encodeURIComponent(username)}/password`, { method: 'POST', body: { password } }),
+
   // --- Driver lookup + detail ---
   getDriver: (phone: string) => request<DriverDetail>(`/admin/drivers/${encodePhone(phone)}`),
   getDriverEarnings: (phone: string, cursor?: string) =>

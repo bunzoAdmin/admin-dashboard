@@ -1,5 +1,17 @@
 export type DEStatus = 'offline' | 'eligible' | 'busy' | 'free';
 
+export interface AdminUser {
+  username: string;
+  name: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  token_type: string;
+  expires_in: number;
+  user: AdminUser;
+}
+
 export interface DailyMilestone {
   trips_today: number;
   next_threshold?: number;

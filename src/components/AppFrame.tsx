@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Users, UserPlus, PackageCheck, SlidersHorizontal, LogOut, ShieldCheck } from 'lucide-react';
+import { Users, UserPlus, PackageCheck, SlidersHorizontal, UserCog, LogOut, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/store';
 import { ToastProvider, Spinner } from './ui';
 
@@ -12,13 +12,14 @@ const NAV = [
   { href: '/drivers', label: 'Drivers', icon: Users },
   { href: '/onboarding', label: 'Onboard Driver', icon: UserPlus },
   { href: '/assign', label: 'Assign Order', icon: PackageCheck },
-  { href: '/rules', label: 'Payout Rules', icon: SlidersHorizontal }
+  { href: '/rules', label: 'Payout Rules', icon: SlidersHorizontal },
+  { href: '/users', label: 'Admin Users', icon: UserCog }
 ];
 
 export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { adminKey, adminLabel, hydrated, hydrate, logout } = useAuth();
+  const { token, user, hydrated, hydrate, logout } = useAuth();
 
   useEffect(() => {
     hydrate();
@@ -27,16 +28,16 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const isLogin = pathname === '/login';
 
   useEffect(() => {
-    if (hydrated && !adminKey && !isLogin) {
+    if (hydrated && !token && !isLogin) {
       router.replace('/login');
     }
-  }, [hydrated, adminKey, isLogin, router]);
+  }, [hydrated, token, isLogin, router]);
 
   if (isLogin) {
     return <ToastProvider>{children}</ToastProvider>;
   }
 
-  if (!hydrated || !adminKey) {
+  if (!hydrated || !token) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-400">
         <Spinner className="h-6 w-6" />
@@ -77,7 +78,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
           </nav>
           <div className="border-t border-gray-200 p-3">
             <div className="px-2 pb-2 text-xs text-gray-400">
-              Signed in as <span className="font-medium text-gray-600">{adminLabel || 'admin'}</span>
+              Signed in as <span className="font-medium text-gray-600">{user?.name || user?.username || 'admin'}</span>
             </div>
             <button
               onClick={() => {

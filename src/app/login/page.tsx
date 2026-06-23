@@ -9,27 +9,26 @@ import { Field, Spinner, ErrorBox } from '@/components/ui';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, logout } = useAuth();
-  const [key, setKey] = useState('');
-  const [label, setLabel] = useState('');
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canSubmit = username.trim().length > 0 && password.length > 0;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!key.trim()) return;
+    if (!canSubmit) return;
     setBusy(true);
     setError(null);
-    // Store the key first so the API client picks it up, then verify against a
-    // cheap admin-gated endpoint.
-    login(key.trim(), label.trim());
     try {
-      await api.listRules();
+      const res = await api.login(username.trim(), password);
+      login(res.token, res.user);
       router.replace('/drivers');
     } catch (err) {
-      logout();
       if (err instanceof ApiClientError && err.status === 401) {
-        setError('That admin key was rejected. Double-check and try again.');
+        setError('Invalid username or password.');
       } else if (err instanceof ApiClientError && err.status === 0) {
         setError(err.message);
       } else {
@@ -53,22 +52,29 @@ export default function LoginPage() {
 
         {error && <ErrorBox message={error} />}
 
-        <Field label="Admin key">
+        <Field label="Username">
           <input
-            type="password"
             autoFocus
+            autoComplete="username"
             className="input"
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder="Shared admin key"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="e.g. chanda"
           />
         </Field>
 
-        <Field label="Your name" hint="Shown in the UI and request logs for loose attribution.">
-          <input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Chanda (Ops)" />
+        <Field label="Password">
+          <input
+            type="password"
+            autoComplete="current-password"
+            className="input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Your password"
+          />
         </Field>
 
-        <button type="submit" className="btn-primary w-full" disabled={busy || !key.trim()}>
+        <button type="submit" className="btn-primary w-full" disabled={busy || !canSubmit}>
           {busy ? <Spinner className="h-4 w-4" /> : 'Sign in'}
         </button>
       </form>
