@@ -1,7 +1,7 @@
 'use client';
 
 import clsx from 'clsx';
-import { Loader2, AlertCircle, CheckCircle2, X } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import type { DEStatus } from '@/lib/types';
 
@@ -114,7 +114,7 @@ export function formatDate(iso?: string): string {
 // --- Toast ---
 interface Toast {
   id: number;
-  kind: 'success' | 'error';
+  kind: 'success' | 'error' | 'info';
   message: string;
 }
 interface ToastCtx {
@@ -140,10 +140,20 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className={clsx(
               'flex items-start gap-2 rounded-lg border p-3 text-sm shadow-card',
-              t.kind === 'success' ? 'border-green-200 bg-green-50 text-green-800' : 'border-red-200 bg-red-50 text-red-800'
+              t.kind === 'success'
+                ? 'border-green-200 bg-green-50 text-green-800'
+                : t.kind === 'info'
+                ? 'border-amber-200 bg-amber-50 text-amber-800'
+                : 'border-red-200 bg-red-50 text-red-800'
             )}
           >
-            {t.kind === 'success' ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+            {t.kind === 'success' ? (
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : t.kind === 'info' ? (
+              <Info className="mt-0.5 h-4 w-4 shrink-0" />
+            ) : (
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            )}
             <span className="flex-1">{t.message}</span>
             <button onClick={() => dismiss(t.id)} className="text-current/60 hover:text-current">
               <X className="h-4 w-4" />

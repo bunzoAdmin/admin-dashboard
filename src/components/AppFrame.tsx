@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { Users, UserPlus, PackageCheck, SlidersHorizontal, UserCog, QrCode, LogOut, ShieldCheck } from 'lucide-react';
+import { Users, UserPlus, PackageCheck, SlidersHorizontal, UserCog, QrCode, LogOut, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/lib/store';
+import { useDisputes } from '@/lib/disputes';
 import { ToastProvider, Spinner } from './ui';
+import { DisputeWatcher } from './DisputeWatcher';
 
 const NAV = [
   { href: '/drivers', label: 'Drivers', icon: Users },
   { href: '/onboarding', label: 'Onboard Driver', icon: UserPlus },
   { href: '/assign', label: 'Assign Order', icon: PackageCheck },
+  { href: '/disputes', label: 'Disputes', icon: AlertTriangle },
   { href: '/store-qr', label: 'Store QR', icon: QrCode },
   { href: '/rules', label: 'Payout Rules', icon: SlidersHorizontal },
   { href: '/users', label: 'Admin Users', icon: UserCog }
@@ -21,6 +24,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { token, user, hydrated, hydrate, logout } = useAuth();
+  const openCount = useDisputes((s) => s.openCount);
 
   useEffect(() => {
     hydrate();
@@ -48,6 +52,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 
   return (
     <ToastProvider>
+      <DisputeWatcher />
       <div className="flex min-h-screen">
         <aside className="flex w-60 shrink-0 flex-col border-r border-gray-200 bg-white">
           <div className="flex items-center gap-2 px-5 py-5">
@@ -72,7 +77,12 @@ export function AppFrame({ children }: { children: ReactNode }) {
                   )}
                 >
                   <Icon className="h-4 w-4" />
-                  {label}
+                  <span className="flex-1">{label}</span>
+                  {href === '/disputes' && openCount != null && openCount > 0 && (
+                    <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-semibold text-white">
+                      {openCount > 99 ? '99+' : openCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
