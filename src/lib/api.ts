@@ -2,8 +2,12 @@
 
 import { getStoredToken, useAuth, type AdminUser } from './store';
 import type {
+  AdminDispute,
   CashLedger,
   Disbursement,
+  DisputeListResponse,
+  DisputeStatus,
+  DisputeSummary,
   DriverDetail,
   DriverTripResponse,
   EarningsSummary,
@@ -186,7 +190,14 @@ export const api = {
   listRuleVersions: (id: string) => request<Rule[]>(`/admin/rules/${encodeURIComponent(id)}/versions`),
   createRule: (rule: Rule) => request<Rule>(`/admin/rules`, { method: 'POST', body: rule }),
   updateRule: (id: string, rule: Rule) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'PUT', body: rule }),
-  deleteRule: (id: string) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  deleteRule: (id: string) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // --- Disputes ---
+  listDisputes: (status: DisputeStatus, cursor?: string) =>
+    request<DisputeListResponse>(`/admin/disputes`, { query: { status, cursor } }),
+  getDisputeSummary: () => request<DisputeSummary>(`/admin/disputes/summary`),
+  updateDispute: (id: string, body: { status: DisputeStatus; resolution_note?: string }) =>
+    request<{ dispute: AdminDispute }>(`/admin/disputes/${encodeURIComponent(id)}`, { method: 'PATCH', body })
 };
 
 // Uploads a file directly to S3 using a presigned PUT URL.

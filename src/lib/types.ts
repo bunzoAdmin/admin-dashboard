@@ -220,3 +220,32 @@ export interface PresignResponse {
   object_key: string;
   expires_in_seconds: number;
 }
+
+export type DisputeStatus = 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED';
+
+export interface AdminDispute {
+  dispute_id: string;
+  order_number: string;
+  customer_id: string;
+  disposition_code: string;
+  disposition_title?: string;
+  description?: string;
+  photo_urls?: string[];
+  status: DisputeStatus;
+  resolution_note?: string;
+  resolved_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DisputeListResponse {
+  disputes: AdminDispute[];
+  next_cursor: string;
+}
+
+export interface DisputeSummary {
+  open: number;
+  under_review: number;
+  resolved: number;
+  rejected: number;
+}
