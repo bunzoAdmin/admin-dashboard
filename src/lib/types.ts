@@ -238,6 +238,27 @@ export interface AdminDispute {
   updated_at: string;
 }
 
+export interface DisputeOrderEvidence {
+  order_number: string;
+  items: Array<{ name: string; image_url: string; quantity: number }>;
+  pickup_completed_at?: string;
+  drop_completed_at?: string;
+  driver_photo_url?: string;
+}
+
+export interface DisputeDriverDetail {
+  de_id: string;
+  name: string;
+  phone_number: string;
+  total_trips_completed: number;
+  created_at: string;
+}
+
+export interface AdminDisputeDetail extends AdminDispute {
+  order?: DisputeOrderEvidence;
+  driver?: DisputeDriverDetail;
+}
+
 export interface DisputeListResponse {
   disputes: AdminDispute[];
   next_cursor: string;

@@ -3,6 +3,7 @@
 import { getStoredToken, useAuth, type AdminUser } from './store';
 import type {
   AdminDispute,
+  AdminDisputeDetail,
   CashLedger,
   Disbursement,
   DisputeListResponse,
@@ -196,6 +197,8 @@ export const api = {
   listDisputes: (status: DisputeStatus, cursor?: string) =>
     request<DisputeListResponse>(`/admin/disputes`, { query: { status, cursor } }),
   getDisputeSummary: () => request<DisputeSummary>(`/admin/disputes/summary`),
+  getDispute: (id: string) =>
+    request<{ dispute: AdminDisputeDetail }>(`/admin/disputes/${encodeURIComponent(id)}`),
   updateDispute: (id: string, body: { status: DisputeStatus; resolution_note?: string }) =>
     request<{ dispute: AdminDispute }>(`/admin/disputes/${encodeURIComponent(id)}`, { method: 'PATCH', body })
 };

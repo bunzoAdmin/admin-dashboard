@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { api, ApiClientError } from '@/lib/api';
 import { Badge, ErrorBox, Loading, EmptyState, formatDate } from '@/components/ui';
-import { DisputeTriageModal } from '@/components/DisputeTriageModal';
 import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, useDisputes } from '@/lib/disputes';
 import type { AdminDispute, DisputeStatus, DisputeSummary } from '@/lib/types';
 
@@ -15,6 +15,7 @@ const TABS: { status: DisputeStatus; label: string; countKey: keyof DisputeSumma
 ];
 
 export default function DisputesPage() {
+  const router = useRouter();
   const setOpenCount = useDisputes((s) => s.setOpenCount);
   const [status, setStatus] = useState<DisputeStatus>('OPEN');
   const [items, setItems] = useState<AdminDispute[]>([]);
@@ -23,7 +24,6 @@ export default function DisputesPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState<DisputeSummary | null>(null);
-  const [selected, setSelected] = useState<AdminDispute | null>(null);
 
   const loadSummary = useCallback(async () => {
     try {
@@ -71,11 +71,6 @@ export default function DisputesPage() {
     }
   }
 
-  function onUpdated() {
-    loadFirstPage(status);
-    loadSummary();
-  }
-
   return (
     <div className="space-y-6">
       <div>
@@ -116,7 +111,7 @@ export default function DisputesPage() {
           {items.map((d) => (
             <button
               key={d.dispute_id}
-              onClick={() => setSelected(d)}
+              onClick={() => router.push(`/disputes/${d.dispute_id}`)}
               className="card flex w-full items-center justify-between p-4 text-left hover:bg-gray-50"
             >
               <div className="min-w-0">
@@ -137,7 +132,6 @@ export default function DisputesPage() {
         </div>
       )}
 
-      <DisputeTriageModal dispute={selected} onClose={() => setSelected(null)} onUpdated={onUpdated} />
     </div>
   );
 }
