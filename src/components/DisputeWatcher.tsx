@@ -17,6 +17,9 @@ export function DisputeWatcher() {
   useEffect(() => {
     if (!token) return;
     let active = true;
+    // Re-establish the baseline for each authenticated session so a re-login
+    // (without a full page reload) doesn't toast against the prior session's count.
+    prev.current = null;
 
     async function poll() {
       if (typeof document !== 'undefined' && document.hidden) return;
