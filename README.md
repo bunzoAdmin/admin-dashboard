@@ -1,6 +1,9 @@
 # Bunzo Admin Dashboard
 
-Internal admin dashboard for Bunzo driver operations. Next.js 15 (App Router) + TypeScript + Tailwind, talking directly to the `qcom` backend.
+Internal operations console for Bunzo. Next.js 15 (App Router) + TypeScript + Tailwind.
+
+- **qcom** (`NEXT_PUBLIC_API_BASE_URL`) — admin auth, riders, orders, disputes
+- **product-service** (`NEXT_PUBLIC_CATALOG_API_BASE_URL`) — catalog categories and products
 
 ## Stack
 
@@ -8,59 +11,50 @@ Internal admin dashboard for Bunzo driver operations. Next.js 15 (App Router) + 
 - TypeScript, Tailwind CSS
 - zustand (auth state), lucide-react (icons), clsx
 
-## Auth model
+## Auth
 
-A single shared **admin key** gates every backend call. On login the key is stored
-client-side and sent as the `X-Admin-Key` header on direct requests to `qcom`. There
-are no per-person accounts; the optional "your name" field is sent as `X-Admin-Label`
-for loose attribution in server logs. Admin actions are audited via qcom's structured logs.
+Username/password login against qcom. JWT is stored client-side and sent as `Authorization: Bearer` on admin API calls.
 
 ## Setup (local)
 
 ```bash
 cp .env.example .env
+# Edit .env — set NEXT_PUBLIC_CATALOG_API_BASE_URL to your inventory host
 npm install
-npm run dev                 # http://localhost:3100 (not 3000 — that's BunzoWeb)
+npm run dev                 # http://localhost:3100
 ```
 
-The backend must run with the `ADMIN_KEY` env var set; use that same value to log in.
+## Environment variables
 
-## Deploy on Vercel (free tier)
+| Name | Description |
+|------|-------------|
+| `NEXT_PUBLIC_API_BASE_URL` | qcom admin API base URL |
+| `NEXT_PUBLIC_CATALOG_API_BASE_URL` | product-service host for `/api/v1/catalog/*` |
+| `NEXT_PUBLIC_DEFAULT_STORE_ID` | Default store for product sync (optional, default `1`) |
 
-This app is a standard Next.js 15 project — Vercel is the simplest host.
+## Navigation
 
-### Option A — Vercel dashboard (recommended)
+| Section | Routes |
+|---------|--------|
+| Home | `/` |
+| Orders | `/orders/disputes`, `/orders/assign` |
+| Riders | `/riders`, `/riders/onboard`, `/riders/payout-rules` |
+| Catalog | `/catalog/categories`, `/catalog/products`, `/catalog/products/browse` |
+| Stores | `/stores/qr` |
+| Settings | `/settings/users` |
 
-1. Push `admin-dashboard` to its own GitHub repo (or connect the monorepo and set **Root Directory** to `admin-dashboard`).
-2. Go to [vercel.com/new](https://vercel.com/new) → Import the repo.
-3. **Framework preset:** Next.js (auto-detected).
-4. **Environment variable** (Production + Preview):
+Legacy flat URLs (`/drivers`, `/disputes`, etc.) redirect to the new paths.
 
-   | Name | Value |
-   |------|--------|
-   | `NEXT_PUBLIC_API_BASE_URL` | `https://api.bunzodelivery.com` |
+## Features
 
-5. Deploy. Vercel gives you a URL like `https://bunzo-admin-dashboard.vercel.app`.
-
-Optional: add a custom domain under **Project → Settings → Domains** (e.g. `admin.bunzodelivery.com`).
-
-### Option B — Vercel CLI
-
-From this folder:
-
-```bash
-npm i -g vercel          # or: npx vercel
-vercel login
-vercel --prod
-```
-
-When prompted for env vars, add `NEXT_PUBLIC_API_BASE_URL=https://api.bunzodelivery.com`, or set it in the Vercel dashboard after the first deploy.
-
-### After deploy
-
-- Log in with the same `ADMIN_KEY` configured on `api.bunzodeliver.com`.
-- CORS on qcom must allow your Vercel origin (`Access-Control-Allow-Origin: *` already works).
-- Do **not** commit `.env` — only set secrets in Vercel **Project → Settings → Environment Variables**.
+- **Disputes** — triage customer disputes with order evidence and status actions
+- **Riders** — lookup, onboard, trip overview, earnings, cash, disbursements, referrals
+- **Payout rules** — rate modifier / accumulator / ranking editor with version history
+- **Assign order** — force-assign pooled orders to on-duty drivers
+- **Categories** — category tree view and create root/subcategory
+- **Products** — barcode scan → lookup → create or edit via sync API
+- **Store QR** — hourly duty QR display for darkstores
+- **Admin users** — create admins and reset passwords
 
 ## Scripts
 
@@ -69,21 +63,6 @@ When prompted for env vars, add `NEXT_PUBLIC_API_BASE_URL=https://api.bunzodeliv
 - `npm run typecheck` – `tsc --noEmit`
 - `npm run lint`
 
-## Features
+## Deploy on Vercel
 
-- **Drivers** – look up a driver by phone; aggregated detail with Overview, Earnings,
-  Disbursements, Cash, and Referrals tabs.
-- **Onboard driver** – create a driver and upload profile / NRC / license docs
-  directly to S3 via admin-presigned URLs.
-- **Assign order** – force-assign a pooled order to an on-duty driver.
-- **Cash & disbursement** – record COD cash deposits and weekly payouts from the
-  driver detail page.
-- **Payout rules** – guided per-family editor (rate modifier / accumulator / ranking)
-  with enable/disable and version history.
-
-## Backend endpoints used (`qcom`, all under `/api/v1/admin`, `X-Admin-Key` required)
-
-`GET /drivers/{phone}`, `GET /drivers/{phone}/{earnings|disbursements|referrals|cash-ledger}`,
-`POST /uploads/url`, `POST /drivers`, `POST /assign`,
-`POST /de/{phone}/cash-deposit`, `POST /de/{deId}/disbursement`,
-`GET|POST /rules`, `GET /rules/{id}/versions`, `PUT|DELETE /rules/{id}`.
+Set all `NEXT_PUBLIC_*` env vars in **Project → Settings → Environment Variables**. Ensure CORS on both qcom and product-service allows your dashboard origin.

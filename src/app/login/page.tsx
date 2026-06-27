@@ -25,7 +25,7 @@ export default function LoginPage() {
     try {
       const res = await api.login(username.trim(), password);
       login(res.token, res.user);
-      router.replace('/drivers');
+      router.replace('/');
     } catch (err) {
       if (err instanceof ApiClientError && err.status === 401) {
         setError('Invalid username or password.');
@@ -47,7 +47,7 @@ export default function LoginPage() {
             <ShieldCheck className="h-6 w-6" />
           </div>
           <h1 className="text-lg font-bold text-gray-900">Bunzo Admin</h1>
-          <p className="text-sm text-gray-400">Driver operations dashboard</p>
+          <p className="text-sm text-gray-400">Operations console</p>
         </div>
 
         {error && <ErrorBox message={error} />}
