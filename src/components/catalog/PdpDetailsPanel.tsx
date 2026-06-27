@@ -3,7 +3,8 @@
 import clsx from 'clsx';
 import { ChevronDown, Sparkles } from 'lucide-react';
 import { useState } from 'react';
-import type { NutritionRowDto, ProductFormState, TemperatureBand } from '@/lib/catalogTypes';
+import type { NutritionRowDto, TemperatureBand } from '@/lib/catalogTypes';
+import type { ProductFormState } from '@/components/catalog/productFormTypes';
 import { TEMPERATURE_BAND_OPTIONS } from '@/lib/catalogTypes';
 import { Field } from '@/components/ui';
 

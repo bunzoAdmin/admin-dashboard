@@ -16,39 +16,14 @@ import type {
 import { CONTENT_UOM_OPTIONS } from '@/lib/catalogTypes';
 import { flattenCategoryTree } from '@/components/catalog/CategoryTree';
 import { PdpDetailsPanel } from '@/components/catalog/PdpDetailsPanel';
+import type { ProductFormState } from '@/components/catalog/productFormTypes';
 import { Badge, Card, ErrorBox, Field, Spinner, useToast } from '@/components/ui';
+
+export type { ProductFormState } from '@/components/catalog/productFormTypes';
 
 export type ProductEditorMode = 'create' | 'edit';
 
 type EditorTab = 'basics' | 'merchandising' | 'search' | 'badges' | 'pdp';
-
-export interface ProductFormState {
-  name: string;
-  brand: string;
-  categoryId: string;
-  basePrice: string;
-  contentAmount: string;
-  contentUom: ContentUom;
-  multipackCount: string;
-  description: string;
-  shortDescription: string;
-  slug: string;
-  images: string;
-  tags: string;
-  weightGrams: string;
-  groupId: string;
-  isActive: boolean;
-  searchKeywords: string;
-  searchPriority: string;
-  isBestseller: boolean;
-  badgeCodes: string[];
-  detailsAbout: string;
-  storageInstructions: string;
-  storageShelfLife: string;
-  storageTemperatureBand: TemperatureBand | '';
-  nutritionServingSize: string;
-  nutritionRows: NutritionRowDto[];
-}
 
 const EMPTY_FORM: ProductFormState = {
   name: '',
