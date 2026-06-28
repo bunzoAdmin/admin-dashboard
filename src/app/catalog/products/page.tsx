@@ -7,6 +7,7 @@ import { ScanBarcode } from 'lucide-react';
 import { catalogApi, CatalogApiError, isCatalogNotFound } from '@/lib/catalogApi';
 import type { CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
 import { ProductEditor, type ProductEditorMode } from '@/components/catalog/ProductEditor';
+import { defaultStoreId } from '@/lib/storeSession';
 import { Card, ErrorBox, Field, Loading, Spinner } from '@/components/ui';
 
 function ProductsPageContent() {
@@ -43,6 +44,28 @@ function ProductsPageContent() {
     setTimeout(() => barcodeInputRef.current?.focus(), 0);
   }, []);
 
+  const lookupByProductId = useCallback(async (id: number) => {
+    setLookingUp(true);
+    setLookupError(null);
+    setLockedBarcode(null);
+    setBarcodeInput('');
+
+    try {
+      const found = await catalogApi.getProductById(id, defaultStoreId());
+      setProduct(found);
+      setLockedBarcode(found.barcode?.trim() || null);
+      setBarcodeInput(found.barcode?.trim() ?? '');
+      setMode('edit');
+    } catch (err) {
+      setLookupError(err instanceof CatalogApiError ? err.message : 'Failed to load product.');
+      setProduct(null);
+      setMode(null);
+      setLockedBarcode(null);
+    } finally {
+      setLookingUp(false);
+    }
+  }, []);
+
   const lookupBarcode = useCallback(
     async (raw: string) => {
       const barcode = raw.trim();
@@ -75,11 +98,18 @@ function ProductsPageContent() {
 
   useEffect(() => {
     const fromQuery = searchParams.get('barcode')?.trim();
+    const idParam = searchParams.get('id')?.trim();
     if (fromQuery) {
       lookupBarcode(fromQuery);
       router.replace('/catalog/products', { scroll: false });
+    } else if (idParam) {
+      const id = parseInt(idParam, 10);
+      if (Number.isFinite(id)) {
+        lookupByProductId(id);
+        router.replace('/catalog/products', { scroll: false });
+      }
     }
-  }, [searchParams, lookupBarcode, router]);
+  }, [searchParams, lookupBarcode, lookupByProductId, router]);
 
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -125,19 +155,19 @@ function ProductsPageContent() {
           </div>
         </Field>
 
-        {lockedBarcode && mode && (
+        {mode && (
           <button type="button" className="text-sm text-gray-500 underline hover:text-gray-700" onClick={resetForNextScan}>
-            Scan another barcode
+            {lockedBarcode ? 'Scan another barcode' : 'Close editor'}
           </button>
         )}
       </Card>
 
       {lookupError && <ErrorBox message={lookupError} />}
 
-      {lockedBarcode && mode && (
+      {mode && (lockedBarcode || product) && (
         <ProductEditor
           mode={mode}
-          barcode={lockedBarcode}
+          barcode={lockedBarcode ?? product?.barcode?.trim() ?? ''}
           product={product}
           categories={categories}
           onSaved={resetForNextScan}

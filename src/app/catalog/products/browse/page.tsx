@@ -94,17 +94,13 @@ export default function BrowseProductsPage() {
                     <Badge tone={p.isActive !== false ? 'green' : 'gray'}>{p.isActive !== false ? 'active' : 'inactive'}</Badge>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    {p.barcode ? (
-                      <button
-                        type="button"
-                        className="text-sm font-medium text-brand-green-dark hover:underline"
-                        onClick={() => router.push(`/catalog/products?barcode=${encodeURIComponent(p.barcode!)}`)}
-                      >
-                        Open
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-400">No barcode</span>
-                    )}
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-brand-green-dark hover:underline"
+                      onClick={() => router.push(`/catalog/products?id=${p.id}`)}
+                    >
+                      Edit
+                    </button>
                   </td>
                 </tr>
               ))}
