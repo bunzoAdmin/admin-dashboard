@@ -6,6 +6,10 @@ const nextConfig = {
     const orderHost = process.env.ORDER_PROXY_TARGET ?? 'http://localhost:8082';
     return [
       {
+        source: '/api/v1/images/:path*',
+        destination: `${catalogHost}/api/v1/images/:path*`
+      },
+      {
         source: '/api/v1/catalog/:path*',
         destination: `${catalogHost}/api/v1/catalog/:path*`
       },

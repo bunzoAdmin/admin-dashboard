@@ -6,6 +6,7 @@ import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
 import type { CategoryTreeNode, CreateCategoryRequest } from '@/lib/catalogTypes';
 import { slugifyCategoryName } from '@/lib/catalogTypes';
 import { CategoryTree, categoryDepth } from '@/components/catalog/CategoryTree';
+import { ImageUploadField } from '@/components/catalog/ImageUploadField';
 import { Modal } from '@/components/Modal';
 import { Badge, Card, EmptyState, ErrorBox, Field, Loading, Spinner, useToast } from '@/components/ui';
 
@@ -190,9 +191,14 @@ export default function CategoriesPage() {
           <Field label="Display order">
             <input className="input" type="number" value={form.displayOrder} onChange={(e) => setForm((f) => ({ ...f, displayOrder: e.target.value }))} />
           </Field>
-          <Field label="Image URL">
-            <input className="input" value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))} placeholder="https://…" />
-          </Field>
+          <ImageUploadField
+            scope="category"
+            slug={form.slug.trim() || slugifyCategoryName(form.name)}
+            label="Image"
+            hint="Upload stores categories/{slug}/original.jpg in R2. The returned r2Key is saved as imageUrl."
+            value={form.imageUrl}
+            onChange={(imageUrl) => setForm((f) => ({ ...f, imageUrl }))}
+          />
           <label className="flex items-center gap-2 text-sm text-gray-700">
             <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((f) => ({ ...f, isActive: e.target.checked }))} />
             Active (visible to customers)

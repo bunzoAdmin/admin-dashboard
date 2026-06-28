@@ -16,7 +16,9 @@ import type {
 import { CONTENT_UOM_OPTIONS } from '@/lib/catalogTypes';
 import { flattenCategoryTree } from '@/components/catalog/CategoryTree';
 import { PdpDetailsPanel } from '@/components/catalog/PdpDetailsPanel';
+import { ImageUploadField } from '@/components/catalog/ImageUploadField';
 import type { ProductFormState } from '@/components/catalog/productFormTypes';
+import { slugifyCategoryName } from '@/lib/catalogTypes';
 import { Badge, Card, ErrorBox, Field, Spinner, useToast } from '@/components/ui';
 
 export type { ProductFormState } from '@/components/catalog/productFormTypes';
@@ -370,9 +372,15 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
                 <input className="input font-mono" value={form.groupId} onChange={(e) => setForm((f) => ({ ...f, groupId: e.target.value }))} />
               </Field>
             </div>
-            <Field label="Images" hint="Comma-separated image URLs.">
-              <input className="input" value={form.images} onChange={(e) => setForm((f) => ({ ...f, images: e.target.value }))} />
-            </Field>
+            <ImageUploadField
+              scope="product"
+              slug={form.slug.trim() || slugifyCategoryName(form.name)}
+              label="Images"
+              hint="Upload JPEG/PNG images. Keys are stored under products/{slug}/. Additional uploads use 2.jpg, 3.jpg, etc."
+              value={form.images}
+              onChange={(images) => setForm((f) => ({ ...f, images }))}
+              multiple
+            />
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Tags" hint="Comma-separated merchandising tags.">
                 <input className="input" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} />

@@ -65,4 +65,31 @@ Legacy flat URLs (`/drivers`, `/disputes`, etc.) redirect to the new paths.
 
 ## Deploy on Vercel
 
-Set all `NEXT_PUBLIC_*` env vars in **Project → Settings → Environment Variables**. Ensure CORS on both qcom and product-service allows your dashboard origin.
+Set env vars in **Project → Settings → Environment Variables**, then **redeploy** (`NEXT_PUBLIC_*` are baked in at build time).
+
+### Catalog / inventory (`http://15.135.73.205:8081`)
+
+Browsers on **HTTPS** (Vercel) cannot call **HTTP** APIs directly (mixed content). Use the Next.js rewrite proxy:
+
+| Variable | Value |
+|----------|--------|
+| `NEXT_PUBLIC_CATALOG_API_BASE_URL` | `https://your-admin-app.vercel.app` (same origin) |
+| `CATALOG_PROXY_TARGET` | `http://15.135.73.205:8081` |
+
+Traffic: browser → Vercel → EC2 product-service.
+
+### Direct URL (no proxy)
+
+Set `NEXT_PUBLIC_CATALOG_API_BASE_URL=http://15.135.73.205:8081` only when:
+
+- the dashboard is served over **HTTP** (local dev), or
+- product-service is on **HTTPS** with CORS allowing your dashboard origin.
+
+On product-service, set e.g. `CORS_ALLOWED_ORIGINS=http://localhost:3100,https://your-admin-app.vercel.app`.
+
+### Picker / order admin
+
+| Variable | Value |
+|----------|--------|
+| `NEXT_PUBLIC_ORDER_API_BASE_URL` | `https://your-admin-app.vercel.app` |
+| `ORDER_PROXY_TARGET` | `http://<order-service-host>:8082` |
