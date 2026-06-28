@@ -23,6 +23,7 @@ export interface ProductFormState {
   detailsAbout: string;
   storageInstructions: string;
   storageShelfLife: string;
+  storageUseByDate: string;
   storageTemperatureBand: TemperatureBand | '';
   nutritionServingSize: string;
   nutritionRows: NutritionRowDto[];

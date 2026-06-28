@@ -50,6 +50,7 @@ const EMPTY_FORM: ProductFormState = {
   detailsAbout: '',
   storageInstructions: '',
   storageShelfLife: '',
+  storageUseByDate: '',
   storageTemperatureBand: '',
   nutritionServingSize: '',
   nutritionRows: []
@@ -90,6 +91,7 @@ function productToForm(p: ProductResponse): ProductFormState {
     detailsAbout: p.details?.about ?? '',
     storageInstructions: p.details?.storage?.instructions ?? '',
     storageShelfLife: p.details?.storage?.shelfLife ?? '',
+    storageUseByDate: p.details?.storage?.useByDate ?? '',
     storageTemperatureBand: (p.details?.storage?.temperatureBand as TemperatureBand) ?? '',
     nutritionServingSize: p.details?.nutrition?.servingSize ?? '',
     nutritionRows: rows
@@ -100,6 +102,7 @@ function buildDetails(form: ProductFormState): ProductDetailsDto | null | undefi
   const about = form.detailsAbout.trim() || undefined;
   const storageInstructions = form.storageInstructions.trim() || undefined;
   const storageShelfLife = form.storageShelfLife.trim() || undefined;
+  const useByDate = form.storageUseByDate.trim() || undefined;
   const temperatureBand = form.storageTemperatureBand || undefined;
   const servingSize = form.nutritionServingSize.trim() || undefined;
   const rows = form.nutritionRows
@@ -110,7 +113,7 @@ function buildDetails(form: ProductFormState): ProductDetailsDto | null | undefi
     }))
     .filter((r) => r.nutrient && r.value);
 
-  const hasStorage = storageInstructions || storageShelfLife || temperatureBand;
+  const hasStorage = storageInstructions || storageShelfLife || useByDate || temperatureBand;
   const hasNutrition = servingSize || rows.length > 0;
   const hasAny = about || hasStorage || hasNutrition;
 
@@ -120,7 +123,7 @@ function buildDetails(form: ProductFormState): ProductDetailsDto | null | undefi
     version: 1,
     about,
     storage: hasStorage
-      ? { instructions: storageInstructions, shelfLife: storageShelfLife, temperatureBand }
+      ? { instructions: storageInstructions, shelfLife: storageShelfLife, useByDate, temperatureBand }
       : undefined,
     nutrition: hasNutrition ? { servingSize, rows: rows.length > 0 ? rows : undefined } : undefined
   };

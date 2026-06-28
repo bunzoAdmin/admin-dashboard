@@ -50,6 +50,8 @@ export interface NutritionRowDto {
 export interface StorageDetailsDto {
   instructions?: string;
   shelfLife?: string;
+  /** ISO date YYYY-MM-DD */
+  useByDate?: string;
   temperatureBand?: TemperatureBand;
 }
 

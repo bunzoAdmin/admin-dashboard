@@ -16,6 +16,7 @@ const SAMPLE: Pick<
   | 'detailsAbout'
   | 'storageInstructions'
   | 'storageShelfLife'
+  | 'storageUseByDate'
   | 'storageTemperatureBand'
   | 'nutritionServingSize'
   | 'nutritionRows'
@@ -23,7 +24,8 @@ const SAMPLE: Pick<
   detailsAbout:
     'Sweet, crisp Gala apples sourced from fresh orchards. Naturally low in calories, rich in dietary fibre and vitamin C. Great eaten fresh, in salads, or juiced.',
   storageInstructions: 'Store in a cool, dry place or refrigerate for extended freshness.',
-  storageShelfLife: '7 days',
+  storageShelfLife: '',
+  storageUseByDate: '',
   storageTemperatureBand: 'AMBIENT',
   nutritionServingSize: '100 g',
   nutritionRows: [
@@ -42,6 +44,7 @@ function isPdpEmpty(form: ProductFormState): boolean {
     !form.detailsAbout.trim() &&
     !form.storageInstructions.trim() &&
     !form.storageShelfLife.trim() &&
+    !form.storageUseByDate.trim() &&
     !form.storageTemperatureBand &&
     !form.nutritionServingSize.trim() &&
     form.nutritionRows.length === 0
@@ -81,7 +84,11 @@ export function PdpDetailsPanel({ form, setForm }: PdpDetailsPanelProps) {
           <TipBlock title="About" lines={['Two or three sentences.', 'Taste, source, and key benefits.', 'Avoid repeating the product title.']} />
           <TipBlock
             title="Storage"
-            lines={['Plain-language shelf life, e.g. “7 days”.', 'Short handling instructions.', 'Pick Ambient, Chilled, or Frozen.']}
+            lines={[
+              'Pick a use-by date when known, or describe shelf life in text.',
+              'Add handling instructions (refrigerate after opening, etc.).',
+              'Pick Ambient, Chilled, or Frozen.'
+            ]}
           />
           <TipBlock
             title="Nutrition"
@@ -115,17 +122,23 @@ export function PdpDetailsPanel({ form, setForm }: PdpDetailsPanelProps) {
       </section>
 
       <section className="space-y-3">
-        <SectionLabel>Storage</SectionLabel>
+        <SectionLabel>Storage &amp; use by</SectionLabel>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Instructions" hint="e.g. Store in a cool, dry place or refrigerate.">
+          <Field
+            label="Use by date"
+            hint="Optional fixed date (ISO). Leave blank if only a manual note applies."
+          >
             <input
-              className="input"
-              value={form.storageInstructions}
-              onChange={(e) => setForm((f) => ({ ...f, storageInstructions: e.target.value }))}
-              placeholder="How should customers store this?"
+              type="date"
+              className="input w-full max-w-xs"
+              value={form.storageUseByDate}
+              onChange={(e) => setForm((f) => ({ ...f, storageUseByDate: e.target.value }))}
             />
           </Field>
-          <Field label="Shelf life" hint="e.g. 7 days, 2 weeks, best before date on pack.">
+          <Field
+            label="Use by / shelf life (manual)"
+            hint='When there is no fixed date — e.g. "7 days", "Best before date on pack".'
+          >
             <input
               className="input"
               value={form.storageShelfLife}
@@ -134,6 +147,14 @@ export function PdpDetailsPanel({ form, setForm }: PdpDetailsPanelProps) {
             />
           </Field>
         </div>
+        <Field label="Storage instructions" hint="How customers should store the product.">
+          <input
+            className="input"
+            value={form.storageInstructions}
+            onChange={(e) => setForm((f) => ({ ...f, storageInstructions: e.target.value }))}
+            placeholder="Store in a cool, dry place or refrigerate…"
+          />
+        </Field>
         <Field label="Temperature band" hint="Matches how the product is stored and delivered.">
           <select
             className="input w-full max-w-xs"
