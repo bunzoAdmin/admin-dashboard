@@ -8,7 +8,7 @@ import type {
   TransferStockResponse
 } from './inventoryTypes';
 
-const API_BASE = process.env.NEXT_PUBLIC_CATALOG_API_BASE_URL?.replace(/\/$/, '') ?? '';
+const API_BASE = process.env.NEXT_PUBLIC_CATALOG_API_BASE_URL?.replace(/\/$/, '') ?? 'http://15.135.73.205:8081';
 
 export class InventoryApiError extends Error {
   status: number;

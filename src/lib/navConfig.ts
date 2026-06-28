@@ -12,7 +12,10 @@ import {
   SlidersHorizontal,
   UserCog,
   UserPlus,
-  Users
+  Users,
+  ClipboardList,
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 
 export interface NavItem {
@@ -62,6 +65,16 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/catalog/badges', label: 'Badges', icon: Medal },
       { href: '/catalog/products', label: 'Products', icon: ScanBarcode, exact: true },
       { href: '/catalog/products/browse', label: 'Browse', icon: Package }
+    ]
+  },
+  {
+    id: 'pickers',
+    label: 'Pickers',
+    items: [
+      { href: '/pickers', label: 'Live Ops', icon: ClipboardList, exact: true },
+      { href: '/pickers/onboard', label: 'Onboard', icon: UserPlus },
+      { href: '/pickers/shifts', label: 'Shifts', icon: Clock },
+      { href: '/pickers/reconcile', label: 'Reconciliation', icon: RefreshCw }
     ]
   },
   {

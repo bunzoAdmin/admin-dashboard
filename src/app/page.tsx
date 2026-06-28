@@ -1,9 +1,10 @@
 import Link from 'next/link';
-import { AlertTriangle, FolderTree, PackagePlus, ScanBarcode, Users } from 'lucide-react';
+import { AlertTriangle, ClipboardList, FolderTree, PackagePlus, ScanBarcode, Users } from 'lucide-react';
 
 const QUICK_LINKS = [
   { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, desc: 'Customer issue triage' },
   { href: '/riders', label: 'Riders', icon: Users, desc: 'Driver lookup and ops' },
+  { href: '/pickers', label: 'Pickers', icon: ClipboardList, desc: 'Live roster and pick task queue' },
   { href: '/inventory', label: 'Inventory', icon: PackagePlus, desc: 'Scan barcode — add or transfer stock' },
   { href: '/catalog/products', label: 'Products', icon: ScanBarcode, desc: 'Scan barcode to create or edit' },
   { href: '/catalog/categories', label: 'Categories', icon: FolderTree, desc: 'Category tree management' }
