@@ -1,14 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    // Allow image uploads up to product-service 5MB limit through the proxy route
+    middlewareClientMaxBodySize: '6mb'
+  },
   async rewrites() {
     const catalogHost = process.env.CATALOG_PROXY_TARGET ?? 'http://localhost:8081';
     const orderHost = process.env.ORDER_PROXY_TARGET ?? 'http://localhost:8082';
     return [
-      {
-        source: '/api/v1/images/:path*',
-        destination: `${catalogHost}/api/v1/images/:path*`
-      },
       {
         source: '/api/v1/catalog/:path*',
         destination: `${catalogHost}/api/v1/catalog/:path*`
