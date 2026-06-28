@@ -2,31 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    // Allow image uploads up to product-service 5MB limit through the proxy route
+    // Proxy routes forward bodies to EC2 (catalog, inventory, images up to 5MB)
     middlewareClientMaxBodySize: '6mb'
-  },
-  async rewrites() {
-    const catalogHost = process.env.CATALOG_PROXY_TARGET ?? 'http://localhost:8081';
-    const orderHost = process.env.ORDER_PROXY_TARGET ?? 'http://localhost:8082';
-    return [
-      {
-        source: '/api/v1/catalog/:path*',
-        destination: `${catalogHost}/api/v1/catalog/:path*`
-      },
-      {
-        source: '/api/v1/inventory/:path*',
-        destination: `${catalogHost}/api/v1/inventory/:path*`
-      },
-      {
-        source: '/api/v1/admin/stores/:path*',
-        destination: `${catalogHost}/api/v1/admin/stores/:path*`
-      },
-      {
-        source: '/api/v1/admin/picker/:path*',
-        destination: `${orderHost}/api/v1/admin/picker/:path*`
-      }
-    ];
   }
+  // API proxying is handled by src/app/api/v1/**/[[...path]]/route.ts handlers.
+  // Vercel rewrites to external URLs break POST/PUT bodies (403); route handlers do not.
 };
 
 module.exports = nextConfig;
