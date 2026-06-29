@@ -1,11 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import clsx from 'clsx';
+import { FolderTree, ImageIcon, Pencil, Plus, Trash2 } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
+import { resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
 import type { CategoryTreeNode, CreateCategoryRequest, UpdateCategoryRequest } from '@/lib/catalogTypes';
 import { slugifyCategoryName } from '@/lib/catalogTypes';
-import { CategoryTree, categoryDepth, findCategoryInTree } from '@/components/catalog/CategoryTree';
+import {
+  CategoryTree,
+  categoryBreadcrumb,
+  categoryDepth,
+  findCategoryInTree,
+  findParentCategory
+} from '@/components/catalog/CategoryTree';
 import { ImageUploadField } from '@/components/catalog/ImageUploadField';
 import { Modal } from '@/components/Modal';
 import { Badge, Card, EmptyState, ErrorBox, Field, Loading, Spinner, useToast } from '@/components/ui';
@@ -40,6 +48,11 @@ function categoryToForm(c: CategoryTreeNode): CategoryFormState {
     imageUrl: c.imageUrl ?? '',
     parentId: c.parentId ?? null
   };
+}
+
+function parentNameForId(tree: CategoryTreeNode[], parentId: number): string {
+  const parent = findCategoryInTree(tree, parentId);
+  return parent ? `${parent.name} · ID ${parent.id}` : `ID ${parentId}`;
 }
 
 export default function CategoriesPage() {
@@ -165,14 +178,18 @@ export default function CategoriesPage() {
       ? 'Add subcategory'
       : 'Add root category';
 
+  const selectedImageUrl = selected?.imageUrl ? resolveCatalogImageUrl(selected.imageUrl) : null;
+  const selectedBreadcrumb = selected && tree ? categoryBreadcrumb(tree, selected.id) : [];
+  const selectedParent = selected && tree ? findParentCategory(tree, selected.id) : null;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Categories</h1>
           <p className="text-sm text-gray-500">
-            Three-level tree like Blinkit: L1 (Grocery &amp; Kitchen) → L2 (Fresh Fruits &amp; Vegetables) → L3 (Fresh Fruits, Exotic Fruits…).
-            Assign products to L3 leaf categories.
+            L1 → L2 → L3 hierarchy. Assign products to leaf (L3) categories. Use the tree chevrons to expand or
+            collapse branches.
           </p>
         </div>
         <button type="button" className="btn-primary" onClick={() => openCreate(null)}>
@@ -182,43 +199,95 @@ export default function CategoriesPage() {
 
       {loadError && <ErrorBox message={loadError} />}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Tree</h2>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <FolderTree className="h-4 w-4 text-gray-400" />
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500">Category tree</h2>
+          </div>
           {tree === null && !loadError ? (
             <Loading label="Loading categories…" />
           ) : tree && tree.length === 0 ? (
             <EmptyState>No categories yet. Add a root category to get started.</EmptyState>
           ) : tree ? (
-            <CategoryTree nodes={tree} selectedId={selected?.id ?? null} onSelect={setSelected} />
+            <CategoryTree
+              nodes={tree}
+              selectedId={selected?.id ?? null}
+              onSelect={setSelected}
+              showToolbar
+              className="max-h-[min(28rem,calc(100vh-14rem))] overflow-y-auto pr-1"
+            />
           ) : null}
         </Card>
 
-        <Card>
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500">Details</h2>
+        <Card className="lg:col-span-3">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-wide text-gray-500">Details</h2>
           {!selected ? (
-            <p className="text-sm text-gray-400">Select a category from the tree to view details.</p>
+            <EmptyState>Select a category from the tree to view and edit it.</EmptyState>
           ) : (
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900">{selected.name}</h3>
-                  <Badge tone={selected.isActive ? 'green' : 'gray'}>{selected.isActive ? 'active' : 'inactive'}</Badge>
-                  {tree && (
-                    <Badge tone="gray">Level {categoryDepth(tree, selected.id) ?? '?'}</Badge>
+            <div className="space-y-5">
+              <div className="flex gap-4">
+                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  {selectedImageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={selectedImageUrl} alt={selected.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full flex-col items-center justify-center text-gray-300">
+                      <ImageIcon className="h-6 w-6" />
+                      <span className="mt-1 text-[10px]">No image</span>
+                    </div>
                   )}
                 </div>
-                <p className="font-mono text-xs text-gray-400">{selected.slug}</p>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{selected.name}</h3>
+                    <Badge tone={selected.isActive ? 'green' : 'gray'}>{selected.isActive ? 'Active' : 'Inactive'}</Badge>
+                    {tree && <Badge tone="gray">L{categoryDepth(tree, selected.id) ?? '?'}</Badge>}
+                  </div>
+                  <p className="font-mono text-xs text-gray-400">{selected.slug}</p>
+                  {selectedBreadcrumb.length > 1 && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {selectedBreadcrumb.map((n) => n.name).join(' › ')}
+                    </p>
+                  )}
+                </div>
               </div>
-              <dl className="space-y-2 text-sm">
-                <Row label="ID" value={String(selected.id)} mono />
-                <Row label="Parent ID" value={selected.parentId != null ? String(selected.parentId) : '— (root)'} mono />
-                <Row label="Display order" value={String(selected.displayOrder)} />
-                {selected.description && <Row label="Description" value={selected.description} />}
-                {selected.imageUrl && <Row label="Image URL" value={selected.imageUrl} />}
+
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                <Detail label="Category ID" value={String(selected.id)} mono />
+                <Detail
+                  label="Parent"
+                  value={
+                    selectedParent ? (
+                      <button
+                        type="button"
+                        className="text-left text-brand-green hover:underline"
+                        onClick={() => setSelected(selectedParent)}
+                      >
+                        {selectedParent.name}
+                        <span className="ml-1 font-mono text-xs text-gray-400">#{selectedParent.id}</span>
+                      </button>
+                    ) : (
+                      'Root category'
+                    )
+                  }
+                />
+                <Detail label="Display order" value={String(selected.displayOrder)} />
+                <Detail label="Subcategories" value={String(selected.children?.length ?? 0)} />
+                {selected.description && (
+                  <div className="sm:col-span-2">
+                    <Detail label="Description" value={selected.description} />
+                  </div>
+                )}
+                {selected.imageUrl && (
+                  <div className="sm:col-span-2">
+                    <Detail label="Image key" value={selected.imageUrl} mono />
+                  </div>
+                )}
               </dl>
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className="btn-ghost" onClick={() => openEdit(selected)} disabled={busy}>
+
+              <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
+                <button type="button" className="btn-primary" onClick={() => openEdit(selected)} disabled={busy}>
                   <Pencil className="h-4 w-4" /> Edit
                 </button>
                 <button type="button" className="btn-ghost" onClick={() => openCreate(selected.id)} disabled={busy}>
@@ -242,21 +311,19 @@ export default function CategoriesPage() {
         <form onSubmit={submitCategory} className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {formError && <ErrorBox message={formError} />}
-            {!editing && form.parentId != null && (
-              <p className="text-sm text-gray-500">
-                Parent category ID: <span className="font-mono">{form.parentId}</span>
-              </p>
-            )}
             {editing && (
               <p className="text-sm text-gray-500">
-                Category ID: <span className="font-mono">{editing.id}</span>
-                {editing.parentId != null && (
-                  <>
-                    {' '}
-                    · Parent ID: <span className="font-mono">{editing.parentId}</span>
-                  </>
-                )}
+                Editing <span className="font-medium text-gray-700">{editing.name}</span>
+                <span className="font-mono text-xs text-gray-400"> · #{editing.id}</span>
               </p>
+            )}
+            {!editing && form.parentId != null && tree && (
+              <p className="text-sm text-gray-500">
+                Parent: <span className="font-medium text-gray-700">{parentNameForId(tree, form.parentId)}</span>
+              </p>
+            )}
+            {!editing && form.parentId == null && (
+              <p className="text-sm text-gray-500">Creating a root-level category (no parent).</p>
             )}
             <Field label="Name">
               <input
@@ -309,11 +376,11 @@ export default function CategoriesPage() {
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Detail({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
-    <div className="flex gap-4">
-      <dt className="w-28 shrink-0 text-gray-400">{label}</dt>
-      <dd className={mono ? 'font-mono text-xs text-gray-800 break-all' : 'text-gray-800'}>{value}</dd>
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">{label}</dt>
+      <dd className={clsx('mt-0.5 text-gray-800', mono && 'font-mono text-xs break-all')}>{value}</dd>
     </div>
   );
 }
