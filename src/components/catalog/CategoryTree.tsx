@@ -56,6 +56,18 @@ export function flattenCategoryTree(nodes: CategoryTreeNode[], prefix = ''): { i
   return out;
 }
 
+/** Find a category node by ID in the tree. */
+export function findCategoryInTree(nodes: CategoryTreeNode[], id: number): CategoryTreeNode | null {
+  for (const node of nodes) {
+    if (node.id === id) return node;
+    if (node.children?.length) {
+      const found = findCategoryInTree(node.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 /** Depth of a node in the tree (1 = root). */
 export function categoryDepth(nodes: CategoryTreeNode[], id: number, depth = 1): number | null {
   for (const node of nodes) {

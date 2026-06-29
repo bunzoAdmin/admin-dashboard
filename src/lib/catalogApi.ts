@@ -10,6 +10,7 @@ import type {
   CreateCategoryRequest,
   ProductResponse,
   UpdateBadgeRequest,
+  UpdateCategoryRequest,
   PagedProductResponse
 } from './catalogTypes';
 
@@ -93,6 +94,12 @@ export const catalogApi = {
 
   createCategory: (body: CreateCategoryRequest) =>
     catalogRequest<CategoryResponse>('/catalog/categories', { method: 'POST', body }),
+
+  updateCategory: (id: number, body: UpdateCategoryRequest) =>
+    catalogRequest<CategoryResponse>(`/catalog/categories/${id}`, { method: 'PUT', body }),
+
+  deleteCategory: (id: number) =>
+    catalogRequest<void>(`/catalog/categories/${id}`, { method: 'DELETE' }),
 
   getCategory: (id: number) => catalogRequest<CategoryResponse>(`/catalog/categories/${id}`),
 

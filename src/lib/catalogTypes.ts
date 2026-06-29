@@ -41,6 +41,17 @@ export interface CreateCategoryRequest {
   imageUrl?: string;
 }
 
+export interface UpdateCategoryRequest {
+  name?: string;
+  description?: string;
+  slug?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+  imageUrl?: string;
+  parentId?: number | null;
+  clearParent?: boolean;
+}
+
 export interface NutritionRowDto {
   nutrient: string;
   value: string;

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
+import { catalogImageBaseConfigured, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
 import { ErrorBox, Field, Spinner } from '@/components/ui';
 
 export type ImageUploadScope = 'category' | 'product';
@@ -42,6 +43,20 @@ function nextImageIndex(existing: string[]): number | undefined {
   return max + 1;
 }
 
+function ImagePreview({ src, uploading, alt }: { src: string; uploading?: boolean; alt: string }) {
+  return (
+    <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={alt} className="h-full w-full object-cover" />
+      {uploading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+          <Spinner className="h-5 w-5" />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ImageUploadField({
   scope,
   slug,
@@ -52,27 +67,30 @@ export function ImageUploadField({
   multiple = false
 }: ImageUploadFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const previewUrlRef = useRef<string | null>(null);
+  const localPreviewRef = useRef<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [localPreview, setLocalPreview] = useState<string | null>(null);
 
-  function setPreviewUrl(url: string | null) {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-      previewUrlRef.current = null;
+  function setLocalPreviewUrl(url: string | null) {
+    if (localPreviewRef.current) {
+      URL.revokeObjectURL(localPreviewRef.current);
+      localPreviewRef.current = null;
     }
     if (url) {
-      previewUrlRef.current = url;
+      localPreviewRef.current = url;
     }
-    setPreview(url);
+    setLocalPreview(url);
   }
 
-  useEffect(() => () => {
-    if (previewUrlRef.current) {
-      URL.revokeObjectURL(previewUrlRef.current);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (localPreviewRef.current) {
+        URL.revokeObjectURL(localPreviewRef.current);
+      }
+    },
+    []
+  );
 
   async function handleFile(file: File) {
     const slugTrimmed = slug.trim();
@@ -83,7 +101,7 @@ export function ImageUploadField({
 
     setUploading(true);
     setError(null);
-    setPreviewUrl(URL.createObjectURL(file));
+    setLocalPreviewUrl(URL.createObjectURL(file));
 
     try {
       const existing = parseKeys(value);
@@ -95,20 +113,27 @@ export function ImageUploadField({
       } else {
         onChange(r2Key);
       }
+      setLocalPreviewUrl(null);
     } catch (err) {
       setError(err instanceof CatalogApiError ? err.message : 'Upload failed.');
-      setPreviewUrl(null);
+      setLocalPreviewUrl(null);
     } finally {
       setUploading(false);
     }
   }
 
   function handleClear() {
-    setPreviewUrl(null);
+    setLocalPreviewUrl(null);
     onChange('');
   }
 
   const keys = parseKeys(value);
+  const storedPreviews = keys
+    .map((key) => ({ key, src: resolveCatalogImageUrl(key) }))
+    .filter((item): item is { key: string; src: string } => item.src != null);
+
+  const showSinglePreview = !multiple && (localPreview ?? storedPreviews[0]?.src);
+  const showMultiplePreviews = multiple && (localPreview || storedPreviews.length > 0);
 
   return (
     <Field
@@ -131,16 +156,28 @@ export function ImageUploadField({
           </div>
         )}
 
-        {preview && (
-          <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Preview" className="h-full w-full object-cover" />
-            {uploading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-                <Spinner className="h-5 w-5" />
-              </div>
-            )}
+        {showSinglePreview && (
+          <ImagePreview
+            src={localPreview ?? storedPreviews[0]!.src}
+            uploading={uploading}
+            alt="Category image preview"
+          />
+        )}
+
+        {showMultiplePreviews && (
+          <div className="flex flex-wrap gap-2">
+            {storedPreviews.map(({ key, src }) => (
+              <ImagePreview key={key} src={src} alt={`Image ${key}`} />
+            ))}
+            {localPreview && <ImagePreview src={localPreview} uploading={uploading} alt="New image preview" />}
           </div>
+        )}
+
+        {keys.length > 0 && !catalogImageBaseConfigured() && !localPreview && (
+          <p className="text-xs text-amber-700">
+            Set <span className="font-mono">NEXT_PUBLIC_CATALOG_IMAGE_BASE_URL</span> to preview stored images (e.g.{' '}
+            <span className="font-mono">http://localhost:9000/product-images</span>).
+          </p>
         )}
 
         <div className="flex flex-wrap items-center gap-2">
