@@ -167,6 +167,10 @@ export default function DriverDetailPage() {
               <Card>
                 <SectionTitle>Account</SectionTitle>
                 <dl className="space-y-2 text-sm">
+                  <Row label="NRC number" value={driver.nrc_number || '—'} />
+                  <Row label="Airtel Money number" value={driver.airtel_money_number || '—'} />
+                  <Row label="Bike number" value={driver.bike_number || '—'} />
+                  <Row label="Bike brand" value={driver.bike_brand || '—'} />
                   <Row label="Referral code" value={driver.referral_code || '—'} mono />
                   <Row label="Last disbursed" value={formatDate(driver.last_disbursed_at)} />
                   <Row label="Joined" value={formatDate(driver.created_at)} />

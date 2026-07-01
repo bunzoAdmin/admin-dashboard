@@ -95,6 +95,10 @@ export interface DriverDetail {
   nrc_view_url: string;
   driver_license_url: string;
   driver_license_view_url: string;
+  nrc_number: string;
+  airtel_money_number: string;
+  bike_number: string;
+  bike_brand: string;
   referral_code: string;
   current_store_id: string;
   current_order_id: string;

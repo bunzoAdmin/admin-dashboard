@@ -171,6 +171,10 @@ export const api = {
     profile_url: string;
     nrc_url: string;
     driver_license_url: string;
+    nrc_number: string;
+    airtel_money_number: string;
+    bike_number: string;
+    bike_brand: string;
     referral_code?: string;
   }) => request<{ de_id: string; phone_number: string; status: string }>(`/admin/drivers`, { method: 'POST', body }),
 

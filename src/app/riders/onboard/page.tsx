@@ -25,6 +25,10 @@ export default function OnboardingPage() {
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_DIAL);
   const [localNumber, setLocalNumber] = useState('');
   const [name, setName] = useState('');
+  const [nrcNumber, setNrcNumber] = useState('');
+  const [airtelMoneyNumber, setAirtelMoneyNumber] = useState('');
+  const [bikeNumber, setBikeNumber] = useState('');
+  const [bikeBrand, setBikeBrand] = useState('');
   const [referral, setReferral] = useState('');
   const [docs, setDocs] = useState<Record<DocKind, DocState>>({
     profile: { ...EMPTY_DOC },
@@ -69,6 +73,10 @@ export default function OnboardingPage() {
       setError('Phone and name are required.');
       return;
     }
+    if (!nrcNumber.trim() || !airtelMoneyNumber.trim() || !bikeNumber.trim() || !bikeBrand.trim()) {
+      setError('NRC number, Airtel Money number, bike number and bike brand are all required.');
+      return;
+    }
     if (!allUploaded) {
       setError('Upload all three documents before creating the driver.');
       return;
@@ -82,6 +90,10 @@ export default function OnboardingPage() {
         profile_url: docs.profile.objectKey!,
         nrc_url: docs.nrc.objectKey!,
         driver_license_url: docs.license.objectKey!,
+        nrc_number: nrcNumber.trim(),
+        airtel_money_number: airtelMoneyNumber.trim(),
+        bike_number: bikeNumber.trim(),
+        bike_brand: bikeBrand.trim(),
         referral_code: referral.trim() || undefined
       });
       toast.push('success', `Driver ${name.trim()} onboarded.`);
@@ -118,6 +130,20 @@ export default function OnboardingPage() {
           <Field label="Full name">
             <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Driver's full name" />
           </Field>
+          <Field label="NRC number">
+            <input className="input" value={nrcNumber} onChange={(e) => setNrcNumber(e.target.value)} placeholder="e.g. 123456/78/1" />
+          </Field>
+          <Field label="Airtel Money number">
+            <input className="input" value={airtelMoneyNumber} onChange={(e) => setAirtelMoneyNumber(e.target.value)} placeholder="Airtel Money mobile number" />
+          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Bike number">
+              <input className="input" value={bikeNumber} onChange={(e) => setBikeNumber(e.target.value)} placeholder="Registration plate" />
+            </Field>
+            <Field label="Bike brand">
+              <input className="input" value={bikeBrand} onChange={(e) => setBikeBrand(e.target.value)} placeholder="e.g. Honda" />
+            </Field>
+          </div>
           <Field label="Referral code" hint="Optional — code of the driver who referred them.">
             <input className="input" value={referral} onChange={(e) => setReferral(e.target.value)} placeholder="Optional" />
           </Field>
