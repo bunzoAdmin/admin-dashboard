@@ -5,23 +5,25 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Banknote, Wallet, ExternalLink } from 'lucide-react';
 import { api, ApiClientError } from '@/lib/api';
-import type { DriverDetail } from '@/lib/types';
+import type { DriverDetail, EarningsSummary } from '@/lib/types';
 import { Card, ErrorBox, Loading, Stat, StatusBadge, Badge, money, formatDate, SectionTitle } from '@/components/ui';
 import { EarningsTab } from '@/components/driver/EarningsTab';
 import { DisbursementsTab } from '@/components/driver/DisbursementsTab';
 import { CashTab } from '@/components/driver/CashTab';
 import { ReferralsTab } from '@/components/driver/ReferralsTab';
+import { InKindTab } from '@/components/driver/InKindTab';
 import { CashDepositModal } from '@/components/driver/CashDepositModal';
 import { DisbursementModal } from '@/components/driver/DisbursementModal';
 import { CurrentTripCard } from '@/components/driver/CurrentTripCard';
 
-type Tab = 'overview' | 'earnings' | 'disbursements' | 'cash' | 'referrals';
+type Tab = 'overview' | 'earnings' | 'disbursements' | 'cash' | 'referrals' | 'in-kind';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'earnings', label: 'Earnings' },
   { id: 'disbursements', label: 'Disbursements' },
   { id: 'cash', label: 'Cash' },
-  { id: 'referrals', label: 'Referrals' }
+  { id: 'referrals', label: 'Referrals' },
+  { id: 'in-kind', label: 'In-Kind Rewards' }
 ];
 
 function DocCard({ label, viewUrl }: { label: string; viewUrl: string }) {
@@ -59,6 +61,7 @@ export default function DriverDetailPage() {
   const [disbModal, setDisbModal] = useState(false);
   const [cashRefresh, setCashRefresh] = useState(0);
   const [tripRefresh, setTripRefresh] = useState(0);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +79,11 @@ export default function DriverDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (tab !== 'in-kind' || earningsSummary !== null) return;
+    api.getDriverEarnings(phone).then(setEarningsSummary).catch(() => {});
+  }, [tab, phone, earningsSummary]);
 
   const afterAction = () => {
     load();
@@ -184,6 +192,12 @@ export default function DriverDetailPage() {
           {tab === 'disbursements' && <DisbursementsTab phone={phone} />}
           {tab === 'cash' && <CashTab phone={phone} refreshKey={cashRefresh} />}
           {tab === 'referrals' && <ReferralsTab phone={phone} />}
+          {tab === 'in-kind' && (
+            <InKindTab
+              phone={phone}
+              summary={earningsSummary?.in_kind_summary ?? []}
+            />
+          )}
 
           <CashDepositModal
             open={cashModal}

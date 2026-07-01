@@ -124,12 +124,34 @@ export interface EarningsLineItem {
   reference_id: string;
 }
 
+export interface InKindSummaryItem {
+  sku: string;
+  label: string;
+  earned: number;
+  disbursed: number;
+  outstanding: number;
+}
+
+export interface InKindDisbursementRecord {
+  disbursement_id: string;
+  sku: string;
+  quantity: number;
+  notes?: string;
+  disbursed_by: string;
+  disbursed_at: string;
+}
+
+export interface InKindDisbursementsResponse {
+  disbursements: InKindDisbursementRecord[];
+}
+
 export interface EarningsSummary {
   outstanding_balance_zmw: number;
   live_order_total_zmw: number;
   bonus_total_zmw: number;
   line_items: EarningsLineItem[];
   next_cursor: string | null;
+  in_kind_summary?: InKindSummaryItem[];
 }
 
 export interface Disbursement {

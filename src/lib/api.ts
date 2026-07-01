@@ -12,6 +12,7 @@ import type {
   DriverDetail,
   DriverTripResponse,
   EarningsSummary,
+  InKindDisbursementsResponse,
   LoginResponse,
   PresignResponse,
   ReferralScreen,
@@ -161,6 +162,13 @@ export const api = {
     request<ReferralScreen>(`/admin/drivers/${encodePhone(phone)}/referrals`),
   getDriverCashLedger: (phone: string) =>
     request<CashLedger>(`/admin/drivers/${encodePhone(phone)}/cash-ledger`),
+  recordInKindDisbursement: (phone: string, body: { sku: string; quantity: number; notes?: string }) =>
+    request<{ disbursement_id: string; sku: string; quantity: number; disbursed_at: string }>(
+      `/admin/drivers/${encodePhone(phone)}/inkind-disbursements`,
+      { method: 'POST', body }
+    ),
+  listInKindDisbursements: (phone: string) =>
+    request<InKindDisbursementsResponse>(`/admin/drivers/${encodePhone(phone)}/inkind-disbursements`),
 
   // --- Onboarding ---
   presignDriverDoc: (body: { kind: 'profile' | 'nrc' | 'license'; phone: string; file_name: string; file_type: string; file_size: number }) =>
