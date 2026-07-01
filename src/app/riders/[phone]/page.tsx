@@ -80,10 +80,14 @@ export default function DriverDetailPage() {
     load();
   }, [load]);
 
+  const fetchEarningsSummary = useCallback(() => {
+    api.getDriverEarnings(phone).then(setEarningsSummary).catch(() => {});
+  }, [phone]);
+
   useEffect(() => {
     if (tab !== 'in-kind' || earningsSummary !== null) return;
-    api.getDriverEarnings(phone).then(setEarningsSummary).catch(() => {});
-  }, [tab, phone, earningsSummary]);
+    fetchEarningsSummary();
+  }, [tab, earningsSummary, fetchEarningsSummary]);
 
   const afterAction = () => {
     load();
@@ -196,6 +200,7 @@ export default function DriverDetailPage() {
             <InKindTab
               phone={phone}
               summary={earningsSummary?.in_kind_summary ?? []}
+              onDisbursed={fetchEarningsSummary}
             />
           )}
 

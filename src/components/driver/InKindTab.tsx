@@ -12,7 +12,7 @@ const SKU_LABELS: Record<string, string> = {
 
 const VALID_SKUS = ['mealie_bag', 'household_item'] as const;
 
-export function InKindTab({ phone, summary }: { phone: string; summary: InKindSummaryItem[] }) {
+export function InKindTab({ phone, summary, onDisbursed }: { phone: string; summary: InKindSummaryItem[]; onDisbursed?: () => void }) {
   const [history, setHistory] = useState<InKindDisbursementRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -59,6 +59,7 @@ export function InKindTab({ phone, summary }: { phone: string; summary: InKindSu
       setQuantity('1');
       setNotes('');
       loadHistory();
+      onDisbursed?.();
     } catch (err) {
       if (err instanceof ApiClientError && err.code === 'OVER_DISBURSEMENT') {
         setSubmitError('Quantity exceeds the outstanding amount for this item.');
