@@ -18,6 +18,22 @@ export interface StoreQR {
   valid_until: string;
 }
 
+export interface Darkstore {
+  darkstore_id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  polygon: { lat: number; lng: number }[] | null;
+  presence_radius_meters: number;
+  is_active: boolean;
+  opens_at: string;
+  closes_at: string;
+  created_at: string;
+  updated_at: string;
+  activation_ready: boolean;
+  activation_blockers: string[] | null;
+}
+
 export interface DailyMilestone {
   trips_today: number;
   next_threshold?: number;

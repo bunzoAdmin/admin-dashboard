@@ -63,8 +63,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <ToastProvider>
       <DisputeWatcher />
-      <div className="flex min-h-screen">
-        <aside className="flex w-60 shrink-0 flex-col border-r border-gray-800 bg-brand-dark text-gray-300">
+      <div className="flex h-screen overflow-hidden">
+        <aside className="flex h-full w-60 shrink-0 flex-col border-r border-gray-800 bg-brand-dark text-gray-300">
           <div className="flex items-center gap-2 px-5 py-5">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-green text-white">
               <ShieldCheck className="h-5 w-5" />
@@ -138,7 +138,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
             </button>
           </div>
         </aside>
-        <main className="flex-1 overflow-x-hidden">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden">
           <div className="mx-auto max-w-6xl px-8 py-8">
             <Breadcrumbs />
             {children}

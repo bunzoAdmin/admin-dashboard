@@ -11,6 +11,7 @@ import {
   Plus,
   QrCode,
   ScanBarcode,
+  Settings2,
   SlidersHorizontal,
   UserCog,
   UserPlus,
@@ -55,7 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: 'riders',
     label: 'Riders',
     items: [
-      { href: '/riders', label: 'All Riders', icon: Users },
+      { href: '/riders', label: 'All Riders', icon: Users, exact: true },
       { href: '/riders/onboard', label: 'Onboard Rider', icon: UserPlus },
       { href: '/riders/payout-rules', label: 'Payout Rules', icon: SlidersHorizontal }
     ]
@@ -98,6 +99,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Stores',
     items: [
       { href: '/stores/onboard', label: 'Onboard Store', icon: Warehouse },
+      { href: '/stores/manage', label: 'Manage Store', icon: Settings2 },
       { href: '/stores/qr', label: 'Store QR', icon: QrCode }
     ]
   },

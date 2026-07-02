@@ -5,6 +5,7 @@ import type {
   AdminDispute,
   AdminDisputeDetail,
   CashLedger,
+  Darkstore,
   Disbursement,
   DisputeListResponse,
   DisputeStatus,
@@ -196,6 +197,23 @@ export const api = {
     opens_at: string;
     closes_at: string;
   }) => request<{ darkstore_id: string; name: string; is_active: boolean }>(`/admin/darkstores`, { method: 'POST', body }),
+  getDarkstore: (id: string) => request<Darkstore>(`/admin/darkstores/${encodeURIComponent(id)}`),
+  updateDarkstore: (
+    id: string,
+    body: {
+      name?: string;
+      latitude?: number;
+      longitude?: number;
+      polygon?: string;
+      opens_at?: string;
+      closes_at?: string;
+      presence_radius_meters?: number;
+    }
+  ) => request<Darkstore>(`/admin/darkstores/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
+  activateDarkstore: (id: string) =>
+    request<Darkstore>(`/admin/darkstores/${encodeURIComponent(id)}/activate`, { method: 'POST' }),
+  deactivateDarkstore: (id: string) =>
+    request<Darkstore>(`/admin/darkstores/${encodeURIComponent(id)}/deactivate`, { method: 'POST' }),
 
   // --- Assignment ---
   assignOrder: (order_id: string, driver_phone: string) =>

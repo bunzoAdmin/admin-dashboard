@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, Copy, QrCode } from 'lucide-react';
 import { api, ApiClientError } from '@/lib/api';
 import { Card, Field, Spinner, ErrorBox, useToast } from '@/components/ui';
+import { HHMM, validatePolygonLines } from '@/lib/darkstoreValidation';
 
 export default function DarkstoreOnboardPage() {
   const toast = useToast();
@@ -26,24 +27,6 @@ export default function DarkstoreOnboardPage() {
     setOpensAt('');
     setClosesAt('');
   }
-
-  function validatePolygonLines(raw: string): string | null {
-    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
-    if (lines.length === 0) return null; // optional
-    if (lines.length < 3) return `Polygon needs at least 3 points (got ${lines.length}).`;
-    for (const line of lines) {
-      const parts = line.split(',');
-      if (parts.length !== 2) return `Line "${line}" must be "lat,lng".`;
-      const [latS, lngS] = parts.map((p) => p.trim());
-      const lat = Number(latS);
-      const lng = Number(lngS);
-      if (Number.isNaN(lat) || lat < -90 || lat > 90) return `Line "${line}" has an invalid latitude.`;
-      if (Number.isNaN(lng) || lng < -180 || lng > 180) return `Line "${line}" has an invalid longitude.`;
-    }
-    return null;
-  }
-
-  const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
