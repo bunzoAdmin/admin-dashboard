@@ -11,14 +11,16 @@ import { EarningsTab } from '@/components/driver/EarningsTab';
 import { DisbursementsTab } from '@/components/driver/DisbursementsTab';
 import { CashTab } from '@/components/driver/CashTab';
 import { ReferralsTab } from '@/components/driver/ReferralsTab';
+import { PresenceTab } from '@/components/driver/PresenceTab';
 import { InKindTab } from '@/components/driver/InKindTab';
 import { CashDepositModal } from '@/components/driver/CashDepositModal';
 import { DisbursementModal } from '@/components/driver/DisbursementModal';
 import { CurrentTripCard } from '@/components/driver/CurrentTripCard';
 
-type Tab = 'overview' | 'earnings' | 'disbursements' | 'cash' | 'referrals' | 'in-kind';
+type Tab = 'overview' | 'presence' | 'earnings' | 'disbursements' | 'cash' | 'referrals' | 'in-kind';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'presence', label: 'Presence' },
   { id: 'earnings', label: 'Earnings' },
   { id: 'disbursements', label: 'Disbursements' },
   { id: 'cash', label: 'Cash' },
@@ -192,6 +194,7 @@ export default function DriverDetailPage() {
             </div>
           )}
 
+          {tab === 'presence' && <PresenceTab phone={phone} />}
           {tab === 'earnings' && <EarningsTab phone={phone} />}
           {tab === 'disbursements' && <DisbursementsTab phone={phone} />}
           {tab === 'cash' && <CashTab phone={phone} refreshKey={cashRefresh} />}

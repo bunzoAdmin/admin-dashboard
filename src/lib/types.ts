@@ -236,6 +236,21 @@ export interface Rule {
   spec: RateModifierSpec | AccumulatorSpec | RankingSpec | Record<string, unknown>;
 }
 
+export type PresenceEndReason = 'missed_scan' | 'ended_duty' | 'cancelled' | 'ongoing' | '';
+
+export interface PresenceSegment {
+  start: string; // Zambia-local HH:mm
+  end: string; // Zambia-local HH:mm; empty for a still-open segment
+  end_reason: PresenceEndReason;
+  store_id: string;
+}
+
+export interface PresenceResponse {
+  date: string; // YYYY-MM-DD
+  total_online_minutes: number;
+  segments: PresenceSegment[];
+}
+
 export interface ApiError {
   code: string;
   message: string;

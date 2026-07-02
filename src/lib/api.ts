@@ -14,6 +14,7 @@ import type {
   EarningsSummary,
   InKindDisbursementsResponse,
   LoginResponse,
+  PresenceResponse,
   PresignResponse,
   ReferralScreen,
   Rule,
@@ -162,6 +163,8 @@ export const api = {
     request<ReferralScreen>(`/admin/drivers/${encodePhone(phone)}/referrals`),
   getDriverCashLedger: (phone: string) =>
     request<CashLedger>(`/admin/drivers/${encodePhone(phone)}/cash-ledger`),
+  getDriverPresence: (phone: string, date?: string) =>
+    request<PresenceResponse>(`/admin/drivers/${encodePhone(phone)}/presence`, { query: { date } }),
   recordInKindDisbursement: (phone: string, body: { sku: string; quantity: number; notes?: string }) =>
     request<{ disbursement_id: string; sku: string; quantity: number; disbursed_at: string }>(
       `/admin/drivers/${encodePhone(phone)}/inkind-disbursements`,
