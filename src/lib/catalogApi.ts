@@ -16,7 +16,7 @@ import type {
   UpdateBadgeRequest,
   UpdateCategoryRequest
 } from './catalogTypes';
-import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
+import { inventoryApiConfigured, inventoryApiUrl } from './inventoryApiConfig';
 
 export interface ImageUploadResponse {
   r2Key: string;
@@ -54,10 +54,10 @@ function errorMessageFromBody(data: unknown, fallback: string): string {
 
 async function catalogRequest<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   if (!catalogConfigured()) {
-    throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
+    throw new CatalogApiError(0, 'Catalog API is not available.');
   }
 
-  const url = `${INVENTORY_API_BASE_URL}/api/v1${path}`;
+  const url = inventoryApiUrl(path);
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -71,7 +71,7 @@ async function catalogRequest<T>(path: string, opts: { method?: string; body?: u
   } catch {
     throw new CatalogApiError(
       0,
-      'Could not reach the catalog server. If the dashboard is HTTPS, you cannot call http:// backends directly — use Next route handlers (set NEXT_PUBLIC_INVENTORY_API_BASE_URL to this app URL and PRODUCT_SERVICE_PROXY_TARGET to product-service). Otherwise check CORS on product-service and that the host is reachable.'
+      'Could not reach the catalog API. Ensure PRODUCT_SERVICE_PROXY_TARGET is set on the server (e.g. https://api.bunzodelivery.com/product-service) and redeploy. If you still have NEXT_PUBLIC_CATALOG_API_BASE_URL pointing at http://, remove it — the browser should use same-origin /api/v1 routes.'
     );
   }
 
@@ -153,7 +153,7 @@ export const catalogApi = {
     opts: { scope: 'category' | 'product'; slug: string; index?: number }
   ): Promise<string> => {
     if (!catalogConfigured()) {
-      throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
+      throw new CatalogApiError(0, 'Catalog API is not available.');
     }
 
     const params = new URLSearchParams({ scope: opts.scope, slug: opts.slug.trim() });
@@ -164,7 +164,7 @@ export const catalogApi = {
 
     let res: Response;
     try {
-      res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1/images/upload?${params}`, {
+      res = await fetch(inventoryApiUrl(`/images/upload?${params}`), {
         method: 'POST',
         body: form
       });

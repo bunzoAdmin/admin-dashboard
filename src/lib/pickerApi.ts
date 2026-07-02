@@ -14,7 +14,7 @@ import type {
   TaskListResponse,
   UpdateShiftRequest
 } from './pickerTypes';
-import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
+import { inventoryApiConfigured, inventoryApiUrl } from './inventoryApiConfig';
 
 export class PickerApiError extends Error {
   status: number;
@@ -41,7 +41,7 @@ async function parseBody(res: Response): Promise<unknown> {
 
 async function pickerRequest<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   if (!configured()) {
-    throw new PickerApiError(0, 'Order API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
+    throw new PickerApiError(0, 'Picker API is not available.');
   }
 
   const headers: Record<string, string> = {};
@@ -51,7 +51,7 @@ async function pickerRequest<T>(path: string, opts: { method?: string; body?: un
 
   let res: Response;
   try {
-    res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1${path}`, {
+    res = await fetch(inventoryApiUrl(path), {
       method: opts.method ?? 'GET',
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined

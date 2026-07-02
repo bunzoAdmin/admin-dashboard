@@ -2,7 +2,7 @@
 
 import { getStoredToken } from './store';
 import type { StoreResponse } from './pickerTypes';
-import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
+import { inventoryApiConfigured, inventoryApiUrl } from './inventoryApiConfig';
 
 export class StoresApiError extends Error {
   status: number;
@@ -32,7 +32,7 @@ export async function listStores(): Promise<StoreResponse[]> {
 
   let res: Response;
   try {
-    res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1/admin/stores`, { headers });
+    res = await fetch(inventoryApiUrl('/admin/stores'), { headers });
   } catch {
     throw new StoresApiError(0, 'Could not reach stores API.');
   }
