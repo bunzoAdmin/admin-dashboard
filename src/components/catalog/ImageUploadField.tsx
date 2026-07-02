@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Upload } from 'lucide-react';
+import { ArrowDown, ArrowUp, Pencil, Trash2, Upload } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
 import { catalogImageBaseConfigured, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
 import { ErrorBox, Field, Spinner } from '@/components/ui';
@@ -25,37 +25,12 @@ function parseKeys(value: string): string[] {
     .filter(Boolean);
 }
 
-function nextImageIndex(existing: string[]): number | undefined {
-  if (existing.length === 0) return undefined;
-  let max = 1;
-  for (const key of existing) {
-    const file = key.split('/').pop() ?? '';
-    if (file.startsWith('original.')) {
-      max = Math.max(max, 1);
-      continue;
-    }
-    const dot = file.lastIndexOf('.');
-    const base = dot > 0 ? file.slice(0, dot) : file;
-    if (/^\d+$/.test(base)) {
-      max = Math.max(max, parseInt(base, 10));
-    }
-  }
-  return max + 1;
+function keysToValue(keys: string[]): string {
+  return keys.join(', ');
 }
 
-function ImagePreview({ src, uploading, alt }: { src: string; uploading?: boolean; alt: string }) {
-  return (
-    <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className="h-full w-full object-cover" />
-      {uploading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-white/70">
-          <Spinner className="h-5 w-5" />
-        </div>
-      )}
-    </div>
-  );
-}
+// 'add' = the trailing "Add image" slot; number = slot index being replaced
+type UploadSlot = number | 'add';
 
 export function ImageUploadField({
   scope,
@@ -64,158 +39,272 @@ export function ImageUploadField({
   hint,
   value,
   onChange,
-  multiple = false
+  multiple = false,
 }: ImageUploadFieldProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const localPreviewRef = useRef<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [localPreview, setLocalPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingSlotRef = useRef<UploadSlot>('add');
 
-  function setLocalPreviewUrl(url: string | null) {
-    if (localPreviewRef.current) {
-      URL.revokeObjectURL(localPreviewRef.current);
-      localPreviewRef.current = null;
-    }
-    if (url) {
-      localPreviewRef.current = url;
-    }
-    setLocalPreview(url);
+  const [uploadingSlot, setUploadingSlot] = useState<UploadSlot | null>(null);
+  // local preview blob URLs while an upload is in-flight, keyed by slot
+  const previewUrlsRef = useRef<Map<UploadSlot, string>>(new Map());
+  const [previewUrls, setPreviewUrls] = useState<Map<UploadSlot, string>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const map = previewUrlsRef.current;
+    return () => { map.forEach((url) => URL.revokeObjectURL(url)); };
+  }, []);
+
+  function setSlotPreview(slot: UploadSlot, url: string | null) {
+    const prev = previewUrlsRef.current.get(slot);
+    if (prev) URL.revokeObjectURL(prev);
+    const next = new Map(previewUrlsRef.current);
+    if (url) next.set(slot, url); else next.delete(slot);
+    previewUrlsRef.current = next;
+    setPreviewUrls(next);
   }
 
-  useEffect(
-    () => () => {
-      if (localPreviewRef.current) {
-        URL.revokeObjectURL(localPreviewRef.current);
-      }
-    },
-    []
-  );
+  function triggerUpload(slot: UploadSlot) {
+    pendingSlotRef.current = slot;
+    fileInputRef.current?.click();
+  }
 
-  async function handleFile(file: File) {
+  async function handleFileSelected(file: File) {
     const slugTrimmed = slug.trim();
     if (!slugTrimmed) {
       setError('Enter a name (and slug) before uploading.');
       return;
     }
 
-    setUploading(true);
+    const slot = pendingSlotRef.current;
+    const keys = parseKeys(value);
+
+    // index param: position-based (1-indexed). slot 0 → 1 → "original-{epoch}.jpg"
+    // add → keys.length + 1, but first-ever upload passes undefined → "original-{epoch}.jpg"
+    const index: number | undefined =
+      slot === 'add'
+        ? keys.length === 0 ? undefined : keys.length + 1
+        : (slot as number) + 1;
+
+    setUploadingSlot(slot);
     setError(null);
-    setLocalPreviewUrl(URL.createObjectURL(file));
+    setSlotPreview(slot, URL.createObjectURL(file));
 
     try {
-      const existing = parseKeys(value);
-      const index = multiple && existing.length > 0 ? nextImageIndex(existing) : undefined;
       const r2Key = await catalogApi.uploadImage(file, { scope, slug: slugTrimmed, index });
-
-      if (multiple) {
-        onChange([...existing, r2Key].join(', '));
+      const next = [...keys];
+      if (slot === 'add') {
+        next.push(r2Key);
       } else {
-        onChange(r2Key);
+        next[slot as number] = r2Key;
       }
-      setLocalPreviewUrl(null);
+      onChange(keysToValue(next));
+      setSlotPreview(slot, null);
     } catch (err) {
       setError(err instanceof CatalogApiError ? err.message : 'Upload failed.');
-      setLocalPreviewUrl(null);
+      setSlotPreview(slot, null);
     } finally {
-      setUploading(false);
+      setUploadingSlot(null);
     }
   }
 
-  function handleClear() {
-    setLocalPreviewUrl(null);
-    onChange('');
+  function handleDelete(i: number) {
+    const keys = parseKeys(value);
+    keys.splice(i, 1);
+    onChange(keysToValue(keys));
+  }
+
+  function handleMove(i: number, direction: 'up' | 'down') {
+    const keys = parseKeys(value);
+    const j = direction === 'up' ? i - 1 : i + 1;
+    if (j < 0 || j >= keys.length) return;
+    [keys[i], keys[j]] = [keys[j], keys[i]];
+    onChange(keysToValue(keys));
   }
 
   const keys = parseKeys(value);
-  const storedPreviews = keys
-    .map((key) => ({ key, src: resolveCatalogImageUrl(key) }))
-    .filter((item): item is { key: string; src: string } => item.src != null);
+  const busy = uploadingSlot !== null;
 
-  const showSinglePreview = !multiple && (localPreview ?? storedPreviews[0]?.src);
-  const showMultiplePreviews = multiple && (localPreview || storedPreviews.length > 0);
-
-  return (
-    <Field
-      label={label}
-      hint={
-        hint ??
-        (multiple
-          ? 'Upload JPEG/PNG (max 5MB). Stored as R2 keys under products/{slug}/. You can upload multiple images.'
-          : 'Upload JPEG/PNG (max 5MB). Stored as R2 key under categories/{slug}/ or products/{slug}/.')
-      }
-    >
-      <div className="space-y-3">
-        {keys.length > 0 && (
-          <div className="space-y-1">
-            {keys.map((key) => (
-              <p key={key} className="font-mono text-xs text-gray-600 break-all">
-                {key}
-              </p>
-            ))}
+  // ── Single-image mode (categories) ────────────────────────────────────────
+  if (!multiple) {
+    const previewSrc = previewUrls.get('add') ?? resolveCatalogImageUrl(keys[0] ?? '');
+    const uploading = busy;
+    return (
+      <Field label={label} hint={hint ?? 'Upload JPEG/PNG (max 5MB).'}>
+        <div className="space-y-2">
+          {previewSrc && (
+            <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewSrc} alt="Category image" className="h-full w-full object-cover" />
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                  <Spinner className="h-5 w-5" />
+                </div>
+              )}
+            </div>
+          )}
+          {keys[0] && <p className="font-mono text-xs text-gray-500 break-all">{keys[0]}</p>}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              disabled={busy}
+              onClick={() => triggerUpload('add')}
+            >
+              {uploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
+              {uploading ? 'Uploading…' : keys[0] ? 'Replace' : 'Upload image'}
+            </button>
+            {keys[0] && (
+              <button
+                type="button"
+                className="btn-ghost text-sm text-red-600"
+                disabled={busy}
+                onClick={() => onChange('')}
+              >
+                Clear
+              </button>
+            )}
           </div>
-        )}
-
-        {showSinglePreview && (
-          <ImagePreview
-            src={localPreview ?? storedPreviews[0]!.src}
-            uploading={uploading}
-            alt="Category image preview"
-          />
-        )}
-
-        {showMultiplePreviews && (
-          <div className="flex flex-wrap gap-2">
-            {storedPreviews.map(({ key, src }) => (
-              <ImagePreview key={key} src={src} alt={`Image ${key}`} />
-            ))}
-            {localPreview && <ImagePreview src={localPreview} uploading={uploading} alt="New image preview" />}
-          </div>
-        )}
-
-        {keys.length > 0 && !catalogImageBaseConfigured() && !localPreview && (
-          <p className="text-xs text-amber-700">
-            Set <span className="font-mono">NEXT_PUBLIC_CATALOG_IMAGE_BASE_URL</span> to preview stored images (e.g.{' '}
-            <span className="font-mono">http://localhost:9000/product-images</span>).
-          </p>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
+          {error && <ErrorBox message={error} />}
           <input
-            ref={inputRef}
+            ref={fileInputRef}
             type="file"
             accept="image/jpeg,image/png"
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              e.target.value = '';
-              if (file) void handleFile(file);
-            }}
+            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
           />
+        </div>
+      </Field>
+    );
+  }
+
+  // ── Multi-image mode (products) ───────────────────────────────────────────
+  return (
+    <Field
+      label={label}
+      hint={hint ?? 'Upload JPEG/PNG images (max 5MB each). First image is the hero shown in product cards. Use ↑↓ to reorder.'}
+    >
+      <div className="space-y-3">
+        {!catalogImageBaseConfigured() && keys.length > 0 && (
+          <p className="text-xs text-amber-700">
+            Set <span className="font-mono">NEXT_PUBLIC_CATALOG_IMAGE_BASE_URL</span> to preview stored images.
+          </p>
+        )}
+
+        <div className="flex flex-wrap gap-3 items-start">
+          {keys.map((key, i) => {
+            const localPreview = previewUrls.get(i);
+            const storedSrc = resolveCatalogImageUrl(key);
+            const src = localPreview ?? storedSrc;
+            const slotUploading = uploadingSlot === i;
+
+            return (
+              <div key={key} className="flex flex-col gap-1" style={{ width: '7rem' }}>
+                {/* Thumbnail */}
+                <div className="relative h-24 w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                  {src ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={src} alt={`Image ${i + 1}`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
+                      No preview
+                    </div>
+                  )}
+                  {slotUploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/70">
+                      <Spinner className="h-5 w-5" />
+                    </div>
+                  )}
+                  {i === 0 && (
+                    <span className="absolute top-1 left-1 bg-black/50 text-white text-[10px] px-1 rounded">
+                      hero
+                    </span>
+                  )}
+                </div>
+
+                {/* R2 key */}
+                <p className="font-mono text-[10px] text-gray-500 break-all leading-tight line-clamp-2" title={key}>
+                  {key}
+                </p>
+
+                {/* Controls */}
+                <div className="flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    title="Move up (make primary)"
+                    disabled={busy || i === 0}
+                    onClick={() => handleMove(i, 'up')}
+                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 text-gray-500"
+                  >
+                    <ArrowUp className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Move down"
+                    disabled={busy || i === keys.length - 1}
+                    onClick={() => handleMove(i, 'down')}
+                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 text-gray-500"
+                  >
+                    <ArrowDown className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Replace image"
+                    disabled={busy}
+                    onClick={() => triggerUpload(i)}
+                    className="p-1 rounded hover:bg-gray-100 disabled:opacity-30 text-gray-500"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    title="Delete"
+                    disabled={busy}
+                    onClick={() => handleDelete(i)}
+                    className="p-1 rounded hover:bg-red-50 disabled:opacity-30 text-red-500"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Add slot */}
           <button
             type="button"
-            className="btn-ghost text-sm"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
+            disabled={busy}
+            onClick={() => triggerUpload('add')}
+            className="h-24 w-28 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 transition disabled:opacity-50 flex-shrink-0"
           >
-            {uploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-            {uploading ? 'Uploading…' : keys.length > 0 && multiple ? 'Add image' : keys.length > 0 ? 'Replace image' : 'Upload image'}
+            {uploadingSlot === 'add' ? (
+              <Spinner className="h-5 w-5" />
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                <span className="text-xs">Add image</span>
+              </>
+            )}
           </button>
-          {keys.length > 0 && (
-            <button type="button" className="btn-ghost text-sm text-red-600" disabled={uploading} onClick={handleClear}>
-              Clear
-            </button>
-          )}
         </div>
 
+        {error && <ErrorBox message={error} />}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
+        />
+
+        {/* Raw key editor — power user escape hatch */}
         <input
           className="input font-mono text-xs"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="R2 key (auto-filled after upload) or paste manually"
+          placeholder="R2 keys (comma-separated, auto-filled after upload)"
         />
-
-        {error && <ErrorBox message={error} />}
       </div>
     </Field>
   );
