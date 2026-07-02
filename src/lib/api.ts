@@ -188,6 +188,14 @@ export const api = {
     bike_brand: string;
     referral_code?: string;
   }) => request<{ de_id: string; phone_number: string; status: string }>(`/admin/drivers`, { method: 'POST', body }),
+  createDarkstore: (body: {
+    name: string;
+    latitude: number;
+    longitude: number;
+    polygon?: string; // raw "lat,lng"-per-line text; omit/empty = no polygon
+    opens_at: string;
+    closes_at: string;
+  }) => request<{ darkstore_id: string; name: string; is_active: boolean }>(`/admin/darkstores`, { method: 'POST', body }),
 
   // --- Assignment ---
   assignOrder: (order_id: string, driver_phone: string) =>

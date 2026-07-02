@@ -15,6 +15,7 @@ import {
   UserCog,
   UserPlus,
   Users,
+  Warehouse,
   ClipboardList,
   Clock,
   RefreshCw
@@ -95,7 +96,10 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     id: 'stores',
     label: 'Stores',
-    items: [{ href: '/stores/qr', label: 'Store QR', icon: QrCode }]
+    items: [
+      { href: '/stores/onboard', label: 'Onboard Store', icon: Warehouse },
+      { href: '/stores/qr', label: 'Store QR', icon: QrCode }
+    ]
   },
   {
     id: 'settings',
