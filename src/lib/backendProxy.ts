@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  isOrderServicePath,
+  ORDER_SERVICE_PROXY_TARGET,
+  PRODUCT_SERVICE_PROXY_TARGET
+} from './inventoryApiConfig';
 
 export const runtime = 'nodejs';
-
-const CATALOG_HOST = (process.env.CATALOG_PROXY_TARGET ?? 'http://localhost:8081').replace(/\/$/, '');
-const ORDER_HOST = (process.env.ORDER_PROXY_TARGET ?? 'http://localhost:8082').replace(/\/$/, '');
 
 const FORWARD_REQUEST_HEADERS = ['authorization', 'idempotency-key', 'accept'];
 
 function buildTargetUrl(basePath: string, pathSegments: string[] | undefined, search: string): string {
-  const host = basePath.startsWith('/api/v1/admin/picker') ? ORDER_HOST : CATALOG_HOST;
+  const host = isOrderServicePath(basePath) ? ORDER_SERVICE_PROXY_TARGET : PRODUCT_SERVICE_PROXY_TARGET;
   const suffix = pathSegments?.length ? `/${pathSegments.join('/')}` : '';
   return `${host}${basePath}${suffix}${search}`;
 }

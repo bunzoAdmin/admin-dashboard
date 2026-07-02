@@ -3,10 +3,12 @@ import {
   AlertTriangle,
   FolderTree,
   Home,
+  List,
   Medal,
   Package,
   PackageCheck,
   PackagePlus,
+  Plus,
   QrCode,
   ScanBarcode,
   SlidersHorizontal,
@@ -65,6 +67,14 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/catalog/badges', label: 'Badges', icon: Medal },
       { href: '/catalog/products', label: 'Products', icon: ScanBarcode, exact: true },
       { href: '/catalog/products/browse', label: 'Browse', icon: Package }
+    ]
+  },
+  {
+    id: 'barcode-generator',
+    label: 'Barcode Generator',
+    items: [
+      { href: '/barcode-generator/list', label: 'List of Barcodes', icon: List },
+      { href: '/barcode-generator/generate', label: 'Generate New', icon: Plus }
     ]
   },
   {
