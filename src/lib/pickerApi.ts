@@ -14,8 +14,7 @@ import type {
   TaskListResponse,
   UpdateShiftRequest
 } from './pickerTypes';
-
-const ORDER_BASE = process.env.NEXT_PUBLIC_ORDER_API_BASE_URL?.replace(/\/$/, '') ?? '';
+import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
 
 export class PickerApiError extends Error {
   status: number;
@@ -27,7 +26,7 @@ export class PickerApiError extends Error {
 }
 
 function configured(): boolean {
-  return ORDER_BASE.length > 0;
+  return inventoryApiConfigured();
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -42,7 +41,7 @@ async function parseBody(res: Response): Promise<unknown> {
 
 async function pickerRequest<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   if (!configured()) {
-    throw new PickerApiError(0, 'Order API URL is not configured. Set NEXT_PUBLIC_ORDER_API_BASE_URL.');
+    throw new PickerApiError(0, 'Order API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
   }
 
   const headers: Record<string, string> = {};
@@ -52,7 +51,7 @@ async function pickerRequest<T>(path: string, opts: { method?: string; body?: un
 
   let res: Response;
   try {
-    res = await fetch(`${ORDER_BASE}/api/v1${path}`, {
+    res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1${path}`, {
       method: opts.method ?? 'GET',
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined

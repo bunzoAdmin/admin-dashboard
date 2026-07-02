@@ -2,8 +2,7 @@
 
 import { getStoredToken } from './store';
 import type { StoreResponse } from './pickerTypes';
-
-const BASE = process.env.NEXT_PUBLIC_ORDER_API_BASE_URL?.replace(/\/$/, '') ?? '';
+import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
 
 export class StoresApiError extends Error {
   status: number;
@@ -25,7 +24,7 @@ async function parseBody(res: Response): Promise<unknown> {
 }
 
 export async function listStores(): Promise<StoreResponse[]> {
-  if (!BASE) throw new StoresApiError(0, 'API URL is not configured.');
+  if (!inventoryApiConfigured()) throw new StoresApiError(0, 'API URL is not configured.');
 
   const headers: Record<string, string> = {};
   const token = getStoredToken();
@@ -33,7 +32,7 @@ export async function listStores(): Promise<StoreResponse[]> {
 
   let res: Response;
   try {
-    res = await fetch(`${BASE}/api/v1/admin/stores`, { headers });
+    res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1/admin/stores`, { headers });
   } catch {
     throw new StoresApiError(0, 'Could not reach stores API.');
   }

@@ -7,8 +7,7 @@ import type {
   TransferStockRequest,
   TransferStockResponse
 } from './inventoryTypes';
-
-const API_BASE = process.env.NEXT_PUBLIC_CATALOG_API_BASE_URL?.replace(/\/$/, '') ?? 'http://15.135.73.205:8081';
+import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
 
 export class InventoryApiError extends Error {
   status: number;
@@ -20,7 +19,7 @@ export class InventoryApiError extends Error {
 }
 
 function configured(): boolean {
-  return API_BASE.length > 0;
+  return inventoryApiConfigured();
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -38,7 +37,7 @@ async function inventoryRequest<T>(
   opts: { method?: string; body?: unknown; idempotencyKey?: string } = {}
 ): Promise<T> {
   if (!configured()) {
-    throw new InventoryApiError(0, 'API URL is not configured. Set NEXT_PUBLIC_CATALOG_API_BASE_URL.');
+    throw new InventoryApiError(0, 'API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
   }
 
   const headers: Record<string, string> = {};
@@ -47,7 +46,7 @@ async function inventoryRequest<T>(
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/api/v1${path}`, {
+    res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1${path}`, {
       method: opts.method ?? 'GET',
       headers,
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined

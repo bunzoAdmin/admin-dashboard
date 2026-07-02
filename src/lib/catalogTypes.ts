@@ -221,6 +221,46 @@ export const TEMPERATURE_BAND_OPTIONS: { value: TemperatureBand; label: string }
   { value: 'FROZEN', label: 'Frozen' }
 ];
 
+// ── Barcode generator ──────────────────────────────────────────────────────
+
+export type BarcodeFormat = 'EAN13' | 'CODE128';
+
+export interface GenerateBarcodeRequest {
+  /** Product name, e.g. "Tomato" */
+  name: string;
+  /** Content specification */
+  content: {
+    amount: number;
+    uom: ContentUom;
+    multipackCount?: number | null;
+  };
+  categoryId?: number | null;
+  format?: BarcodeFormat;
+}
+
+export interface BarcodeEntryResponse {
+  id: number;
+  barcode: string;
+  format: BarcodeFormat;
+  /** Human-readable label, e.g. "Tomato 500G" */
+  productName: string;
+  contentAmount: number;
+  contentUom: ContentUom;
+  multipackCount?: number | null;
+  categoryId?: number | null;
+  createdAt?: string;
+}
+
+export interface PagedBarcodeResponse {
+  content: BarcodeEntryResponse[];
+  totalElements: number;
+  page: number;
+  size: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
 export function slugifyCategoryName(name: string): string {
   return name
     .trim()

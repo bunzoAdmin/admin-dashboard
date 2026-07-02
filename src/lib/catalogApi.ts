@@ -2,24 +2,25 @@
 
 import type {
   BadgeResponse,
+  BarcodeEntryResponse,
   BulkSyncRequest,
   BulkSyncResponse,
   CategoryResponse,
   CategoryTreeNode,
   CreateBadgeRequest,
   CreateCategoryRequest,
+  GenerateBarcodeRequest,
+  PagedBarcodeResponse,
+  PagedProductResponse,
   ProductResponse,
   UpdateBadgeRequest,
-  UpdateCategoryRequest,
-  PagedProductResponse
+  UpdateCategoryRequest
 } from './catalogTypes';
+import { INVENTORY_API_BASE_URL, inventoryApiConfigured } from './inventoryApiConfig';
 
 export interface ImageUploadResponse {
   r2Key: string;
 }
-
-const CATALOG_BASE =
-  process.env.NEXT_PUBLIC_CATALOG_API_BASE_URL?.replace(/\/$/, '') ?? 'http://15.135.73.205:8081';
 
 export class CatalogApiError extends Error {
   status: number;
@@ -31,7 +32,7 @@ export class CatalogApiError extends Error {
 }
 
 function catalogConfigured(): boolean {
-  return CATALOG_BASE.length > 0;
+  return inventoryApiConfigured();
 }
 
 async function parseBody(res: Response): Promise<unknown> {
@@ -53,10 +54,10 @@ function errorMessageFromBody(data: unknown, fallback: string): string {
 
 async function catalogRequest<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   if (!catalogConfigured()) {
-    throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_CATALOG_API_BASE_URL.');
+    throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
   }
 
-  const url = `${CATALOG_BASE}/api/v1${path}`;
+  const url = `${INVENTORY_API_BASE_URL}/api/v1${path}`;
   const headers: Record<string, string> = {};
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -70,7 +71,7 @@ async function catalogRequest<T>(path: string, opts: { method?: string; body?: u
   } catch {
     throw new CatalogApiError(
       0,
-      'Could not reach the catalog server. If the dashboard is HTTPS, you cannot call http:// backends directly — use Next rewrites (set NEXT_PUBLIC_CATALOG_API_BASE_URL to this app URL and CATALOG_PROXY_TARGET to product-service). Otherwise check CORS on product-service and that the host is reachable.'
+      'Could not reach the catalog server. If the dashboard is HTTPS, you cannot call http:// backends directly — use Next route handlers (set NEXT_PUBLIC_INVENTORY_API_BASE_URL to this app URL and PRODUCT_SERVICE_PROXY_TARGET to product-service). Otherwise check CORS on product-service and that the host is reachable.'
     );
   }
 
@@ -134,12 +135,25 @@ export const catalogApi = {
   updateBadge: (code: string, body: UpdateBadgeRequest) =>
     catalogRequest<BadgeResponse>(`/catalog/badges/${encodeURIComponent(code)}`, { method: 'PUT', body }),
 
+  // ── Barcode generator ──────────────────────────────────────────────────────
+
+  generateBarcode: (body: GenerateBarcodeRequest) =>
+    catalogRequest<BarcodeEntryResponse>('/catalog/barcodes/generate', { method: 'POST', body }),
+
+  listBarcodes: (params: { page?: number; size?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (params.page != null) q.set('page', String(params.page));
+    if (params.size != null) q.set('size', String(params.size));
+    const qs = q.toString();
+    return catalogRequest<PagedBarcodeResponse>(`/catalog/barcodes${qs ? '?' + qs : ''}`);
+  },
+
   uploadImage: async (
     file: File,
     opts: { scope: 'category' | 'product'; slug: string; index?: number }
   ): Promise<string> => {
     if (!catalogConfigured()) {
-      throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_CATALOG_API_BASE_URL.');
+      throw new CatalogApiError(0, 'Catalog API URL is not configured. Set NEXT_PUBLIC_INVENTORY_API_BASE_URL.');
     }
 
     const params = new URLSearchParams({ scope: opts.scope, slug: opts.slug.trim() });
@@ -150,7 +164,7 @@ export const catalogApi = {
 
     let res: Response;
     try {
-      res = await fetch(`${CATALOG_BASE}/api/v1/images/upload?${params}`, {
+      res = await fetch(`${INVENTORY_API_BASE_URL}/api/v1/images/upload?${params}`, {
         method: 'POST',
         body: form
       });
