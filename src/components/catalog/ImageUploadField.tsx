@@ -127,10 +127,17 @@ export function ImageUploadField({
 
   // ── Single-image mode (categories) ────────────────────────────────────────
   if (!multiple) {
-    const previewSrc = previewUrls.get('add') ?? resolveCatalogImageUrl(keys[0] ?? '');
+    // Use slot 0 when replacing an existing image so handleFileSelected does
+    // next[0] = r2Key (replace) instead of next.push(r2Key) (append).
+    const replaceSlot: UploadSlot = keys[0] ? 0 : 'add';
+    const previewSrc = previewUrls.get(replaceSlot) ?? resolveCatalogImageUrl(keys[0] ?? '');
     const uploading = busy;
     return (
-      <Field label={label} hint={hint ?? 'Upload JPEG/PNG (max 5MB).'}>
+      // Intentionally NOT using <Field> here: Field renders a <label> which would
+      // make clicking anywhere inside (image, key text, etc.) open the file picker
+      // via the hidden <input type="file"> descendant.
+      <div className="block space-y-1.5">
+        <span className="label">{label}</span>
         <div className="space-y-2">
           {previewSrc && (
             <div className="relative h-24 w-24 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
@@ -149,7 +156,7 @@ export function ImageUploadField({
               type="button"
               className="btn-ghost text-sm"
               disabled={busy}
-              onClick={() => triggerUpload('add')}
+              onClick={() => triggerUpload(replaceSlot)}
             >
               {uploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
               {uploading ? 'Uploading…' : keys[0] ? 'Replace' : 'Upload image'}
@@ -166,24 +173,26 @@ export function ImageUploadField({
             )}
           </div>
           {error && <ErrorBox message={error} />}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
-          />
         </div>
-      </Field>
+        {hint && <span className="block text-xs text-gray-400">{hint ?? 'Upload JPEG/PNG (max 5MB).'}</span>}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png"
+          className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
+        />
+      </div>
     );
   }
 
   // ── Multi-image mode (products) ───────────────────────────────────────────
+  // Intentionally NOT using <Field> here: Field renders a <label> which would
+  // make clicking anywhere inside (thumbnails, key text, etc.) open the file
+  // picker via the hidden <input type="file"> descendant.
   return (
-    <Field
-      label={label}
-      hint={hint ?? 'Upload JPEG/PNG images (max 5MB each). First image is the hero shown in product cards. Use ↑↓ to reorder.'}
-    >
+    <div className="block space-y-1.5">
+      <span className="label">{label}</span>
       <div className="space-y-3">
         {!catalogImageBaseConfigured() && keys.length > 0 && (
           <p className="text-xs text-amber-700">
@@ -290,14 +299,6 @@ export function ImageUploadField({
 
         {error && <ErrorBox message={error} />}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
-        />
-
         {/* Raw key editor — power user escape hatch */}
         <input
           className="input font-mono text-xs"
@@ -306,6 +307,14 @@ export function ImageUploadField({
           placeholder="R2 keys (comma-separated, auto-filled after upload)"
         />
       </div>
-    </Field>
+      {hint && <span className="block text-xs text-gray-400">{hint ?? 'Upload JPEG/PNG images (max 5MB each). First image is the hero shown in product cards. Use ↑↓ to reorder.'}</span>}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/png"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
+      />
+    </div>
   );
 }
