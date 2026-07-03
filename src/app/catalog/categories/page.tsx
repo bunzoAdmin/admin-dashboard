@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { FolderTree, ImageIcon, Pencil, Plus, Trash2 } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
-import { resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
+import { normalizeSingleImageKey, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
 import type { CategoryTreeNode, CreateCategoryRequest, UpdateCategoryRequest } from '@/lib/catalogTypes';
 import { slugifyCategoryName } from '@/lib/catalogTypes';
 import {
@@ -45,7 +45,7 @@ function categoryToForm(c: CategoryTreeNode): CategoryFormState {
     description: c.description ?? '',
     displayOrder: String(c.displayOrder ?? 0),
     isActive: c.isActive !== false,
-    imageUrl: c.imageUrl ?? '',
+    imageUrl: normalizeSingleImageKey(c.imageUrl),
     parentId: c.parentId ?? null
   };
 }
@@ -119,7 +119,7 @@ export default function CategoriesPage() {
           description: form.description.trim() || undefined,
           displayOrder,
           isActive: form.isActive,
-          imageUrl: form.imageUrl.trim() || undefined
+          imageUrl: normalizeSingleImageKey(form.imageUrl) || undefined
         };
         await catalogApi.updateCategory(editing.id, body);
         toast.push('success', `Category "${name}" updated.`);
@@ -131,7 +131,7 @@ export default function CategoriesPage() {
           parentId: form.parentId ?? undefined,
           displayOrder,
           isActive: form.isActive,
-          imageUrl: form.imageUrl.trim() || undefined
+          imageUrl: normalizeSingleImageKey(form.imageUrl) || undefined
         };
         await catalogApi.createCategory(body);
         toast.push('success', `Category "${name}" created.`);
@@ -178,7 +178,8 @@ export default function CategoriesPage() {
       ? 'Add subcategory'
       : 'Add root category';
 
-  const selectedImageUrl = selected?.imageUrl ? resolveCatalogImageUrl(selected.imageUrl) : null;
+  const selectedImageKey = selected ? normalizeSingleImageKey(selected.imageUrl) : '';
+  const selectedImageUrl = selectedImageKey ? resolveCatalogImageUrl(selectedImageKey) : null;
   const selectedBreadcrumb = selected && tree ? categoryBreadcrumb(tree, selected.id) : [];
   const selectedParent = selected && tree ? findParentCategory(tree, selected.id) : null;
 
@@ -279,9 +280,9 @@ export default function CategoriesPage() {
                     <Detail label="Description" value={selected.description} />
                   </div>
                 )}
-                {selected.imageUrl && (
+                {selectedImageKey && (
                   <div className="sm:col-span-2">
-                    <Detail label="Image key" value={selected.imageUrl} mono />
+                    <Detail label="Image key" value={selectedImageKey} mono />
                   </div>
                 )}
               </dl>
@@ -353,7 +354,7 @@ export default function CategoriesPage() {
               scope="category"
               slug={form.slug.trim() || slugifyCategoryName(form.name)}
               label="Image"
-              hint="Upload stores categories/{slug}/original.jpg in R2. The returned r2Key is saved as imageUrl."
+              hint="Upload stores one R2 key under categories/{slug}/. Replace uploads a new cache-busted key."
               value={form.imageUrl}
               onChange={(imageUrl) => setForm((f) => ({ ...f, imageUrl }))}
             />

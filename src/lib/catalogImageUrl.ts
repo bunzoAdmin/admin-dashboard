@@ -6,6 +6,15 @@
  */
 const CATALOG_IMAGE_BASE = process.env.NEXT_PUBLIC_CATALOG_IMAGE_BASE_URL?.replace(/\/$/, '') ?? '';
 
+/**
+ * Categories store exactly one R2 key in imageUrl. Normalizes legacy comma-separated
+ * values to the first key only.
+ */
+export function normalizeSingleImageKey(value: string | null | undefined): string {
+  if (!value?.trim()) return '';
+  return value.split(',')[0]?.trim() ?? '';
+}
+
 export function resolveCatalogImageUrl(r2Key: string | null | undefined): string | null {
   if (!r2Key?.trim()) return null;
   const trimmed = r2Key.trim();

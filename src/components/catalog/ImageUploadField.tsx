@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowUp, Pencil, Trash2, Upload } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
-import { catalogImageBaseConfigured, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
-import { ErrorBox, Field, Spinner } from '@/components/ui';
+import { catalogImageBaseConfigured, normalizeSingleImageKey, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
+import { ErrorBox, Spinner } from '@/components/ui';
 
 export type ImageUploadScope = 'category' | 'product';
 
@@ -76,21 +76,31 @@ export function ImageUploadField({
       return;
     }
 
-    const slot = pendingSlotRef.current;
-    const keys = parseKeys(value);
-
-    // index param: position-based (1-indexed). slot 0 → 1 → "original-{epoch}.jpg"
-    // add → keys.length + 1, but first-ever upload passes undefined → "original-{epoch}.jpg"
-    const index: number | undefined =
-      slot === 'add'
-        ? keys.length === 0 ? undefined : keys.length + 1
-        : (slot as number) + 1;
-
-    setUploadingSlot(slot);
     setError(null);
-    setSlotPreview(slot, URL.createObjectURL(file));
 
     try {
+      if (!multiple) {
+        setUploadingSlot('add');
+        setSlotPreview('add', URL.createObjectURL(file));
+        // Categories: one R2 key only. Replace overwrites the previous key entirely.
+        const index = normalizeSingleImageKey(value) ? 1 : undefined;
+        const r2Key = await catalogApi.uploadImage(file, { scope, slug: slugTrimmed, index });
+        onChange(r2Key);
+        setSlotPreview('add', null);
+        return;
+      }
+
+      const slot = pendingSlotRef.current;
+      setUploadingSlot(slot);
+      setSlotPreview(slot, URL.createObjectURL(file));
+
+      const keys = parseKeys(value);
+
+      const index: number | undefined =
+        slot === 'add'
+          ? keys.length === 0 ? undefined : keys.length + 1
+          : (slot as number) + 1;
+
       const r2Key = await catalogApi.uploadImage(file, { scope, slug: slugTrimmed, index });
       const next = [...keys];
       if (slot === 'add') {
@@ -102,7 +112,11 @@ export function ImageUploadField({
       setSlotPreview(slot, null);
     } catch (err) {
       setError(err instanceof CatalogApiError ? err.message : 'Upload failed.');
-      setSlotPreview(slot, null);
+      if (!multiple) {
+        setSlotPreview('add', null);
+      } else {
+        setSlotPreview(pendingSlotRef.current, null);
+      }
     } finally {
       setUploadingSlot(null);
     }
@@ -127,10 +141,8 @@ export function ImageUploadField({
 
   // ── Single-image mode (categories) ────────────────────────────────────────
   if (!multiple) {
-    // Use slot 0 when replacing an existing image so handleFileSelected does
-    // next[0] = r2Key (replace) instead of next.push(r2Key) (append).
-    const replaceSlot: UploadSlot = keys[0] ? 0 : 'add';
-    const previewSrc = previewUrls.get(replaceSlot) ?? resolveCatalogImageUrl(keys[0] ?? '');
+    const imageKey = normalizeSingleImageKey(value);
+    const previewSrc = previewUrls.get('add') ?? resolveCatalogImageUrl(imageKey);
     const uploading = busy;
     return (
       // Intentionally NOT using <Field> here: Field renders a <label> which would
@@ -150,18 +162,18 @@ export function ImageUploadField({
               )}
             </div>
           )}
-          {keys[0] && <p className="font-mono text-xs text-gray-500 break-all">{keys[0]}</p>}
+          {imageKey && <p className="font-mono text-xs text-gray-500 break-all">{imageKey}</p>}
           <div className="flex gap-2">
             <button
               type="button"
               className="btn-ghost text-sm"
               disabled={busy}
-              onClick={() => triggerUpload(replaceSlot)}
+              onClick={() => triggerUpload('add')}
             >
               {uploading ? <Spinner className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
-              {uploading ? 'Uploading…' : keys[0] ? 'Replace' : 'Upload image'}
+              {uploading ? 'Uploading…' : imageKey ? 'Replace' : 'Upload image'}
             </button>
-            {keys[0] && (
+            {imageKey && (
               <button
                 type="button"
                 className="btn-ghost text-sm text-red-600"
