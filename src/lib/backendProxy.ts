@@ -49,6 +49,12 @@ async function proxy(req: NextRequest, basePath: string, pathSegments?: string[]
     return NextResponse.json({ message: 'Could not reach backend service' }, { status: 502 });
   }
 
+  // 204 / 205 / 304 must not carry a body — NextResponse throws if you pass one.
+  const noBodyStatuses = [204, 205, 304];
+  if (noBodyStatuses.includes(upstream.status)) {
+    return new NextResponse(null, { status: upstream.status });
+  }
+
   const responseText = await upstream.text();
   return new NextResponse(responseText, {
     status: upstream.status,
