@@ -6,7 +6,7 @@ import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
 import { catalogImageBaseConfigured, normalizeSingleImageKey, resolveCatalogImageUrl } from '@/lib/catalogImageUrl';
 import { ErrorBox, Spinner } from '@/components/ui';
 
-export type ImageUploadScope = 'category' | 'product';
+export type ImageUploadScope = 'category' | 'product' | 'banner';
 
 interface ImageUploadFieldProps {
   scope: ImageUploadScope;

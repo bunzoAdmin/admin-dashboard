@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   FolderTree,
   Home,
+  Image,
   List,
   Medal,
   Package,
@@ -13,6 +14,7 @@ import {
   ScanBarcode,
   Settings2,
   SlidersHorizontal,
+  Timer,
   UserCog,
   UserPlus,
   Users,
@@ -68,7 +70,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/catalog/categories', label: 'Categories', icon: FolderTree },
       { href: '/catalog/badges', label: 'Badges', icon: Medal },
       { href: '/catalog/products', label: 'Products', icon: ScanBarcode, exact: true },
-      { href: '/catalog/products/browse', label: 'Browse', icon: Package }
+      { href: '/catalog/products/browse', label: 'Browse', icon: Package },
+      { href: '/catalog/banners', label: 'Banners', icon: Image },
+      { href: '/catalog/slots', label: 'Banner Schedules', icon: Timer }
     ]
   },
   {

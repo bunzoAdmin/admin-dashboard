@@ -2,6 +2,14 @@
 
 import type {
   BadgeResponse,
+  BannerResponse,
+  BannerSlotResponse,
+  AssignBannerToSlotRequest,
+  CreateBannerRequest,
+  CreateBannerSlotRequest,
+  ReorderBannerSlotRequest,
+  UpdateBannerRequest,
+  UpdateBannerSlotRequest,
   BarcodeEntryResponse,
   BulkSyncRequest,
   BulkSyncResponse,
@@ -135,6 +143,49 @@ export const catalogApi = {
   updateBadge: (code: string, body: UpdateBadgeRequest) =>
     catalogRequest<BadgeResponse>(`/catalog/badges/${encodeURIComponent(code)}`, { method: 'PUT', body }),
 
+  // ── Banners ────────────────────────────────────────────────────────────────
+
+  listBanners: () =>
+    catalogArray<BannerResponse>('/admin/banners'),
+
+  getBanner: (id: number) =>
+    catalogRequest<BannerResponse>(`/admin/banners/${id}`),
+
+  createBanner: (body: CreateBannerRequest) =>
+    catalogRequest<BannerResponse>('/admin/banners', { method: 'POST', body }),
+
+  updateBanner: (id: number, body: UpdateBannerRequest) =>
+    catalogRequest<BannerResponse>(`/admin/banners/${id}`, { method: 'PUT', body }),
+
+  deleteBanner: (id: number) =>
+    catalogRequest<void>(`/admin/banners/${id}`, { method: 'DELETE' }),
+
+  // ── Banner Slots ───────────────────────────────────────────────────────────
+
+  listBannerSlots: () =>
+    catalogArray<BannerSlotResponse>('/admin/banner-slots'),
+
+  getBannerSlot: (id: number) =>
+    catalogRequest<BannerSlotResponse>(`/admin/banner-slots/${id}`),
+
+  createBannerSlot: (body: CreateBannerSlotRequest) =>
+    catalogRequest<BannerSlotResponse>('/admin/banner-slots', { method: 'POST', body }),
+
+  updateBannerSlot: (id: number, body: UpdateBannerSlotRequest) =>
+    catalogRequest<BannerSlotResponse>(`/admin/banner-slots/${id}`, { method: 'PUT', body }),
+
+  deleteBannerSlot: (id: number) =>
+    catalogRequest<void>(`/admin/banner-slots/${id}`, { method: 'DELETE' }),
+
+  assignBannerToSlot: (slotId: number, body: AssignBannerToSlotRequest) =>
+    catalogRequest<BannerSlotResponse>(`/admin/banner-slots/${slotId}/banners`, { method: 'POST', body }),
+
+  reorderSlotBanners: (slotId: number, body: ReorderBannerSlotRequest) =>
+    catalogRequest<BannerSlotResponse>(`/admin/banner-slots/${slotId}/banners/reorder`, { method: 'PUT', body }),
+
+  removeBannerFromSlot: (slotId: number, bannerId: number) =>
+    catalogRequest<void>(`/admin/banner-slots/${slotId}/banners/${bannerId}`, { method: 'DELETE' }),
+
   // ── Barcode generator ──────────────────────────────────────────────────────
 
   generateBarcode: (body: GenerateBarcodeRequest) =>
@@ -150,7 +201,7 @@ export const catalogApi = {
 
   uploadImage: async (
     file: File,
-    opts: { scope: 'category' | 'product'; slug: string; index?: number }
+    opts: { scope: 'category' | 'product' | 'banner'; slug: string; index?: number }
   ): Promise<string> => {
     if (!catalogConfigured()) {
       throw new CatalogApiError(0, 'Catalog API is not available.');

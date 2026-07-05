@@ -268,3 +268,122 @@ export function slugifyCategoryName(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// ── Banners ────────────────────────────────────────────────────────────────
+
+/** Must match BannerActionType enum in the backend. */
+export type BannerActionType = 'CATEGORY_LIST' | 'PRODUCT_LIST';
+
+export interface BannerResponse {
+  id: number;
+  slug: string;
+  title: string;
+  imageUrl: string;
+  actionType: BannerActionType;
+  actionItemIds: number[];
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBannerRequest {
+  slug: string;
+  title: string;
+  imageUrl: string;
+  actionType: BannerActionType;
+  actionItemIds: number[];
+  isActive?: boolean;
+}
+
+export interface UpdateBannerRequest {
+  slug: string;
+  title: string;
+  imageUrl: string;
+  actionType: BannerActionType;
+  actionItemIds: number[];
+  isActive: boolean;
+}
+
+// ── Banner Slots ───────────────────────────────────────────────────────────
+
+export interface SlotBannerItem {
+  bannerId: number;
+  rank: number;
+  banner: BannerResponse;
+}
+
+export interface BannerSlotResponse {
+  id: number;
+  name: string;
+  slug: string;
+  /** Days of week: 0=Sun 1=Mon … 6=Sat (Africa/Lusaka local) */
+  daysOfWeek: number[];
+  startTime: string; // "HH:mm:ss" CAT local
+  endTime: string;   // "HH:mm:ss" CAT local
+  priority: number;
+  isActive: boolean;
+  banners: SlotBannerItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateBannerSlotRequest {
+  name: string;
+  slug: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  priority?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateBannerSlotRequest {
+  name: string;
+  slug: string;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  priority: number;
+  isActive: boolean;
+}
+
+export interface AssignBannerToSlotRequest {
+  bannerId: number;
+  rank: number;
+}
+
+export interface ReorderBannerSlotRequest {
+  items: { bannerId: number; rank: number }[];
+}
+
+export const BANNER_ACTION_TYPE_OPTIONS: { value: BannerActionType; label: string }[] = [
+  { value: 'CATEGORY_LIST', label: 'Category List — open filtered product listing by categories' },
+  { value: 'PRODUCT_LIST', label: 'Product List — open specific products by ID' }
+];
+
+export const DAY_LABELS: { value: number; short: string; long: string }[] = [
+  { value: 0, short: 'Sun', long: 'Sunday' },
+  { value: 1, short: 'Mon', long: 'Monday' },
+  { value: 2, short: 'Tue', long: 'Tuesday' },
+  { value: 3, short: 'Wed', long: 'Wednesday' },
+  { value: 4, short: 'Thu', long: 'Thursday' },
+  { value: 5, short: 'Fri', long: 'Friday' },
+  { value: 6, short: 'Sat', long: 'Saturday' }
+];
+
+export function formatDaysOfWeek(days: number[]): string {
+  if (days.length === 7) return 'Every day';
+  if (days.length === 0) return 'No days';
+  const sorted = [...days].sort((a, b) => a - b);
+  if (sorted.join(',') === '1,2,3,4,5') return 'Mon – Fri';
+  if (sorted.join(',') === '0,6') return 'Weekends';
+  return sorted.map((d) => DAY_LABELS[d]?.short ?? d).join(', ');
+}
+
+export function slugifyBannerName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}

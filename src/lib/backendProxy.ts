@@ -79,3 +79,5 @@ export const inventoryProxy = handlers('/api/v1/inventory');
 export const storesProxy = handlers('/api/v1/admin/stores');
 export const pickerProxy = handlers('/api/v1/admin/picker');
 export const imagesProxy = handlers('/api/v1/images');
+export const adminBannersProxy = handlers('/api/v1/admin/banners');
+export const adminBannerSlotsProxy = handlers('/api/v1/admin/banner-slots');
