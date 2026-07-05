@@ -4,6 +4,8 @@ import {
   FolderTree,
   Home,
   Image,
+  Layers,
+  LayoutGrid,
   List,
   Medal,
   Package,
@@ -72,7 +74,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/catalog/products', label: 'Products', icon: ScanBarcode, exact: true },
       { href: '/catalog/products/browse', label: 'Browse', icon: Package },
       { href: '/catalog/banners', label: 'Banners', icon: Image },
-      { href: '/catalog/slots', label: 'Banner Schedules', icon: Timer }
+      { href: '/catalog/slots', label: 'Banner Schedules', icon: Timer },
+      { href: '/catalog/showcases', label: 'Product Showcases', icon: Layers },
+      { href: '/catalog/category-showcases', label: 'Category Showcases', icon: LayoutGrid }
     ]
   },
   {

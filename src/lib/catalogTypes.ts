@@ -387,3 +387,149 @@ export function slugifyBannerName(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 }
+
+// ── Product Showcases ────────────────────────────────────────────────────────
+
+/** Open string — any valid uppercase key (e.g. HERO, SEASONAL). */
+export type ShowcaseType = string;
+
+export interface ShowcaseTypeOption {
+  value: string;
+  label: string;
+  builtin: boolean;
+}
+
+export interface ShowcaseGroupResponse {
+  id: number;
+  name: string;
+  slug: string;
+  type: ShowcaseType;
+  displayTitle?: string | null;
+  subtitle?: string | null;
+  priority: number;
+  isActive: boolean;
+  products: ProductResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateShowcaseGroupRequest {
+  name: string;
+  slug: string;
+  type: ShowcaseType;
+  displayTitle?: string;
+  subtitle?: string;
+  priority: number;
+  isActive: boolean;
+}
+
+export interface UpdateShowcaseGroupRequest {
+  name?: string;
+  slug?: string;
+  type?: ShowcaseType;
+  displayTitle?: string;
+  subtitle?: string;
+  priority?: number;
+  isActive?: boolean;
+}
+
+export interface AddShowcaseItemsRequest {
+  productIds: number[];
+}
+
+export interface ReorderShowcaseItemsRequest {
+  productIds: number[];
+}
+
+/** Fallback labels when the types API is unavailable. */
+export const SHOWCASE_TYPE_FALLBACKS: ShowcaseTypeOption[] = [
+  { value: 'HERO', label: 'Hero', builtin: true },
+  { value: 'HOT_SELLING', label: 'Hot Selling', builtin: true },
+  { value: 'NEW_ARRIVALS', label: 'New Arrivals', builtin: true },
+  { value: 'FEATURED', label: 'Featured', builtin: true }
+];
+
+export function normalizeShowcaseType(raw: string): string {
+  return raw.trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+export function showcaseTypeLabel(type: string, options?: ShowcaseTypeOption[]): string {
+  const normalized = normalizeShowcaseType(type);
+  const match = options?.find((o) => o.value === normalized);
+  if (match) return match.label;
+  const fallback = SHOWCASE_TYPE_FALLBACKS.find((o) => o.value === normalized);
+  if (fallback) return fallback.label;
+  return normalized.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// ── Category Showcases ─────────────────────────────────────────────────────
+
+export type CategoryShowcaseType = string;
+
+export interface CategoryShowcaseTypeOption {
+  value: string;
+  label: string;
+  builtin: boolean;
+}
+
+export interface CategoryShowcaseGroupResponse {
+  id: number;
+  name: string;
+  slug: string;
+  type: CategoryShowcaseType;
+  displayTitle?: string | null;
+  subtitle?: string | null;
+  priority: number;
+  isActive: boolean;
+  categories: CategoryResponse[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateCategoryShowcaseGroupRequest {
+  name: string;
+  slug: string;
+  type: CategoryShowcaseType;
+  displayTitle?: string;
+  subtitle?: string;
+  priority: number;
+  isActive: boolean;
+}
+
+export interface UpdateCategoryShowcaseGroupRequest {
+  name?: string;
+  slug?: string;
+  type?: CategoryShowcaseType;
+  displayTitle?: string;
+  subtitle?: string;
+  priority?: number;
+  isActive?: boolean;
+}
+
+export interface AddCategoryShowcaseItemsRequest {
+  categoryIds: number[];
+}
+
+export interface ReorderCategoryShowcaseItemsRequest {
+  categoryIds: number[];
+}
+
+export const CATEGORY_SHOWCASE_TYPE_FALLBACKS: CategoryShowcaseTypeOption[] = [
+  { value: 'FEATURED', label: 'Featured', builtin: true },
+  { value: 'SHOP_BY', label: 'Shop By', builtin: true },
+  { value: 'TRENDING', label: 'Trending', builtin: true },
+  { value: 'SEASONAL', label: 'Seasonal', builtin: true }
+];
+
+export function normalizeCategoryShowcaseType(raw: string): string {
+  return raw.trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+export function categoryShowcaseTypeLabel(type: string, options?: CategoryShowcaseTypeOption[]): string {
+  const normalized = normalizeCategoryShowcaseType(type);
+  const match = options?.find((o) => o.value === normalized);
+  if (match) return match.label;
+  const fallback = CATEGORY_SHOWCASE_TYPE_FALLBACKS.find((o) => o.value === normalized);
+  if (fallback) return fallback.label;
+  return normalized.toLowerCase().replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}

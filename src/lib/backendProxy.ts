@@ -81,3 +81,5 @@ export const pickerProxy = handlers('/api/v1/admin/picker');
 export const imagesProxy = handlers('/api/v1/images');
 export const adminBannersProxy = handlers('/api/v1/admin/banners');
 export const adminBannerSlotsProxy = handlers('/api/v1/admin/banner-slots');
+export const adminProductShowcasesProxy = handlers('/api/v1/admin/product-showcases');
+export const adminCategoryShowcasesProxy = handlers('/api/v1/admin/category-showcases');

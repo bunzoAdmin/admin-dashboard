@@ -4,33 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { catalogApi } from '@/lib/catalogApi';
 import type { BannerActionType, CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
+import { flattenTreeForL2L3, type FlatCategoryOption } from '@/lib/categoryTreeUtils';
 
 // ── Flat category item (L2 or L3 only) ───────────────────────────────────────
-interface FlatCategory {
-  id: number;
-  name: string;
-  breadcrumb: string; // e.g. "Beverages > Soft Drinks"
-}
-
-function flattenTree(nodes: CategoryTreeNode[], parentName?: string): FlatCategory[] {
-  const result: FlatCategory[] = [];
-  for (const node of nodes) {
-    if (parentName !== undefined) {
-      // This node is L2 or deeper — include it
-      const breadcrumb = parentName ? `${parentName} > ${node.name}` : node.name;
-      result.push({ id: node.id, name: node.name, breadcrumb });
-      if (node.children?.length) {
-        result.push(...flattenTree(node.children, breadcrumb));
-      }
-    } else {
-      // L1 node — skip itself, recurse into children
-      if (node.children?.length) {
-        result.push(...flattenTree(node.children, node.name));
-      }
-    }
-  }
-  return result;
-}
+interface FlatCategory extends FlatCategoryOption {}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 interface ActionItemPickerProps {
@@ -63,7 +40,7 @@ export function ActionItemPicker({ actionType, value, onChange }: ActionItemPick
     setCatLoading(true);
     setCatError(null);
     catalogApi.getCategoryTree()
-      .then((tree) => setCategories(flattenTree(tree)))
+      .then((tree) => setCategories(flattenTreeForL2L3(tree)))
       .catch(() => setCatError('Failed to load categories.'))
       .finally(() => setCatLoading(false));
   }, [isCategory]);

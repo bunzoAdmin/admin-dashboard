@@ -10,6 +10,18 @@ import type {
   ReorderBannerSlotRequest,
   UpdateBannerRequest,
   UpdateBannerSlotRequest,
+  AddShowcaseItemsRequest,
+  AddCategoryShowcaseItemsRequest,
+  CreateCategoryShowcaseGroupRequest,
+  CreateShowcaseGroupRequest,
+  CategoryShowcaseGroupResponse,
+  CategoryShowcaseTypeOption,
+  ReorderCategoryShowcaseItemsRequest,
+  ReorderShowcaseItemsRequest,
+  ShowcaseGroupResponse,
+  ShowcaseTypeOption,
+  UpdateCategoryShowcaseGroupRequest,
+  UpdateShowcaseGroupRequest,
   BarcodeEntryResponse,
   BulkSyncRequest,
   BulkSyncResponse,
@@ -185,6 +197,64 @@ export const catalogApi = {
 
   removeBannerFromSlot: (slotId: number, bannerId: number) =>
     catalogRequest<void>(`/admin/banner-slots/${slotId}/banners/${bannerId}`, { method: 'DELETE' }),
+
+  // ── Product Showcases ────────────────────────────────────────────────────────
+
+  listShowcaseGroups: () =>
+    catalogArray<ShowcaseGroupResponse>('/admin/product-showcases'),
+
+  listShowcaseTypes: () =>
+    catalogArray<ShowcaseTypeOption>('/admin/product-showcases/types'),
+
+  getShowcaseGroup: (id: number) =>
+    catalogRequest<ShowcaseGroupResponse>(`/admin/product-showcases/${id}`),
+
+  createShowcaseGroup: (body: CreateShowcaseGroupRequest) =>
+    catalogRequest<ShowcaseGroupResponse>('/admin/product-showcases', { method: 'POST', body }),
+
+  updateShowcaseGroup: (id: number, body: UpdateShowcaseGroupRequest) =>
+    catalogRequest<ShowcaseGroupResponse>(`/admin/product-showcases/${id}`, { method: 'PUT', body }),
+
+  deleteShowcaseGroup: (id: number) =>
+    catalogRequest<void>(`/admin/product-showcases/${id}`, { method: 'DELETE' }),
+
+  addShowcaseItems: (id: number, body: AddShowcaseItemsRequest) =>
+    catalogRequest<ShowcaseGroupResponse>(`/admin/product-showcases/${id}/items`, { method: 'POST', body }),
+
+  removeShowcaseItem: (id: number, productId: number) =>
+    catalogRequest<void>(`/admin/product-showcases/${id}/items/${productId}`, { method: 'DELETE' }),
+
+  reorderShowcaseItems: (id: number, body: ReorderShowcaseItemsRequest) =>
+    catalogRequest<ShowcaseGroupResponse>(`/admin/product-showcases/${id}/items/reorder`, { method: 'PUT', body }),
+
+  // ── Category Showcases ─────────────────────────────────────────────────────
+
+  listCategoryShowcaseGroups: () =>
+    catalogArray<CategoryShowcaseGroupResponse>('/admin/category-showcases'),
+
+  listCategoryShowcaseTypes: () =>
+    catalogArray<CategoryShowcaseTypeOption>('/admin/category-showcases/types'),
+
+  getCategoryShowcaseGroup: (id: number) =>
+    catalogRequest<CategoryShowcaseGroupResponse>(`/admin/category-showcases/${id}`),
+
+  createCategoryShowcaseGroup: (body: CreateCategoryShowcaseGroupRequest) =>
+    catalogRequest<CategoryShowcaseGroupResponse>('/admin/category-showcases', { method: 'POST', body }),
+
+  updateCategoryShowcaseGroup: (id: number, body: UpdateCategoryShowcaseGroupRequest) =>
+    catalogRequest<CategoryShowcaseGroupResponse>(`/admin/category-showcases/${id}`, { method: 'PUT', body }),
+
+  deleteCategoryShowcaseGroup: (id: number) =>
+    catalogRequest<void>(`/admin/category-showcases/${id}`, { method: 'DELETE' }),
+
+  addCategoryShowcaseItems: (id: number, body: AddCategoryShowcaseItemsRequest) =>
+    catalogRequest<CategoryShowcaseGroupResponse>(`/admin/category-showcases/${id}/items`, { method: 'POST', body }),
+
+  removeCategoryShowcaseItem: (id: number, categoryId: number) =>
+    catalogRequest<void>(`/admin/category-showcases/${id}/items/${categoryId}`, { method: 'DELETE' }),
+
+  reorderCategoryShowcaseItems: (id: number, body: ReorderCategoryShowcaseItemsRequest) =>
+    catalogRequest<CategoryShowcaseGroupResponse>(`/admin/category-showcases/${id}/items/reorder`, { method: 'PUT', body }),
 
   // ── Barcode generator ──────────────────────────────────────────────────────
 
