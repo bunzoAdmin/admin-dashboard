@@ -2,32 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   isOrderServicePath,
   ORDER_SERVICE_PROXY_TARGET,
-  PRODUCT_SERVICE_PROXY_TARGET
+  PRODUCT_SERVICE_PROXY_TARGET,
+  SEARCH_SERVICE_PROXY_TARGET
 } from './inventoryApiConfig';
 
 export const runtime = 'nodejs';
 
 const FORWARD_REQUEST_HEADERS = ['authorization', 'idempotency-key', 'accept'];
 
-function buildTargetUrl(basePath: string, pathSegments: string[] | undefined, search: string): string {
-  const host = isOrderServicePath(basePath) ? ORDER_SERVICE_PROXY_TARGET : PRODUCT_SERVICE_PROXY_TARGET;
+function buildTargetUrl(basePath: string, pathSegments: string[] | undefined, search: string, targetOverride?: string): string {
+  const host = targetOverride
+    ?? (isOrderServicePath(basePath) ? ORDER_SERVICE_PROXY_TARGET : PRODUCT_SERVICE_PROXY_TARGET);
   const suffix = pathSegments?.length ? `/${pathSegments.join('/')}` : '';
   return `${host}${basePath}${suffix}${search}`;
 }
 
-function forwardHeaders(req: NextRequest): Headers {
+function forwardHeaders(req: NextRequest, opts?: { injectSearchAuth?: boolean }): Headers {
   const headers = new Headers();
   const contentType = req.headers.get('content-type');
   if (contentType) headers.set('Content-Type', contentType);
   for (const name of FORWARD_REQUEST_HEADERS) {
+    // Search-service uses its own HTTP Basic creds — never forward the dashboard Bearer token.
+    if (opts?.injectSearchAuth && name === 'authorization') continue;
     const value = req.headers.get(name);
     if (value) headers.set(name, value);
+  }
+  if (opts?.injectSearchAuth) {
+    const creds = process.env.SEARCH_SERVICE_BASIC_AUTH;
+    if (creds) {
+      headers.set('Authorization', creds.startsWith('Basic ') ? creds : `Basic ${creds}`);
+    }
   }
   return headers;
 }
 
-async function proxy(req: NextRequest, basePath: string, pathSegments?: string[]): Promise<NextResponse> {
-  const target = buildTargetUrl(basePath, pathSegments, req.nextUrl.search);
+async function proxy(req: NextRequest, basePath: string, pathSegments?: string[], targetOverride?: string, injectSearchAuth = false): Promise<NextResponse> {
+  const target = buildTargetUrl(basePath, pathSegments, req.nextUrl.search, targetOverride);
 
   let body: ArrayBuffer | undefined;
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -42,7 +52,7 @@ async function proxy(req: NextRequest, basePath: string, pathSegments?: string[]
   try {
     upstream = await fetch(target, {
       method: req.method,
-      headers: forwardHeaders(req),
+      headers: forwardHeaders(req, { injectSearchAuth }),
       body: body && body.byteLength > 0 ? body : undefined
     });
   } catch {
@@ -66,10 +76,10 @@ async function proxy(req: NextRequest, basePath: string, pathSegments?: string[]
 
 type RouteContext = { params: Promise<{ path?: string[] }> };
 
-function handlers(basePath: string) {
+function handlers(basePath: string, targetOverride?: string, injectSearchAuth = false) {
   async function run(req: NextRequest, context: RouteContext) {
     const { path } = await context.params;
-    return proxy(req, basePath, path);
+    return proxy(req, basePath, path, targetOverride, injectSearchAuth);
   }
   return {
     GET: run,
@@ -89,3 +99,14 @@ export const adminBannersProxy = handlers('/api/v1/admin/banners');
 export const adminBannerSlotsProxy = handlers('/api/v1/admin/banner-slots');
 export const adminProductShowcasesProxy = handlers('/api/v1/admin/product-showcases');
 export const adminCategoryShowcasesProxy = handlers('/api/v1/admin/category-showcases');
+
+// Order-service admin routes
+export const adminOrdersProxy = handlers('/api/v1/admin/orders');
+export const adminCouponsProxy = handlers('/api/v1/admin/coupons');
+export const adminRefundsProxy = handlers('/api/v1/admin/refunds');
+
+// Product-service admin inventory routes (discrepancies, stock-movements)
+export const adminInventoryProxy = handlers('/api/v1/admin/inventory');
+
+// Search-service admin routes (base path maps directly to /admin/search on search-service)
+export const searchAdminProxy = handlers('/admin/search', SEARCH_SERVICE_PROXY_TARGET, true);

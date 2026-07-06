@@ -203,6 +203,9 @@ export default function PickersLiveOpsPage() {
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex justify-end gap-2">
+                            <Link href={`/pickers/tasks/${t.id}`} className="text-xs font-medium text-gray-600 hover:underline">
+                              View
+                            </Link>
                             {t.status === 'ASSIGNED' && (
                               <button type="button" className="text-xs font-medium text-brand-green hover:underline" onClick={() => setReassignTask(t)}>
                                 Reassign

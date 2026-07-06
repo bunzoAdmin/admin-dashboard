@@ -1,7 +1,11 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   AlertTriangle,
+  BarChart2,
+  BookOpen,
+  Database,
   FolderTree,
+  History,
   Home,
   Image,
   Layers,
@@ -14,9 +18,11 @@ import {
   Plus,
   QrCode,
   ScanBarcode,
+  Settings,
   Settings2,
   SlidersHorizontal,
   Timer,
+  Ticket,
   UserCog,
   UserPlus,
   Users,
@@ -52,6 +58,7 @@ export const NAV_SECTIONS: NavSection[] = [
     id: 'orders',
     label: 'Orders',
     items: [
+      { href: '/orders/list', label: 'All Orders', icon: List },
       { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true },
       { href: '/orders/assign', label: 'Assign Order', icon: PackageCheck }
     ]
@@ -100,7 +107,29 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     id: 'inventory',
     label: 'Inventory',
-    items: [{ href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true }]
+    items: [
+      { href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true },
+      { href: '/inventory/alerts', label: 'Alerts', icon: AlertTriangle },
+      { href: '/inventory/discrepancies', label: 'Discrepancies', icon: BarChart2 },
+      { href: '/inventory/movements', label: 'Movements', icon: History }
+    ]
+  },
+  {
+    id: 'finance',
+    label: 'Finance',
+    items: [
+      { href: '/finance/refunds', label: 'Stuck Refunds', icon: RefreshCw },
+      { href: '/finance/coupons', label: 'Coupons', icon: Ticket }
+    ]
+  },
+  {
+    id: 'search',
+    label: 'Search',
+    items: [
+      { href: '/search/synonyms', label: 'Synonyms', icon: BookOpen },
+      { href: '/search/settings', label: 'Settings', icon: Settings },
+      { href: '/search/index', label: 'Index', icon: Database }
+    ]
   },
   {
     id: 'stores',

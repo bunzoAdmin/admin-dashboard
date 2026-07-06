@@ -25,6 +25,11 @@ export default function PickerDetailPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<string | null>(null);
   const [confirmCheckout, setConfirmCheckout] = useState(false);
+  const [shifts, setShifts] = useState<ShiftResponse[]>([]);
+  const [editName, setEditName] = useState('');
+  const [editShiftId, setEditShiftId] = useState<string>('');
+  const [showEdit, setShowEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
     if (!Number.isFinite(pickerId)) return;
@@ -39,12 +44,15 @@ export default function PickerDetailPage() {
         return;
       }
       setPicker(found);
+      const shiftList = await pickerApi.listShifts(storeId).catch(() => [] as ShiftResponse[]);
+      setShifts(shiftList);
       if (found.shiftId) {
-        const shifts = await pickerApi.listShifts(storeId).catch(() => []);
-        setShift(shifts.find((s) => s.id === found.shiftId) ?? null);
+        setShift(shiftList.find((s) => s.id === found.shiftId) ?? null);
       } else {
         setShift(null);
       }
+      setEditName(found.name);
+      setEditShiftId(found.shiftId ? String(found.shiftId) : '');
     } catch (err) {
       setError(err instanceof PickerApiError ? err.message : 'Failed to load picker.');
     } finally {
@@ -80,6 +88,25 @@ export default function PickerDetailPage() {
       toast.push('error', err instanceof PickerApiError ? err.message : 'Revoke failed.');
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function savePickerEdits() {
+    if (!picker) return;
+    setSavingEdit(true);
+    try {
+      const updated = await pickerApi.updatePicker(picker.id, {
+        name: editName.trim() || undefined,
+        shiftId: editShiftId ? parseInt(editShiftId, 10) : undefined
+      });
+      setPicker(updated);
+      setShift(updated.shiftId ? shifts.find((s) => s.id === updated.shiftId) ?? null : null);
+      toast.push('success', 'Picker updated.');
+      setShowEdit(false);
+    } catch (err) {
+      toast.push('error', err instanceof PickerApiError ? err.message : 'Update failed.');
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -133,6 +160,39 @@ export default function PickerDetailPage() {
             <DetailRow label="Shift" value={shiftLabel} />
             <DetailRow label="Updated" value={formatTime(picker.updatedAt)} />
             <DetailRow label="Created" value={formatTime(picker.createdAt)} />
+          </Card>
+
+          <Card className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-900">Profile</h2>
+              <button type="button" className="btn-ghost text-xs" onClick={() => setShowEdit(v => !v)}>
+                {showEdit ? 'Cancel edit' : 'Edit'}
+              </button>
+            </div>
+            {showEdit ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="label">Name</span>
+                  <input className="input" value={editName} onChange={e => setEditName(e.target.value)} />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="label">Shift</span>
+                  <select className="input" value={editShiftId} onChange={e => setEditShiftId(e.target.value)}>
+                    <option value="">— No shift —</option>
+                    {shifts.map(s => (
+                      <option key={s.id} value={s.id}>{s.displayName} ({s.code})</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="sm:col-span-2">
+                  <button type="button" className="btn-primary text-sm" disabled={savingEdit} onClick={savePickerEdits}>
+                    {savingEdit ? <Spinner className="h-4 w-4" /> : 'Save changes'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Update name or assigned shift for this picker.</p>
+            )}
           </Card>
 
           <Card className="space-y-3">

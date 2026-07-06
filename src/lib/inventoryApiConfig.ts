@@ -19,11 +19,16 @@ export const PRODUCT_SERVICE_PROXY_TARGET = stripTrailingSlash(
     'http://localhost:8081/product-service'
 );
 
-/** Server → order-service (picker admin). */
+/** Server → order-service (picker admin, order admin, coupon admin, refund admin). */
 export const ORDER_SERVICE_PROXY_TARGET = stripTrailingSlash(
   process.env.ORDER_SERVICE_PROXY_TARGET ??
     process.env.ORDER_PROXY_TARGET ??
     'http://localhost:8082/order-service'
+);
+
+/** Server → search-service (synonyms, settings, index). */
+export const SEARCH_SERVICE_PROXY_TARGET = stripTrailingSlash(
+  process.env.SEARCH_SERVICE_PROXY_TARGET ?? 'http://localhost:8083/search-service'
 );
 
 /**
@@ -41,7 +46,12 @@ export function inventoryApiConfigured(): boolean {
   return true;
 }
 
-/** Paths served by order-service (picker admin). */
+/** Paths served by order-service (picker admin, order admin, coupon admin, refund admin). */
 export function isOrderServicePath(apiPath: string): boolean {
-  return apiPath.startsWith('/api/v1/admin/picker');
+  return (
+    apiPath.startsWith('/api/v1/admin/picker') ||
+    apiPath.startsWith('/api/v1/admin/orders') ||
+    apiPath.startsWith('/api/v1/admin/coupons') ||
+    apiPath.startsWith('/api/v1/admin/refunds')
+  );
 }

@@ -87,6 +87,12 @@ export interface UpdateShiftRequest {
   timezone: string;
 }
 
+export interface UpdatePickerRequest {
+  name?: string;
+  storeId?: number;
+  shiftId?: number;
+}
+
 export interface ReconciliationOutboxResponse {
   id: number;
   type: string;

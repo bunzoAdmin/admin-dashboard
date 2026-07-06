@@ -12,9 +12,11 @@ import type {
   RegisterPickerRequest,
   ShiftResponse,
   TaskListResponse,
+  UpdatePickerRequest,
   UpdateShiftRequest
 } from './pickerTypes';
 import { inventoryApiConfigured, inventoryApiUrl } from './inventoryApiConfig';
+import { inventoryApiErrorMessage, parseResponseBody } from './inventoryApiUtils';
 
 export class PickerApiError extends Error {
   status: number;
@@ -27,16 +29,6 @@ export class PickerApiError extends Error {
 
 function configured(): boolean {
   return inventoryApiConfigured();
-}
-
-async function parseBody(res: Response): Promise<unknown> {
-  const text = await res.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
 }
 
 async function pickerRequest<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
@@ -60,12 +52,12 @@ async function pickerRequest<T>(path: string, opts: { method?: string; body?: un
     throw new PickerApiError(0, 'Could not reach the order service.');
   }
 
-  const data = await parseBody(res);
+  const data = await parseResponseBody(res);
   if (!res.ok) {
-    const msg =
-      (data as { message?: string } | null)?.message ??
-      (typeof data === 'string' ? data : `Request failed (${res.status}).`);
-    throw new PickerApiError(res.status, msg);
+    throw new PickerApiError(
+      res.status,
+      inventoryApiErrorMessage(data, res.status, 'Picker request failed.')
+    );
   }
 
   return data as T;
@@ -81,6 +73,9 @@ export const pickerApi = {
   registerPicker: (body: RegisterPickerRequest) =>
     pickerRequest<PickerResponse>('/admin/picker/pickers', { method: 'POST', body }),
 
+  updatePicker: (pickerId: number, body: UpdatePickerRequest) =>
+    pickerRequest<PickerResponse>(`/admin/picker/pickers/${pickerId}`, { method: 'PUT', body }),
+
   resetPin: (pickerId: number) =>
     pickerRequest<PickerPinResetResponse>(`/admin/picker/pickers/${pickerId}/reset-pin`, { method: 'POST' }),
 
@@ -95,6 +90,9 @@ export const pickerApi = {
     if (opts?.status) q.set('status', opts.status);
     return pickerRequest<TaskListResponse[]>(`/admin/picker/tasks?${q}`);
   },
+
+  getTask: (taskId: number) =>
+    pickerRequest<TaskListResponse>(`/admin/picker/tasks/${taskId}`),
 
   reassignTask: (taskId: number, body: ReassignTaskRequest) =>
     pickerRequest<TaskListResponse>(`/admin/picker/tasks/${taskId}/reassign`, { method: 'POST', body }),
