@@ -7,13 +7,14 @@ import { ScanBarcode } from 'lucide-react';
 import { catalogApi, CatalogApiError, isCatalogNotFound } from '@/lib/catalogApi';
 import type { CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
 import { ProductEditor, type ProductEditorMode } from '@/components/catalog/ProductEditor';
-import { defaultStoreId } from '@/lib/storeSession';
+import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, ErrorBox, Field, Loading, Spinner } from '@/components/ui';
 
 function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
+  const { storeId, setStoreId } = useStoreContext();
 
   const [barcodeInput, setBarcodeInput] = useState('');
   const [lockedBarcode, setLockedBarcode] = useState<string | null>(null);
@@ -51,7 +52,7 @@ function ProductsPageContent() {
     setBarcodeInput('');
 
     try {
-      const found = await catalogApi.getProductById(id, defaultStoreId());
+      const found = await catalogApi.getProductById(id, storeId);
       setProduct(found);
       setLockedBarcode(found.barcode?.trim() || null);
       setBarcodeInput(found.barcode?.trim() ?? '');
@@ -129,6 +130,10 @@ function ProductsPageContent() {
           Browse all products
         </Link>
       </div>
+
+      <Card className="flex flex-wrap items-end gap-3">
+        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
+      </Card>
 
       <Card className="max-w-xl space-y-4">
         <Field label="Barcode" hint="Focus here and scan with your barcode reader, or type and press Enter.">

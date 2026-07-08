@@ -53,6 +53,7 @@ export interface DiscountBreakdownItem {
 export interface OrderResponse {
   orderNumber: string;
   customerId: string;
+  storeId: number;
   status: OrderStatus;
   paymentMethod: string;
   paymentStatus: PaymentStatus;

@@ -54,6 +54,10 @@ export interface ReassignTaskRequest {
   newPickerId: number;
 }
 
+export interface AssignPickerRequest {
+  pickerId: number;
+}
+
 export interface AdminCancelTaskRequest {
   reason: string;
 }
@@ -96,7 +100,6 @@ export interface UpdatePickerRequest {
 export interface ReconciliationOutboxResponse {
   id: number;
   type: string;
-  idempotencyKey: string;
   status: string;
   attemptCount: number;
   lastError?: string | null;

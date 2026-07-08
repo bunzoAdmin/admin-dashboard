@@ -5,10 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { ShiftResponse } from '@/lib/pickerTypes';
-import { listStores } from '@/lib/storesApi';
-import type { StoreResponse } from '@/lib/pickerTypes';
 import { PinRevealModal } from '@/components/pickers/PinRevealModal';
-import { useStoreContext } from '@/components/pickers/StoreSelector';
+import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { PhoneInput } from '@/components/PhoneInput';
 import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 import { Card, ErrorBox, Field, Spinner, useToast } from '@/components/ui';
@@ -18,7 +16,6 @@ export default function OnboardPickerPage() {
   const toast = useToast();
   const { storeId, setStoreId } = useStoreContext();
 
-  const [stores, setStores] = useState<StoreResponse[]>([]);
   const [shifts, setShifts] = useState<ShiftResponse[]>([]);
   const [name, setName] = useState('');
   const [countryCode, setCountryCode] = useState(DEFAULT_COUNTRY_DIAL);
@@ -27,10 +24,6 @@ export default function OnboardPickerPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<string | null>(null);
-
-  useEffect(() => {
-    listStores().then(setStores).catch(() => setStores([]));
-  }, []);
 
   const loadShifts = useCallback(async (sid: number) => {
     try {
@@ -96,19 +89,7 @@ export default function OnboardPickerPage() {
         <form onSubmit={submit} className="space-y-4">
           {error && <ErrorBox message={error} />}
 
-          <Field label="Store">
-            {stores.length > 0 ? (
-              <select className="input" value={String(storeId)} onChange={(e) => setStoreId(parseInt(e.target.value, 10))}>
-                {stores.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} — #{s.id}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <input className="input w-28" type="number" min="1" value={storeId} onChange={(e) => setStoreId(parseInt(e.target.value, 10) || 1)} />
-            )}
-          </Field>
+          <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
 
           <Field label="Shift">
             {shifts.length === 0 ? (

@@ -1,13 +1,13 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ScanBarcode, Search } from 'lucide-react';
 import { catalogApi, CatalogApiError, isCatalogNotFound } from '@/lib/catalogApi';
 import type { ProductResponse } from '@/lib/catalogTypes';
-import { defaultStoreId, readStoreId, writeStoreId } from '@/lib/storeSession';
 import { InventoryOpsPanel } from '@/components/inventory/InventoryOpsPanel';
 import { ProductPicker, ProductSummary } from '@/components/inventory/ProductPicker';
+import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, ErrorBox, Field, Loading, Spinner } from '@/components/ui';
 
 export default function InventoryPage() {
@@ -20,26 +20,13 @@ export default function InventoryPage() {
 
 function InventoryPageContent() {
   const barcodeRef = useRef<HTMLInputElement>(null);
-  const [storeIdInput, setStoreIdInput] = useState(String(defaultStoreId()));
-  const [storeId, setStoreId] = useState(defaultStoreId());
+  const { storeId, setStoreId } = useStoreContext();
 
   const [barcodeInput, setBarcodeInput] = useState('');
   const [lookingUp, setLookingUp] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [product, setProduct] = useState<ProductResponse | null>(null);
   const [showPicker, setShowPicker] = useState(false);
-
-  useEffect(() => {
-    setStoreIdInput(String(readStoreId()));
-    setStoreId(readStoreId());
-  }, []);
-
-  function applyStoreId() {
-    const id = parseInt(storeIdInput, 10);
-    if (!Number.isFinite(id) || id <= 0) return;
-    writeStoreId(id);
-    setStoreId(id);
-  }
 
   const reset = useCallback(() => {
     setProduct(null);
@@ -98,24 +85,7 @@ function InventoryPageContent() {
       </div>
 
       <Card className="flex flex-wrap items-end gap-3">
-        <Field label="Store ID" hint="All stock operations apply to this store.">
-          <div className="flex gap-2">
-            <input
-              className="input w-28"
-              type="number"
-              min="1"
-              value={storeIdInput}
-              onChange={(e) => setStoreIdInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && applyStoreId()}
-            />
-            <button type="button" className="btn-ghost shrink-0" onClick={applyStoreId}>
-              Apply
-            </button>
-          </div>
-        </Field>
-        {storeId !== parseInt(storeIdInput, 10) && (
-          <p className="text-xs text-amber-600">Press Apply to use store {storeIdInput}.</p>
-        )}
+        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
       </Card>
 
       {!product && (

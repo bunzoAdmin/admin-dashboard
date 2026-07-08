@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderEventResponse, OrderResponse } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
+import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { ArrowLeft } from 'lucide-react';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -24,13 +25,6 @@ function fmtDate(iso?: string | null) {
 }
 
 const CANCELLABLE = ['PENDING_PAYMENT', 'CONFIRMED', 'PACKING', 'READY_FOR_DELIVERY'];
-const MANUALLY_ADVANCEABLE = ['CONFIRMED', 'PACKING', 'READY_FOR_DELIVERY', 'OUT_FOR_DELIVERY'];
-const STATUS_NEXT: Record<string, string> = {
-  CONFIRMED: 'PACKING',
-  PACKING: 'READY_FOR_DELIVERY',
-  READY_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
-  OUT_FOR_DELIVERY: 'DELIVERED'
-};
 
 export default function OrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -43,7 +37,6 @@ export default function OrderDetailPage() {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
-  const [advancing, setAdvancing] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
 
@@ -95,23 +88,6 @@ export default function OrderDetailPage() {
     }
   }
 
-  async function handleAdvanceStatus() {
-    if (!order) return;
-    const nextStatus = STATUS_NEXT[order.status];
-    if (!nextStatus) return;
-    setAdvancing(true);
-    try {
-      const updated = await orderAdminApi.updateStatus(orderNumber, { status: nextStatus as never, notes: 'Manual admin override' });
-      setOrder(updated);
-      await loadEvents();
-      toast.push('success', `Status updated to ${nextStatus.replace(/_/g, ' ')}.`);
-    } catch (err) {
-      toast.push('error', err instanceof OrderAdminApiError ? err.message : 'Status update failed.');
-    } finally {
-      setAdvancing(false);
-    }
-  }
-
   if (loadingOrder) {
     return <div className="p-6"><Loading label="Loading order…" /></div>;
   }
@@ -130,7 +106,6 @@ export default function OrderDetailPage() {
   if (!order) return null;
 
   const canCancel = CANCELLABLE.includes(order.status);
-  const canAdvance = MANUALLY_ADVANCEABLE.includes(order.status);
 
   return (
     <div className="space-y-6">
@@ -143,11 +118,6 @@ export default function OrderDetailPage() {
           <p className="text-xs text-gray-500">Customer: {order.customerId} &middot; Created: {fmtDate(order.createdAt)}</p>
         </div>
         <div className="flex gap-2">
-          {canAdvance && (
-            <button className="btn-primary text-sm" disabled={advancing} onClick={handleAdvanceStatus}>
-              {advancing ? <Spinner className="h-4 w-4" /> : `Mark ${STATUS_NEXT[order.status]?.replace(/_/g, ' ')}`}
-            </button>
-          )}
           {canCancel && (
             <button className="btn-danger text-sm" onClick={() => setShowCancelForm(v => !v)}>
               Cancel Order
@@ -246,6 +216,8 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="space-y-5">
+          <PickerOpsCard orderNumber={order.orderNumber} orderStatus={order.status} storeId={order.storeId} />
+
           <Card>
             <SectionTitle>Event Timeline</SectionTitle>
             {loadingEvents ? (

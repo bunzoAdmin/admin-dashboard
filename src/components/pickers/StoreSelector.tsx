@@ -1,10 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { listStores, StoresApiError } from '@/lib/storesApi';
-import type { StoreResponse } from '@/lib/pickerTypes';
+import { api, ApiClientError } from '@/lib/api';
+import type { Darkstore } from '@/lib/types';
 import { defaultStoreId, readStoreId, writeStoreId } from '@/lib/storeSession';
 import { Field } from '@/components/ui';
+
+const PINNED_STORE_ID = process.env.NEXT_PUBLIC_DEFAULT_STORE_ID
+  ? parseInt(process.env.NEXT_PUBLIC_DEFAULT_STORE_ID, 10)
+  : null;
 
 interface StoreSelectorProps {
   storeId: number;
@@ -13,19 +17,35 @@ interface StoreSelectorProps {
 }
 
 export function StoreSelector({ storeId, onStoreChange, className }: StoreSelectorProps) {
-  const [stores, setStores] = useState<StoreResponse[]>([]);
+  const [stores, setStores] = useState<Darkstore[]>([]);
   const [input, setInput] = useState(String(storeId));
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    listStores()
-      .then(setStores)
-      .catch((err) => setLoadError(err instanceof StoresApiError ? err.message : 'Failed to load stores.'));
+    // When a default store is pinned via env var (local dev), skip the API call.
+    if (PINNED_STORE_ID) return;
+
+    api.listDarkstores()
+      .then((res) => setStores(res.darkstores))
+      .catch((err) => setLoadError(err instanceof ApiClientError ? err.message : 'Failed to load stores.'));
   }, []);
 
   useEffect(() => {
     setInput(String(storeId));
   }, [storeId]);
+
+  // Local dev: show a static badge — no API call, no dropdown.
+  if (PINNED_STORE_ID) {
+    return (
+      <Field label="Store" hint="Pinned by NEXT_PUBLIC_DEFAULT_STORE_ID (local dev)." className={className}>
+        <div className="flex items-center gap-2">
+          <span className="input w-28 cursor-default select-none bg-gray-50 text-gray-500">
+            #{PINNED_STORE_ID}
+          </span>
+        </div>
+      </Field>
+    );
+  }
 
   function applyManual() {
     const id = parseInt(input, 10);
@@ -50,8 +70,8 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
       <Field label="Store" className={className}>
         <select className="input max-w-xs" value={String(storeId)} onChange={(e) => onSelectChange(e.target.value)}>
           {stores.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} {s.storeCode ? `(${s.storeCode})` : ''} — #{s.id}
+            <option key={s.darkstore_id} value={parseInt(s.darkstore_id, 10)}>
+              {s.name} — #{s.darkstore_id}
             </option>
           ))}
         </select>
@@ -80,10 +100,11 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
 }
 
 export function useStoreContext() {
-  const [storeId, setStoreId] = useState(defaultStoreId());
+  const [storeId, setStoreId] = useState(PINNED_STORE_ID ?? defaultStoreId());
 
   useEffect(() => {
-    setStoreId(readStoreId());
+    // When a store is pinned via env var, ignore whatever is in sessionStorage.
+    if (!PINNED_STORE_ID) setStoreId(readStoreId());
   }, []);
 
   const changeStore = useCallback((id: number) => {

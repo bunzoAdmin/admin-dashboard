@@ -101,7 +101,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/pickers', label: 'Live Ops', icon: ClipboardList, exact: true },
       { href: '/pickers/onboard', label: 'Onboard', icon: UserPlus },
       { href: '/pickers/shifts', label: 'Shifts', icon: Clock },
-      { href: '/pickers/reconcile', label: 'Reconciliation', icon: RefreshCw }
+      { href: '/pickers/reconcile', label: 'Sync Failures', icon: RefreshCw }
     ]
   },
   {

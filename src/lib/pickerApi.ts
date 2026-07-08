@@ -3,6 +3,7 @@
 import { getStoredToken } from './store';
 import type {
   AdminCancelTaskRequest,
+  AssignPickerRequest,
   CreateShiftRequest,
   PickerPinResetResponse,
   PickerResponse,
@@ -93,6 +94,15 @@ export const pickerApi = {
 
   getTask: (taskId: number) =>
     pickerRequest<TaskListResponse>(`/admin/picker/tasks/${taskId}`),
+
+  getTaskForOrder: (orderNumber: string) =>
+    pickerRequest<TaskListResponse | null>(`/admin/picker/tasks/by-order/${encodeURIComponent(orderNumber)}`),
+
+  assignPicker: (orderNumber: string, body: AssignPickerRequest) =>
+    pickerRequest<TaskListResponse>(
+      `/admin/picker/orders/${encodeURIComponent(orderNumber)}/assign-picker`,
+      { method: 'POST', body }
+    ),
 
   reassignTask: (taskId: number, body: ReassignTaskRequest) =>
     pickerRequest<TaskListResponse>(`/admin/picker/tasks/${taskId}/reassign`, { method: 'POST', body }),
