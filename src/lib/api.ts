@@ -208,10 +208,6 @@ export const api = {
     assigned_store_id: string;
     referral_code?: string;
   }) => request<{ de_id: string; phone_number: string; status: string }>(`/admin/drivers`, { method: 'POST', body }),
-  listDarkstores: (opts?: { all?: boolean }) =>
-    request<{ darkstores: Darkstore[] }>(`/admin/darkstores`, {
-      query: { all: opts?.all ? 'true' : undefined }
-    }),
   createDarkstore: (body: {
     name: string;
     latitude: number;
