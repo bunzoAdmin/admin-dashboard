@@ -1,12 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UploadCloud, CheckCircle2, Loader2 } from 'lucide-react';
 import { PhoneInput } from '@/components/PhoneInput';
 import { api, ApiClientError, uploadToS3 } from '@/lib/api';
 import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 import { Card, Field, Spinner, ErrorBox, useToast } from '@/components/ui';
+import type { Darkstore } from '@/lib/types';
 
 type DocKind = 'profile' | 'nrc' | 'license';
 
@@ -29,6 +30,9 @@ export default function OnboardingPage() {
   const [airtelMoneyNumber, setAirtelMoneyNumber] = useState('');
   const [bikeNumber, setBikeNumber] = useState('');
   const [bikeBrand, setBikeBrand] = useState('');
+  const [assignedStoreId, setAssignedStoreId] = useState('');
+  const [stores, setStores] = useState<Darkstore[]>([]);
+  const [storesError, setStoresError] = useState<string | null>(null);
   const [referral, setReferral] = useState('');
   const [docs, setDocs] = useState<Record<DocKind, DocState>>({
     profile: { ...EMPTY_DOC },
@@ -39,6 +43,14 @@ export default function OnboardingPage() {
   const [error, setError] = useState<string | null>(null);
 
   const fullPhone = buildPhoneNumber(countryCode, localNumber);
+
+  // Only active darkstores can be assigned at onboarding.
+  useEffect(() => {
+    api
+      .listDarkstores({ all: false })
+      .then((res) => setStores([...res.darkstores].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch((err) => setStoresError(err instanceof ApiClientError ? err.message : 'Failed to load darkstores.'));
+  }, []);
 
   async function handleFile(kind: DocKind, file: File) {
     if (!fullPhone) {
@@ -77,6 +89,10 @@ export default function OnboardingPage() {
       setError('NRC number, Airtel Money number, bike number and bike brand are all required.');
       return;
     }
+    if (!assignedStoreId) {
+      setError('Select the darkstore this rider is assigned to.');
+      return;
+    }
     if (!allUploaded) {
       setError('Upload all three documents before creating the driver.');
       return;
@@ -94,6 +110,7 @@ export default function OnboardingPage() {
         airtel_money_number: airtelMoneyNumber.trim(),
         bike_number: bikeNumber.trim(),
         bike_brand: bikeBrand.trim(),
+        assigned_store_id: assignedStoreId,
         referral_code: referral.trim() || undefined
       });
       toast.push('success', `Driver ${name.trim()} onboarded.`);
@@ -144,6 +161,26 @@ export default function OnboardingPage() {
               <input className="input" value={bikeBrand} onChange={(e) => setBikeBrand(e.target.value)} placeholder="e.g. Honda" />
             </Field>
           </div>
+          <Field
+            label="Assigned darkstore"
+            hint={storesError ?? (stores.length === 0 ? 'Loading darkstores…' : 'The rider may only start duty at this store.')}
+          >
+            <select
+              className="input"
+              value={assignedStoreId}
+              onChange={(e) => setAssignedStoreId(e.target.value)}
+              disabled={stores.length === 0}
+            >
+              <option value="" disabled>
+                {stores.length === 0 ? 'No active darkstores available' : 'Select a darkstore…'}
+              </option>
+              {stores.map((s) => (
+                <option key={s.darkstore_id} value={s.darkstore_id}>
+                  {s.name} — #{s.darkstore_id}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Referral code" hint="Optional — code of the driver who referred them.">
             <input className="input" value={referral} onChange={(e) => setReferral(e.target.value)} placeholder="Optional" />
           </Field>

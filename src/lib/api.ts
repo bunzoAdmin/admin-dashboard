@@ -11,6 +11,7 @@ import type {
   DisputeStatus,
   DisputeSummary,
   DriverDetail,
+  DriverListResponse,
   DriverTripResponse,
   EarningsSummary,
   InKindDisbursementsResponse,
@@ -147,7 +148,24 @@ export const api = {
   getStoreQR: (storeId: string) => publicRequest<StoreQR>(`/stores/${encodeURIComponent(storeId.trim())}/qr`),
 
   // --- Driver lookup + detail ---
+  // Lists drivers assigned to a darkstore, ordered by name. Pass storeId
+  // 'UNASSIGNED' (or '') for drivers with no assigned store; name is an optional
+  // case-insensitive prefix filter; cursor drives pagination.
+  listDrivers: (params: { assigned_store_id: string; name?: string; cursor?: string; limit?: number }) =>
+    request<DriverListResponse>(`/admin/drivers`, {
+      query: {
+        assigned_store_id: params.assigned_store_id || 'UNASSIGNED',
+        name: params.name,
+        cursor: params.cursor,
+        limit: params.limit ? String(params.limit) : undefined
+      }
+    }),
   getDriver: (phone: string) => request<DriverDetail>(`/admin/drivers/${encodePhone(phone)}`),
+  updateDriverAssignedStore: (phone: string, assignedStoreId: string) =>
+    request<{ phone_number: string; assigned_store_id: string }>(
+      `/admin/drivers/${encodePhone(phone)}/assigned-store`,
+      { method: 'PATCH', body: { assigned_store_id: assignedStoreId } }
+    ),
   getDriverTrip: (phone: string) => request<DriverTripResponse>(`/admin/drivers/${encodePhone(phone)}/trip`),
   adminCompletePickup: (phone: string) =>
     request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/pickup/complete`, { method: 'POST' }),
@@ -187,6 +205,7 @@ export const api = {
     airtel_money_number: string;
     bike_number: string;
     bike_brand: string;
+    assigned_store_id: string;
     referral_code?: string;
   }) => request<{ de_id: string; phone_number: string; status: string }>(`/admin/drivers`, { method: 'POST', body }),
   createDarkstore: (body: {

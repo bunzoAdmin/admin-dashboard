@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Banknote, Wallet, ExternalLink } from 'lucide-react';
 import { api, ApiClientError } from '@/lib/api';
-import type { DriverDetail, EarningsSummary } from '@/lib/types';
-import { Card, ErrorBox, Loading, Stat, StatusBadge, Badge, money, formatDate, SectionTitle } from '@/components/ui';
+import type { Darkstore, DriverDetail, EarningsSummary } from '@/lib/types';
+import { Card, ErrorBox, Loading, Spinner, Stat, StatusBadge, Badge, money, formatDate, SectionTitle, useToast } from '@/components/ui';
 import { EarningsTab } from '@/components/driver/EarningsTab';
 import { DisbursementsTab } from '@/components/driver/DisbursementsTab';
 import { CashTab } from '@/components/driver/CashTab';
@@ -56,6 +56,7 @@ export default function DriverDetailPage() {
   const phone = decodeURIComponent(params.phone);
 
   const [driver, setDriver] = useState<DriverDetail | null>(null);
+  const [stores, setStores] = useState<Darkstore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
@@ -81,6 +82,15 @@ export default function DriverDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // All stores (incl. inactive) so we can name a since-deactivated assigned store
+  // and allow reassigning to inactive stores.
+  useEffect(() => {
+    api
+      .listDarkstores({ all: true })
+      .then((res) => setStores([...res.darkstores].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => {});
+  }, []);
 
   const fetchEarningsSummary = useCallback(() => {
     api.getDriverEarnings(phone).then(setEarningsSummary).catch(() => {});
@@ -169,6 +179,13 @@ export default function DriverDetailPage() {
             <div className="space-y-6">
               <CurrentTripCard phone={phone} refreshKey={tripRefresh} onTripChanged={afterAction} />
 
+              <AssignedStoreCard
+                phone={driver.phone_number}
+                assignedStoreId={driver.assigned_store_id}
+                stores={stores}
+                onSaved={load}
+              />
+
               <Card>
                 <SectionTitle>Documents</SectionTitle>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -224,6 +241,92 @@ export default function DriverDetailPage() {
         </>
       )}
     </div>
+  );
+}
+
+function AssignedStoreCard({
+  phone,
+  assignedStoreId,
+  stores,
+  onSaved
+}: {
+  phone: string;
+  assignedStoreId: string;
+  stores: Darkstore[];
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(assignedStoreId);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValue(assignedStoreId);
+  }, [assignedStoreId]);
+
+  const storeName = stores.find((s) => s.darkstore_id === assignedStoreId)?.name;
+  const display = assignedStoreId ? `${storeName ?? 'Unknown store'} — #${assignedStoreId}` : 'Unassigned';
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      await api.updateDriverAssignedStore(phone, value);
+      toast.push('success', value ? 'Assigned darkstore updated.' : 'Rider unassigned from darkstore.');
+      setEditing(false);
+      onSaved();
+    } catch (e) {
+      setErr(e instanceof ApiClientError ? e.message : 'Failed to update assigned darkstore.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <SectionTitle>Assigned darkstore</SectionTitle>
+      {!editing ? (
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-sm text-gray-800">{display}</div>
+          <button className="btn-ghost shrink-0" onClick={() => setEditing(true)}>
+            Change
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <select className="input" value={value} onChange={(e) => setValue(e.target.value)}>
+            <option value="">Unassigned</option>
+            {stores.map((s) => (
+              <option key={s.darkstore_id} value={s.darkstore_id}>
+                {s.name} — #{s.darkstore_id}
+                {s.is_active ? '' : ' (inactive)'}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400">
+            An unassigned rider cannot start duty. Reassigning does not end an active duty session.
+          </p>
+          {err && <ErrorBox message={err} />}
+          <div className="flex gap-2">
+            <button className="btn-primary" onClick={save} disabled={saving || value === assignedStoreId}>
+              {saving ? <Spinner className="h-4 w-4" /> : 'Save'}
+            </button>
+            <button
+              className="btn-ghost"
+              onClick={() => {
+                setValue(assignedStoreId);
+                setErr(null);
+                setEditing(false);
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
 

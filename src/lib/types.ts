@@ -116,6 +116,7 @@ export interface DriverDetail {
   bike_number: string;
   bike_brand: string;
   referral_code: string;
+  assigned_store_id: string;
   current_store_id: string;
   current_order_id: string;
   current_trip_id: string;
@@ -129,6 +130,21 @@ export interface DriverDetail {
   cash_limit_zmw: number;
   cash_blocked: boolean;
   daily_milestone?: DailyMilestone;
+}
+
+export interface DriverSummary {
+  de_id: string;
+  phone_number: string;
+  name: string;
+  status: DEStatus;
+  profile_url: string;
+  profile_view_url: string;
+  assigned_store_id: string;
+}
+
+export interface DriverListResponse {
+  drivers: DriverSummary[];
+  next_cursor: string;
 }
 
 export interface EarningsLineItem {
