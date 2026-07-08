@@ -197,6 +197,12 @@ export const api = {
     opens_at: string;
     closes_at: string;
   }) => request<{ darkstore_id: string; name: string; is_active: boolean }>(`/admin/darkstores`, { method: 'POST', body }),
+  // Lists darkstores for pickers. Defaults to all (active + inactive) so the
+  // manage page can select inactive stores too; pass { all: false } for active only.
+  listDarkstores: (opts?: { all?: boolean }) =>
+    request<{ darkstores: Darkstore[] }>(`/admin/darkstores`, {
+      query: { all: opts?.all === false ? undefined : 'true' }
+    }),
   getDarkstore: (id: string) => request<Darkstore>(`/admin/darkstores/${encodeURIComponent(id)}`),
   updateDarkstore: (
     id: string,

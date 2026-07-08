@@ -21,6 +21,12 @@ function ManageStorePageContent() {
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  // Full darkstore list powers the name picker. Includes inactive stores so
+  // they can be selected and reactivated. A failed load degrades gracefully to
+  // the manual ID field below.
+  const [stores, setStores] = useState<Darkstore[]>([]);
+  const [storesError, setStoresError] = useState<string | null>(null);
+
   const [name, setName] = useState('');
   const [latitude, setLatitude] = useState('');
   const [longitude, setLongitude] = useState('');
@@ -45,15 +51,15 @@ function ManageStorePageContent() {
     setPresenceRadius(String(store.presence_radius_meters));
   }, [store]);
 
-  async function loadStore(e?: React.FormEvent) {
-    e?.preventDefault();
-    const id = storeIdInput.trim();
-    if (!id) return;
+  async function loadStore(id: string) {
+    const trimmed = id.trim();
+    if (!trimmed) return;
+    setStoreIdInput(trimmed);
     setLoading(true);
     setLoadError(null);
     setStore(null);
     try {
-      const res = await api.getDarkstore(id);
+      const res = await api.getDarkstore(trimmed);
       setStore(res);
     } catch (err) {
       setLoadError(err instanceof ApiClientError ? err.message : 'Failed to load store.');
@@ -62,9 +68,24 @@ function ManageStorePageContent() {
     }
   }
 
+  function handleLoadSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    loadStore(storeIdInput);
+  }
+
+  useEffect(() => {
+    api
+      .listDarkstores()
+      .then((res) => {
+        const sorted = [...res.darkstores].sort((a, b) => a.name.localeCompare(b.name));
+        setStores(sorted);
+      })
+      .catch((err) => setStoresError(err instanceof ApiClientError ? err.message : 'Failed to load store list.'));
+  }, []);
+
   useEffect(() => {
     if (storeIdInput.trim()) {
-      loadStore();
+      loadStore(storeIdInput);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -181,12 +202,36 @@ function ManageStorePageContent() {
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-bold text-gray-900">Manage darkstore</h1>
-        <p className="text-sm text-gray-500">Look up a store by ID to edit its details or activate/deactivate it.</p>
+        <p className="text-sm text-gray-500">Select a store by name to edit its details or activate/deactivate it.</p>
       </div>
 
-      <Card className="max-w-xl">
-        <form onSubmit={loadStore} className="flex flex-wrap items-end gap-3">
-          <Field label="Store ID" className="min-w-[12rem] flex-1">
+      <Card className="max-w-xl space-y-4">
+        <Field
+          label="Select store"
+          hint={storesError ?? (stores.length === 0 ? 'Loading stores…' : 'Pick a store to load its details.')}
+        >
+          <select
+            className="input"
+            value={store?.darkstore_id ?? ''}
+            onChange={(e) => {
+              if (e.target.value) loadStore(e.target.value);
+            }}
+            disabled={stores.length === 0 || loading}
+          >
+            <option value="" disabled>
+              {stores.length === 0 ? 'No stores available' : 'Select a store…'}
+            </option>
+            {stores.map((s) => (
+              <option key={s.darkstore_id} value={s.darkstore_id}>
+                {s.name} — #{s.darkstore_id}
+                {s.is_active ? '' : ' (inactive)'}
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        <form onSubmit={handleLoadSubmit} className="flex flex-wrap items-end gap-3">
+          <Field label="Or load by store ID" className="min-w-[12rem] flex-1">
             <input
               className="input font-mono"
               value={storeIdInput}
@@ -199,11 +244,7 @@ function ManageStorePageContent() {
             Load
           </button>
         </form>
-        {loadError && (
-          <div className="mt-3">
-            <ErrorBox message={loadError} />
-          </div>
-        )}
+        {loadError && <ErrorBox message={loadError} />}
       </Card>
 
       {loading && !store && <Loading label="Loading store…" />}
