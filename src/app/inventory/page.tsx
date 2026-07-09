@@ -129,7 +129,7 @@ function InventoryPageContent() {
 
       {lookupError && !product && <ErrorBox message={lookupError} />}
 
-      {showPicker && !product && <ProductPicker storeId={storeId} onSelect={selectProduct} />}
+      {showPicker && !product && storeId != null && <ProductPicker storeId={storeId} onSelect={selectProduct} />}
 
       {product && (
         <div className="space-y-4">
@@ -146,7 +146,7 @@ function InventoryPageContent() {
               )}
             </div>
           </Card>
-          <InventoryOpsPanel product={product} storeId={storeId} />
+          {storeId != null && <InventoryOpsPanel product={product} storeId={storeId} />}
         </div>
       )}
     </div>

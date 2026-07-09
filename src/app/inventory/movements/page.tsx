@@ -34,7 +34,8 @@ export default function StockMovementsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (sid: number, pg: number) => {
+  const load = useCallback(async (sid: number | null, pg: number) => {
+    if (sid == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -106,7 +107,9 @@ export default function StockMovementsPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {data && (
+      {storeId == null ? (
+        <EmptyState>Select a store above to view stock movements.</EmptyState>
+      ) : data && (
         <Card className="overflow-hidden p-0">
           {loading && data === null ? (
             <div className="p-6"><Loading label="Loading movements…" /></div>

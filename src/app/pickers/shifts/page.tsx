@@ -37,6 +37,7 @@ export default function ShiftsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (storeId == null) return;
     setLoadError(null);
     try {
       setShifts(await pickerApi.listShifts(storeId));
@@ -81,6 +82,10 @@ export default function ShiftsPage() {
       setFormError('All fields are required.');
       return;
     }
+    if (!editing && storeId == null) {
+      setFormError('Select a store before creating a shift.');
+      return;
+    }
     setBusy(true);
     setFormError(null);
     try {
@@ -95,7 +100,7 @@ export default function ShiftsPage() {
         toast.push('success', 'Shift updated.');
       } else {
         await pickerApi.createShift({
-          storeId,
+          storeId: storeId!,
           code,
           displayName,
           startTime: toBackendTime(form.startTime),
@@ -131,7 +136,7 @@ export default function ShiftsPage() {
           <h1 className="text-xl font-bold text-gray-900">Store shifts</h1>
           <p className="text-sm text-gray-500">Roster windows assigned when onboarding pickers.</p>
         </div>
-        <button type="button" className="btn-primary" onClick={openCreate}>
+        <button type="button" className="btn-primary" disabled={storeId == null} onClick={openCreate}>
           <Plus className="h-4 w-4" /> Add shift
         </button>
       </div>
@@ -143,7 +148,9 @@ export default function ShiftsPage() {
       {loadError && <ErrorBox message={loadError} />}
 
       <Card className="overflow-hidden p-0">
-        {shifts === null && !loadError ? (
+        {storeId == null ? (
+          <EmptyState>Select a store above to view shifts.</EmptyState>
+        ) : shifts === null && !loadError ? (
           <div className="p-6">
             <Loading label="Loading shifts…" />
           </div>

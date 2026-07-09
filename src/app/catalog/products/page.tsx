@@ -52,7 +52,7 @@ function ProductsPageContent() {
     setBarcodeInput('');
 
     try {
-      const found = await catalogApi.getProductById(id, storeId);
+      const found = await catalogApi.getProductById(id, storeId ?? undefined);
       setProduct(found);
       setLockedBarcode(found.barcode?.trim() || null);
       setBarcodeInput(found.barcode?.trim() ?? '');

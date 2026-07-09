@@ -23,7 +23,8 @@ export default function DiscrepanciesPage() {
   const [resolvedByInput, setResolvedByInput] = useState('');
   const [resolvingId, setResolvingId] = useState<number | null>(null);
 
-  const load = useCallback(async (sid: number, st: string) => {
+  const load = useCallback(async (sid: number | null, st: string) => {
+    if (sid == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -75,7 +76,9 @@ export default function DiscrepanciesPage() {
       {error && <ErrorBox message={error} />}
 
       <Card className="overflow-hidden p-0">
-        {loading && rows === null ? (
+        {storeId == null ? (
+          <EmptyState>Select a store above to view discrepancies.</EmptyState>
+        ) : loading && rows === null ? (
           <div className="p-6"><Loading label="Loading discrepancies…" /></div>
         ) : rows && rows.length === 0 ? (
           <EmptyState>No discrepancies for the selected filters.</EmptyState>

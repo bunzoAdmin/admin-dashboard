@@ -25,7 +25,8 @@ export default function OnboardPickerPage() {
   const [error, setError] = useState<string | null>(null);
   const [pinModal, setPinModal] = useState<string | null>(null);
 
-  const loadShifts = useCallback(async (sid: number) => {
+  const loadShifts = useCallback(async (sid: number | null) => {
+    if (sid == null) { setShifts([]); setShiftId(''); return; }
     try {
       const list = await pickerApi.listShifts(sid);
       setShifts(list);
@@ -92,7 +93,9 @@ export default function OnboardPickerPage() {
           <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
 
           <Field label="Shift">
-            {shifts.length === 0 ? (
+            {storeId == null ? (
+              <p className="text-sm text-amber-600">Select a store above first.</p>
+            ) : shifts.length === 0 ? (
               <p className="text-sm text-amber-600">No shifts for this store. Create one under Pickers → Shifts.</p>
             ) : (
               <select className="input" value={shiftId} onChange={(e) => setShiftId(e.target.value)} required>

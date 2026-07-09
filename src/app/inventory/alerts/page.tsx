@@ -15,7 +15,8 @@ export default function InventoryAlertsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (sid: number) => {
+  const load = useCallback(async (sid: number | null) => {
+    if (sid == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -92,7 +93,9 @@ export default function InventoryAlertsPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {loading ? (
+      {storeId == null ? (
+        <EmptyState>Select a store above to view inventory alerts.</EmptyState>
+      ) : loading ? (
         <Loading label="Loading alerts…" />
       ) : (
         <>

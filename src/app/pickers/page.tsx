@@ -20,7 +20,7 @@ export default function PickersLiveOpsPage() {
   const [pickerFilter, setPickerFilter] = useState<PickerStatus | ''>('');
   const [taskFilter, setTaskFilter] = useState<PickTaskStatus | ''>('');
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [reassignTask, setReassignTask] = useState<TaskListResponse | null>(null);
   const [cancelTask, setCancelTask] = useState<TaskListResponse | null>(null);
 
@@ -31,6 +31,7 @@ export default function PickersLiveOpsPage() {
   }, [shifts]);
 
   const load = useCallback(async () => {
+    if (storeId == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -92,18 +93,22 @@ export default function PickersLiveOpsPage() {
 
       {error && <ErrorBox message={error} />}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <Stat label="Available" value={stats.available} />
-        <Stat label="Picking" value={stats.picking} />
-        <Stat label="On break" value={stats.onBreak} />
-        <Stat label="Offline" value={stats.offline} />
-        <Stat label="Active tasks" value={stats.activeTasks} sub="Assigned + in progress" />
-      </div>
-
-      {loading && pickers === null ? (
-        <Loading label="Loading…" />
+      {storeId == null ? (
+        <EmptyState>Select a store above to view live ops.</EmptyState>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <Stat label="Available" value={stats.available} />
+            <Stat label="Picking" value={stats.picking} />
+            <Stat label="On break" value={stats.onBreak} />
+            <Stat label="Offline" value={stats.offline} />
+            <Stat label="Active tasks" value={stats.activeTasks} sub="Assigned + in progress" />
+          </div>
+
+          {loading && pickers === null ? (
+            <Loading label="Loading…" />
+          ) : (
+            <div className="grid gap-6 xl:grid-cols-2">
           <Card className="overflow-hidden p-0">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-900">Pickers</h2>
@@ -224,11 +229,13 @@ export default function PickersLiveOpsPage() {
                 </table>
               </div>
             )}
-          </Card>
-        </div>
+            </Card>
+            </div>
+          )}
+        </>
       )}
 
-      <TaskReassignModal open={!!reassignTask} task={reassignTask} storeId={storeId} onClose={() => setReassignTask(null)} onDone={load} />
+      {storeId != null && <TaskReassignModal open={!!reassignTask} task={reassignTask} storeId={storeId} onClose={() => setReassignTask(null)} onDone={load} />}
       <TaskCancelModal open={!!cancelTask} task={cancelTask} onClose={() => setCancelTask(null)} onDone={load} />
     </div>
   );

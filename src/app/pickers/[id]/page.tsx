@@ -32,7 +32,7 @@ export default function PickerDetailPage() {
   const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
-    if (!Number.isFinite(pickerId)) return;
+    if (!Number.isFinite(pickerId) || storeId == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -141,7 +141,9 @@ export default function PickerDetailPage() {
         <ArrowLeft className="h-4 w-4" /> Back to live ops
       </Link>
 
-      {loading && <Loading label="Loading picker…" />}
+      {storeId == null && <ErrorBox message="No store selected. Go back to Pickers and select a store first." />}
+
+      {storeId != null && loading && <Loading label="Loading picker…" />}
       {error && <ErrorBox message={error} />}
 
       {picker && !loading && (

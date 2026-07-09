@@ -46,7 +46,8 @@ export default function OrdersListPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async (sid: number, pg: number) => {
+  const load = useCallback(async (sid: number | null, pg: number) => {
+    if (sid == null) return;
     setLoading(true);
     setError(null);
     try {
@@ -139,9 +140,13 @@ export default function OrdersListPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {loading && !data && <Loading label="Loading orders…" />}
+      {storeId == null ? (
+        <EmptyState>Select a store above to view orders.</EmptyState>
+      ) : (
+        <>
+          {loading && !data && <Loading label="Loading orders…" />}
 
-      {data && (
+          {data && (
         <Card className="overflow-hidden p-0 relative">
           {loading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60">
@@ -213,6 +218,8 @@ export default function OrdersListPage() {
             </>
           )}
         </Card>
+      )}
+        </>
       )}
     </div>
   );
