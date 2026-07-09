@@ -12,3 +12,7 @@ export function readStoreId(): number | null {
 export function writeStoreId(storeId: number): void {
   sessionStorage.setItem(STORAGE_KEY, String(storeId));
 }
+
+export function clearStoreId(): void {
+  sessionStorage.removeItem(STORAGE_KEY);
+}

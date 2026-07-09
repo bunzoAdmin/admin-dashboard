@@ -3,17 +3,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiClientError } from '@/lib/api';
 import type { Darkstore } from '@/lib/types';
-import { readStoreId, writeStoreId } from '@/lib/storeSession';
+import { clearStoreId, readStoreId, writeStoreId } from '@/lib/storeSession';
 import { Field } from '@/components/ui';
 
 const PINNED_STORE_ID = process.env.NEXT_PUBLIC_DEFAULT_STORE_ID
-  ? parseInt(process.env.NEXT_PUBLIC_DEFAULT_STORE_ID, 10)
-  : null;
+    ? parseInt(process.env.NEXT_PUBLIC_DEFAULT_STORE_ID, 10)
+    : null;
 
 interface StoreSelectorProps {
   storeId: number | null;
-  onStoreChange: (storeId: number) => void;
+  onStoreChange: (storeId: number | null) => void;
   className?: string;
+}
+
+function parseStoreId(raw: string): number | null {
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 export function StoreSelector({ storeId, onStoreChange, className }: StoreSelectorProps) {
@@ -32,6 +37,18 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
   useEffect(() => {
     setInput(storeId != null ? String(storeId) : '');
   }, [storeId]);
+
+  // If sessionStorage holds a stale ID (e.g. "1" from an old default) that is not
+  // in the live store list, the <select> can visually show the first option while
+  // React state and API calls still use the invalid ID. Clear it so the user must
+  // pick explicitly.
+  useEffect(() => {
+    if (stores.length === 0 || storeId == null) return;
+    const validIds = new Set(
+      stores.map((s) => parseStoreId(s.darkstore_id)).filter((id): id is number => id != null)
+    );
+    if (!validIds.has(storeId)) onStoreChange(null);
+  }, [stores, storeId, onStoreChange]);
 
   if (PINNED_STORE_ID) {
     return (
@@ -74,7 +91,7 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
         >
           <option value="" disabled>— Select a store —</option>
           {stores.map((s) => (
-            <option key={s.darkstore_id} value={parseInt(s.darkstore_id, 10)}>
+            <option key={s.darkstore_id} value={s.darkstore_id}>
               {s.name} — #{s.darkstore_id}
             </option>
           ))}
@@ -111,9 +128,14 @@ export function useStoreContext() {
     if (!PINNED_STORE_ID) setStoreId(readStoreId());
   }, []);
 
-  const changeStore = useCallback((id: number) => {
-    writeStoreId(id);
-    setStoreId(id);
+  const changeStore = useCallback((id: number | null) => {
+    if (id == null) {
+      clearStoreId();
+      setStoreId(null);
+    } else {
+      writeStoreId(id);
+      setStoreId(id);
+    }
   }, []);
 
   return { storeId, setStoreId: changeStore };
