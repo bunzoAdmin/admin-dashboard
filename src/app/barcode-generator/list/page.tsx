@@ -1,15 +1,64 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Printer, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Printer, RefreshCw } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
-import type { PagedBarcodeResponse } from '@/lib/catalogTypes';
+import type { BarcodeEntryResponse, PagedBarcodeResponse } from '@/lib/catalogTypes';
 import { BarcodeSvg } from '@/components/barcode-generator/BarcodeSvg';
-import { formatBarcodeDate } from '@/components/barcode-generator/barcodeUtils';
+import { formatBarcodeDate, downloadBarcodePng, printBarcode } from '@/components/barcode-generator/barcodeUtils';
 import { ErrorBox, Loading } from '@/components/ui';
 
 const PAGE_SIZE = 20;
+
+function BarcodeTableRow({ entry }: { entry: BarcodeEntryResponse }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const label = entry.productName;
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-3">
+        <div className="w-32">
+          <BarcodeSvg ref={svgRef} value={entry.barcode} format={entry.format} height={44} />
+        </div>
+      </td>
+      <td className="px-4 py-3 font-medium text-gray-800">{entry.productName}</td>
+      <td className="px-4 py-3 text-gray-600">{entry.contentAmount}</td>
+      <td className="px-4 py-3 text-gray-600">{entry.contentUom}</td>
+      <td className="px-4 py-3 text-gray-500">
+        {entry.multipackCount != null && entry.multipackCount > 1 ? (
+          `× ${entry.multipackCount}`
+        ) : (
+          <span className="text-gray-300">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-400">{entry.format}</td>
+      <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
+        {formatBarcodeDate(entry.createdAt)}
+      </td>
+      <td className="px-4 py-3 print:hidden">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className="btn-ghost p-1.5"
+            title={`Download PNG — ${label}`}
+            onClick={() => svgRef.current && downloadBarcodePng(svgRef.current, label)}
+          >
+            <Download className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className="btn-ghost p-1.5"
+            title={`Print label — ${label}`}
+            onClick={() => svgRef.current && printBarcode(svgRef.current, label)}
+          >
+            <Printer className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
 
 export default function BarcodeListPage() {
   const [listData, setListData] = useState<PagedBarcodeResponse | null>(null);
@@ -57,6 +106,16 @@ export default function BarcodeListPage() {
           >
             <RefreshCw className={`h-4 w-4 ${listLoading ? 'animate-spin' : ''}`} />
           </button>
+          {listData && listData.content.length > 0 && (
+            <button
+              type="button"
+              className="btn-ghost flex items-center gap-1.5 text-sm print:hidden"
+              onClick={() => window.print()}
+              title="Print this page of barcodes"
+            >
+              <Printer className="h-4 w-4" /> Print page
+            </button>
+          )}
           <Link href="/barcode-generator/generate" className="btn-primary text-sm">
             Generate new
           </Link>
@@ -88,31 +147,12 @@ export default function BarcodeListPage() {
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Multipack</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Format</th>
                     <th className="px-4 py-3 text-left font-medium text-gray-600">Generated</th>
+                    <th className="px-4 py-3 text-left font-medium text-gray-600 print:hidden">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {listData.content.map((entry) => (
-                    <tr key={entry.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="w-32">
-                          <BarcodeSvg value={entry.barcode} format={entry.format} height={44} />
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{entry.productName}</td>
-                      <td className="px-4 py-3 text-gray-600">{entry.contentAmount}</td>
-                      <td className="px-4 py-3 text-gray-600">{entry.contentUom}</td>
-                      <td className="px-4 py-3 text-gray-500">
-                        {entry.multipackCount != null && entry.multipackCount > 1 ? (
-                          `× ${entry.multipackCount}`
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-gray-400">{entry.format}</td>
-                      <td className="whitespace-nowrap px-4 py-3 text-xs text-gray-400">
-                        {formatBarcodeDate(entry.createdAt)}
-                      </td>
-                    </tr>
+                    <BarcodeTableRow key={entry.id} entry={entry} />
                   ))}
                 </tbody>
               </table>
