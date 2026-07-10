@@ -45,6 +45,7 @@ export function ImageUploadField({
   const pendingSlotRef = useRef<UploadSlot>('add');
 
   const [uploadingSlot, setUploadingSlot] = useState<UploadSlot | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
   // local preview blob URLs while an upload is in-flight, keyed by slot
   const previewUrlsRef = useRef<Map<UploadSlot, string>>(new Map());
   const [previewUrls, setPreviewUrls] = useState<Map<UploadSlot, string>>(new Map());
@@ -66,7 +67,11 @@ export function ImageUploadField({
 
   function triggerUpload(slot: UploadSlot) {
     pendingSlotRef.current = slot;
-    fileInputRef.current?.click();
+    const input = fileInputRef.current;
+    if (input && multiple) {
+      input.multiple = slot === 'add';
+    }
+    input?.click();
   }
 
   async function handleFileSelected(file: File) {
@@ -120,6 +125,39 @@ export function ImageUploadField({
     } finally {
       setUploadingSlot(null);
     }
+  }
+
+  async function handleMultipleFilesAdded(files: File[]) {
+    const slugTrimmed = slug.trim();
+    if (!slugTrimmed) {
+      setError('Enter a name (and slug) before uploading.');
+      return;
+    }
+    setError(null);
+
+    let accKeys = parseKeys(value);
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      setBatchProgress({ current: i + 1, total: files.length });
+      setUploadingSlot('add');
+      setSlotPreview('add', URL.createObjectURL(file));
+
+      try {
+        const index = accKeys.length === 0 ? undefined : accKeys.length + 1;
+        const r2Key = await catalogApi.uploadImage(file, { scope, slug: slugTrimmed, index });
+        accKeys = [...accKeys, r2Key];
+        onChange(keysToValue(accKeys));
+        setSlotPreview('add', null);
+      } catch (err) {
+        setError(err instanceof CatalogApiError ? err.message : `Upload failed (image ${i + 1} of ${files.length}).`);
+        setSlotPreview('add', null);
+        break;
+      }
+    }
+
+    setUploadingSlot(null);
+    setBatchProgress(null);
   }
 
   function handleDelete(i: number) {
@@ -192,7 +230,13 @@ export function ImageUploadField({
           type="file"
           accept="image/jpeg,image/png"
           className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
+          onChange={(e) => {
+            const input = e.target;
+            const selected = Array.from(input.files ?? []);
+            input.value = '';
+            const file = selected[0];
+            if (file) void handleFileSelected(file);
+          }}
         />
       </div>
     );
@@ -299,7 +343,12 @@ export function ImageUploadField({
             className="h-24 w-28 rounded-lg border-2 border-dashed border-gray-300 hover:border-gray-400 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-gray-600 transition disabled:opacity-50 flex-shrink-0"
           >
             {uploadingSlot === 'add' ? (
-              <Spinner className="h-5 w-5" />
+              <>
+                <Spinner className="h-5 w-5" />
+                {batchProgress && batchProgress.total > 1 && (
+                  <span className="text-xs">{batchProgress.current}/{batchProgress.total}</span>
+                )}
+              </>
             ) : (
               <>
                 <Upload className="h-4 w-4" />
@@ -324,8 +373,20 @@ export function ImageUploadField({
         ref={fileInputRef}
         type="file"
         accept="image/jpeg,image/png"
+        multiple
         className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void handleFileSelected(f); }}
+        onChange={(e) => {
+          const input = e.target;
+          const selected = Array.from(input.files ?? []);
+          input.value = '';
+          if (selected.length === 0) return;
+          const slot = pendingSlotRef.current;
+          if (slot === 'add' && selected.length > 1) {
+            void handleMultipleFilesAdded(selected);
+          } else {
+            void handleFileSelected(selected[0]);
+          }
+        }}
       />
     </div>
   );
