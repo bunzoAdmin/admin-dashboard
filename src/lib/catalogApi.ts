@@ -137,10 +137,8 @@ export const catalogApi = {
   getProductByBarcode: (barcode: string) =>
     catalogRequest<ProductResponse>(`/catalog/products/barcode/${encodeURIComponent(barcode.trim())}`),
 
-  getProductById: (id: number, storeId?: number) => {
-    const q = storeId != null ? `?storeId=${storeId}` : '';
-    return catalogRequest<ProductResponse>(`/catalog/products/${id}${q}`);
-  },
+  getProductById: (id: number, storeId: number) =>
+    catalogRequest<ProductResponse>(`/catalog/products/${id}?storeId=${storeId}`),
 
   syncProducts: (body: BulkSyncRequest) =>
     catalogRequest<BulkSyncResponse>('/catalog/products/sync', { method: 'POST', body }),

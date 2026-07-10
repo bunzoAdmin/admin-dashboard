@@ -23,6 +23,7 @@ function ProductsPageContent() {
   const [categories, setCategories] = useState<CategoryTreeNode[]>([]);
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const [pendingProductId, setPendingProductId] = useState<number | null>(null);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -46,13 +47,17 @@ function ProductsPageContent() {
   }, []);
 
   const lookupByProductId = useCallback(async (id: number) => {
+    if (storeId == null) {
+      setLookupError('Select a store before loading a product.');
+      return;
+    }
     setLookingUp(true);
     setLookupError(null);
     setLockedBarcode(null);
     setBarcodeInput('');
 
     try {
-      const found = await catalogApi.getProductById(id, storeId ?? undefined);
+      const found = await catalogApi.getProductById(id, storeId);
       setProduct(found);
       setLockedBarcode(found.barcode?.trim() || null);
       setBarcodeInput(found.barcode?.trim() ?? '');
@@ -65,7 +70,7 @@ function ProductsPageContent() {
     } finally {
       setLookingUp(false);
     }
-  }, []);
+  }, [storeId]);
 
   const lookupBarcode = useCallback(
     async (raw: string) => {
@@ -106,11 +111,19 @@ function ProductsPageContent() {
     } else if (idParam) {
       const id = parseInt(idParam, 10);
       if (Number.isFinite(id)) {
-        lookupByProductId(id);
+        setPendingProductId(id);
         router.replace('/catalog/products', { scroll: false });
       }
     }
-  }, [searchParams, lookupBarcode, lookupByProductId, router]);
+  }, [searchParams, lookupBarcode, router]);
+
+  // Browse → Edit passes ?id=…; wait for storeId (from selector or sessionStorage) before calling the API.
+  useEffect(() => {
+    if (pendingProductId == null || storeId == null) return;
+    const id = pendingProductId;
+    setPendingProductId(null);
+    lookupByProductId(id);
+  }, [pendingProductId, storeId, lookupByProductId]);
 
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
