@@ -49,6 +49,7 @@ export function BannerForm({ editing }: BannerFormProps) {
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categorySelectionValid, setCategorySelectionValid] = useState(true);
 
   function set<K extends keyof BannerFormState>(key: K, value: BannerFormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -70,6 +71,10 @@ export function BannerForm({ editing }: BannerFormProps) {
           ? 'Select at least one category.'
           : 'Select at least one product.'
       );
+      return;
+    }
+    if (form.actionType === 'CATEGORY_LIST' && !categorySelectionValid) {
+      setError('Remove categories that have subcategories. Only leaf categories can be linked to a banner.');
       return;
     }
 
@@ -144,6 +149,7 @@ export function BannerForm({ editing }: BannerFormProps) {
           onChange={(e) => {
             set('actionType', e.target.value as BannerActionType);
             set('actionItemIds', []); // clear selection when type changes
+            setCategorySelectionValid(true);
           }}
         >
           {BANNER_ACTION_TYPE_OPTIONS.map((o) => (
@@ -153,10 +159,10 @@ export function BannerForm({ editing }: BannerFormProps) {
       </Field>
 
       <Field
-        label={form.actionType === 'CATEGORY_LIST' ? 'Categories (L2 / L3 only)' : 'Products'}
+        label={form.actionType === 'CATEGORY_LIST' ? 'Categories (leaf only)' : 'Products'}
         hint={
           form.actionType === 'CATEGORY_LIST'
-            ? 'Select the sub-categories or leaf categories to open. Top-level (L1) categories are excluded.'
+            ? 'Only categories without subcategories can be linked. Parent categories with children are excluded.'
             : 'Search and select the products to open.'
         }
       >
@@ -164,6 +170,7 @@ export function BannerForm({ editing }: BannerFormProps) {
           actionType={form.actionType}
           value={form.actionItemIds}
           onChange={(ids) => set('actionItemIds', ids)}
+          onCategorySelectionValidityChange={setCategorySelectionValid}
         />
       </Field>
 

@@ -4,9 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import { catalogApi } from '@/lib/catalogApi';
 import type { BannerActionType, CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
-import { flattenTreeForL2L3, type FlatCategoryOption } from '@/lib/categoryTreeUtils';
+import { flattenTreeForLeafCategories, findInvalidCategorySelections, type FlatCategoryOption } from '@/lib/categoryTreeUtils';
 
-// ── Flat category item (L2 or L3 only) ───────────────────────────────────────
+// ── Flat category item (leaf only) ───────────────────────────────────────────
 interface FlatCategory extends FlatCategoryOption {}
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -14,10 +14,16 @@ interface ActionItemPickerProps {
   actionType: BannerActionType;
   value: number[];
   onChange: (ids: number[]) => void;
+  onCategorySelectionValidityChange?: (valid: boolean) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
-export function ActionItemPicker({ actionType, value, onChange }: ActionItemPickerProps) {
+export function ActionItemPicker({
+  actionType,
+  value,
+  onChange,
+  onCategorySelectionValidityChange
+}: ActionItemPickerProps) {
   const isCategory = actionType === 'CATEGORY_LIST';
 
   // Category mode state
@@ -40,10 +46,16 @@ export function ActionItemPicker({ actionType, value, onChange }: ActionItemPick
     setCatLoading(true);
     setCatError(null);
     catalogApi.getCategoryTree()
-      .then((tree) => setCategories(flattenTreeForL2L3(tree)))
+      .then((tree) => setCategories(flattenTreeForLeafCategories(tree)))
       .catch(() => setCatError('Failed to load categories.'))
       .finally(() => setCatLoading(false));
   }, [isCategory]);
+
+  useEffect(() => {
+    if (!isCategory || !onCategorySelectionValidityChange) return;
+    const invalid = findInvalidCategorySelections(value, categories);
+    onCategorySelectionValidityChange(invalid.length === 0);
+  }, [isCategory, value, categories, onCategorySelectionValidityChange]);
 
   // Debounced product search
   const doSearch = useCallback((q: string) => {
@@ -84,10 +96,12 @@ export function ActionItemPicker({ actionType, value, onChange }: ActionItemPick
       ? categories.filter((c) => c.breadcrumb.toLowerCase().includes(filterText.toLowerCase()))
       : categories;
 
+    const invalidIds = new Set(findInvalidCategorySelections(value, categories));
+
     // Map selected IDs to labels for chips
     const selectedLabels = value.map((id) => {
       const cat = categories.find((c) => c.id === id);
-      return { id, label: cat?.breadcrumb ?? `#${id}` };
+      return { id, label: cat?.breadcrumb ?? `#${id}`, invalid: invalidIds.has(id) };
     });
 
     return (
@@ -95,12 +109,17 @@ export function ActionItemPicker({ actionType, value, onChange }: ActionItemPick
         {/* Selected chips */}
         {selectedLabels.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {selectedLabels.map(({ id, label }) => (
+            {selectedLabels.map(({ id, label, invalid }) => (
               <span
                 key={id}
-                className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-medium text-blue-700"
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  invalid
+                    ? 'bg-amber-50 border border-amber-300 text-amber-800'
+                    : 'bg-blue-50 border border-blue-200 text-blue-700'
+                }`}
               >
                 {label}
+                {invalid && <span className="text-[10px] uppercase tracking-wide">has subcategories</span>}
                 <button
                   type="button"
                   className="ml-0.5 hover:text-blue-900"
@@ -127,7 +146,9 @@ export function ActionItemPicker({ actionType, value, onChange }: ActionItemPick
         {!catLoading && !catError && (
           <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <p className="px-3 py-4 text-xs text-gray-400 text-center">No categories found.</p>
+              <p className="px-3 py-4 text-xs text-gray-400 text-center">
+                No leaf categories found. Only categories without subcategories can be linked.
+              </p>
             ) : (
               filtered.map((cat) => {
                 const checked = value.includes(cat.id);
