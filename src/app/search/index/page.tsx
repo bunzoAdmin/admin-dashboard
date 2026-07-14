@@ -110,7 +110,7 @@ export default function SearchIndexPage() {
         <Card>
           <h2 className="mb-2 font-semibold text-gray-900">Sync Product Data</h2>
           <p className="mb-4 text-sm text-gray-500">
-            Push latest product catalogue changes to the search index incrementally.
+            Push latest product catalogue and store mappings to the search index (upsert + prune stale docs). Safe while search is live.
           </p>
           <button
             className="btn-primary flex items-center gap-2"

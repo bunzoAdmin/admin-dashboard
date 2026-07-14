@@ -99,6 +99,7 @@ export const adminBannersProxy = handlers('/api/v1/admin/banners');
 export const adminBannerSlotsProxy = handlers('/api/v1/admin/banner-slots');
 export const adminProductShowcasesProxy = handlers('/api/v1/admin/product-showcases');
 export const adminCategoryShowcasesProxy = handlers('/api/v1/admin/category-showcases');
+export const adminCatalogProductsProxy = handlers('/api/v1/admin/catalog/products');
 
 // Order-service admin routes
 export const adminOrdersProxy = handlers('/api/v1/admin/orders');

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiClientError } from '@/lib/api';
 import type { Darkstore } from '@/lib/types';
 import { clearStoreId, readStoreId, writeStoreId } from '@/lib/storeSession';
@@ -10,10 +10,15 @@ const PINNED_STORE_ID = process.env.NEXT_PUBLIC_DEFAULT_STORE_ID
     ? parseInt(process.env.NEXT_PUBLIC_DEFAULT_STORE_ID, 10)
     : null;
 
+/** Legacy/test darkstores hidden from inventory inwarding only. */
+export const INWARDING_EXCLUDED_STORE_IDS = [100];
+
 interface StoreSelectorProps {
   storeId: number | null;
   onStoreChange: (storeId: number | null) => void;
   className?: string;
+  /** Store IDs to omit from the dropdown and reject on manual entry. */
+  excludeStoreIds?: readonly number[];
 }
 
 function parseStoreId(raw: string): number | null {
@@ -21,7 +26,8 @@ function parseStoreId(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function StoreSelector({ storeId, onStoreChange, className }: StoreSelectorProps) {
+export function StoreSelector({ storeId, onStoreChange, className, excludeStoreIds = [] }: StoreSelectorProps) {
+  const excluded = useMemo(() => new Set(excludeStoreIds), [excludeStoreIds]);
   const [stores, setStores] = useState<Darkstore[]>([]);
   const [input, setInput] = useState(storeId != null ? String(storeId) : '');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -38,6 +44,11 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
     setInput(storeId != null ? String(storeId) : '');
   }, [storeId]);
 
+  // Reject excluded IDs immediately — don't wait for the darkstores list to load.
+  useEffect(() => {
+    if (storeId != null && excluded.has(storeId)) onStoreChange(null);
+  }, [storeId, onStoreChange, excluded]);
+
   // If sessionStorage holds a stale ID (e.g. "1" from an old default) that is not
   // in the live store list, the <select> can visually show the first option while
   // React state and API calls still use the invalid ID. Clear it so the user must
@@ -45,12 +56,14 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
   useEffect(() => {
     if (stores.length === 0 || storeId == null) return;
     const validIds = new Set(
-      stores.map((s) => parseStoreId(s.darkstore_id)).filter((id): id is number => id != null)
+      stores
+        .map((s) => parseStoreId(s.darkstore_id))
+        .filter((id): id is number => id != null && !excluded.has(id))
     );
-    if (!validIds.has(storeId)) onStoreChange(null);
-  }, [stores, storeId, onStoreChange]);
+    if (!validIds.has(storeId) || excluded.has(storeId)) onStoreChange(null);
+  }, [stores, storeId, onStoreChange, excluded]);
 
-  if (PINNED_STORE_ID) {
+  if (PINNED_STORE_ID && !excluded.has(PINNED_STORE_ID)) {
     return (
       <Field label="Store" hint="Pinned by NEXT_PUBLIC_DEFAULT_STORE_ID (local dev)." className={className}>
         <div className="flex items-center gap-2">
@@ -64,7 +77,7 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
 
   function applyManual() {
     const id = parseInt(input, 10);
-    if (!Number.isFinite(id) || id <= 0) return;
+    if (!Number.isFinite(id) || id <= 0 || excluded.has(id)) return;
     writeStoreId(id);
     onStoreChange(id);
   }
@@ -90,7 +103,12 @@ export function StoreSelector({ storeId, onStoreChange, className }: StoreSelect
           onChange={(e) => onSelectChange(e.target.value)}
         >
           <option value="" disabled>— Select a store —</option>
-          {stores.map((s) => (
+          {stores
+            .filter((s) => {
+              const id = parseStoreId(s.darkstore_id);
+              return id != null && !excluded.has(id);
+            })
+            .map((s) => (
             <option key={s.darkstore_id} value={s.darkstore_id}>
               {s.name} — #{s.darkstore_id}
             </option>

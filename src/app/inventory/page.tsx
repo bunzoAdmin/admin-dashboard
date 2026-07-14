@@ -7,7 +7,7 @@ import { catalogApi, CatalogApiError, isCatalogNotFound } from '@/lib/catalogApi
 import type { ProductResponse } from '@/lib/catalogTypes';
 import { InventoryOpsPanel } from '@/components/inventory/InventoryOpsPanel';
 import { ProductPicker, ProductSummary } from '@/components/inventory/ProductPicker';
-import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
+import { StoreSelector, INWARDING_EXCLUDED_STORE_IDS, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, ErrorBox, Field, Loading, Spinner } from '@/components/ui';
 
 export default function InventoryPage() {
@@ -85,7 +85,11 @@ function InventoryPageContent() {
       </div>
 
       <Card className="flex flex-wrap items-end gap-3">
-        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
+        <StoreSelector
+          storeId={storeId}
+          onStoreChange={setStoreId}
+          excludeStoreIds={INWARDING_EXCLUDED_STORE_IDS}
+        />
       </Card>
 
       {!product && (

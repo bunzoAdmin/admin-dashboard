@@ -97,7 +97,13 @@ export default function BrowseProductsPage() {
                     <button
                       type="button"
                       className="text-sm font-medium text-brand-green-dark hover:underline"
-                      onClick={() => router.push(`/catalog/products?id=${p.id}`)}
+                      onClick={() => {
+                        const barcode = p.barcode?.trim();
+                        const base = barcode
+                          ? `/catalog/products?barcode=${encodeURIComponent(barcode)}`
+                          : `/catalog/products?id=${p.id}`;
+                        router.push(`${base}&from=browse`);
+                      }}
                     >
                       Edit
                     </button>

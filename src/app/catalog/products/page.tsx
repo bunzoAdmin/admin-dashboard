@@ -7,14 +7,12 @@ import { ScanBarcode } from 'lucide-react';
 import { catalogApi, CatalogApiError, isCatalogNotFound } from '@/lib/catalogApi';
 import type { CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
 import { ProductEditor, type ProductEditorMode } from '@/components/catalog/ProductEditor';
-import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, ErrorBox, Field, Loading, Spinner } from '@/components/ui';
 
 function ProductsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const barcodeInputRef = useRef<HTMLInputElement>(null);
-  const { storeId, setStoreId } = useStoreContext();
 
   const [barcodeInput, setBarcodeInput] = useState('');
   const [lockedBarcode, setLockedBarcode] = useState<string | null>(null);
@@ -24,6 +22,8 @@ function ProductsPageContent() {
   const [lookupError, setLookupError] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [pendingProductId, setPendingProductId] = useState<number | null>(null);
+  const [pendingFromBrowse, setPendingFromBrowse] = useState(false);
+  const [returnToBrowse, setReturnToBrowse] = useState(false);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -43,37 +43,44 @@ function ProductsPageContent() {
     setProduct(null);
     setBarcodeInput('');
     setLookupError(null);
+    setReturnToBrowse(false);
     setTimeout(() => barcodeInputRef.current?.focus(), 0);
   }, []);
 
-  const lookupByProductId = useCallback(async (id: number) => {
-    if (storeId == null) {
-      setLookupError('Select a store before loading a product.');
+  const closeEditor = useCallback(() => {
+    if (returnToBrowse) {
+      router.push('/catalog/products/browse');
       return;
     }
+    resetForNextScan();
+  }, [returnToBrowse, resetForNextScan, router]);
+
+  const lookupByProductId = useCallback(async (id: number, fromBrowse = false) => {
     setLookingUp(true);
     setLookupError(null);
     setLockedBarcode(null);
     setBarcodeInput('');
 
     try {
-      const found = await catalogApi.getProductById(id, storeId);
+      const found = await catalogApi.getAdminProductById(id);
       setProduct(found);
       setLockedBarcode(found.barcode?.trim() || null);
       setBarcodeInput(found.barcode?.trim() ?? '');
       setMode('edit');
+      setReturnToBrowse(fromBrowse);
     } catch (err) {
       setLookupError(err instanceof CatalogApiError ? err.message : 'Failed to load product.');
       setProduct(null);
       setMode(null);
       setLockedBarcode(null);
+      setReturnToBrowse(false);
     } finally {
       setLookingUp(false);
     }
-  }, [storeId]);
+  }, []);
 
   const lookupBarcode = useCallback(
-    async (raw: string) => {
+    async (raw: string, fromBrowse = false) => {
       const barcode = raw.trim();
       if (!barcode) return;
 
@@ -86,7 +93,9 @@ function ProductsPageContent() {
         const found = await catalogApi.getProductByBarcode(barcode);
         setProduct(found);
         setMode('edit');
+        setReturnToBrowse(fromBrowse);
       } catch (err) {
+        setReturnToBrowse(false);
         if (isCatalogNotFound(err)) {
           setProduct(null);
           setMode('create');
@@ -103,27 +112,31 @@ function ProductsPageContent() {
   );
 
   useEffect(() => {
+    const fromBrowse = searchParams.get('from') === 'browse';
     const fromQuery = searchParams.get('barcode')?.trim();
     const idParam = searchParams.get('id')?.trim();
     if (fromQuery) {
-      lookupBarcode(fromQuery);
+      lookupBarcode(fromQuery, fromBrowse);
       router.replace('/catalog/products', { scroll: false });
     } else if (idParam) {
       const id = parseInt(idParam, 10);
       if (Number.isFinite(id)) {
+        setPendingFromBrowse(fromBrowse);
         setPendingProductId(id);
         router.replace('/catalog/products', { scroll: false });
       }
     }
   }, [searchParams, lookupBarcode, router]);
 
-  // Browse → Edit passes ?id=…; wait for storeId (from selector or sessionStorage) before calling the API.
+  // Browse → Edit passes ?id=… when the product has no barcode.
   useEffect(() => {
-    if (pendingProductId == null || storeId == null) return;
+    if (pendingProductId == null) return;
     const id = pendingProductId;
+    const fromBrowse = pendingFromBrowse;
     setPendingProductId(null);
-    lookupByProductId(id);
-  }, [pendingProductId, storeId, lookupByProductId]);
+    setPendingFromBrowse(false);
+    lookupByProductId(id, fromBrowse);
+  }, [pendingProductId, pendingFromBrowse, lookupByProductId]);
 
   function onBarcodeKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
@@ -143,10 +156,6 @@ function ProductsPageContent() {
           Browse all products
         </Link>
       </div>
-
-      <Card className="flex flex-wrap items-end gap-3">
-        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
-      </Card>
 
       <Card className="max-w-xl space-y-4">
         <Field label="Barcode" hint="Focus here and scan with your barcode reader, or type and press Enter.">
@@ -174,8 +183,8 @@ function ProductsPageContent() {
         </Field>
 
         {mode && (
-          <button type="button" className="text-sm text-gray-500 underline hover:text-gray-700" onClick={resetForNextScan}>
-            {lockedBarcode ? 'Scan another barcode' : 'Close editor'}
+          <button type="button" className="text-sm text-gray-500 underline hover:text-gray-700" onClick={closeEditor}>
+            {returnToBrowse ? 'Back to browse' : lockedBarcode ? 'Scan another barcode' : 'Close editor'}
           </button>
         )}
       </Card>
@@ -188,8 +197,8 @@ function ProductsPageContent() {
           barcode={lockedBarcode ?? product?.barcode?.trim() ?? ''}
           product={product}
           categories={categories}
-          onSaved={resetForNextScan}
-          onCancel={resetForNextScan}
+          onSaved={closeEditor}
+          onCancel={closeEditor}
         />
       )}
     </div>

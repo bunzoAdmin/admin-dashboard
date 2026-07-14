@@ -140,6 +140,10 @@ export const catalogApi = {
   getProductById: (id: number, storeId: number) =>
     catalogRequest<ProductResponse>(`/catalog/products/${id}?storeId=${storeId}`),
 
+  /** Admin lookup — catalog metadata only, no storeId / stock enrichment. */
+  getAdminProductById: (id: number) =>
+    catalogRequest<ProductResponse>(`/admin/catalog/products/${id}`),
+
   syncProducts: (body: BulkSyncRequest) =>
     catalogRequest<BulkSyncResponse>('/catalog/products/sync', { method: 'POST', body }),
 
