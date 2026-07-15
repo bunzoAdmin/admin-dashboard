@@ -113,6 +113,7 @@ export default function QrCampaignDetailPage() {
   if (!detail) return <ErrorBox message="Campaign not found" />;
 
   const c = detail.campaign;
+  const placementAnalytics = analytics?.placements ?? [];
 
   return (
     <div className="space-y-6">
@@ -175,7 +176,7 @@ export default function QrCampaignDetailPage() {
           <h2 className="text-lg font-semibold text-gray-900">Scans by placement</h2>
           <p className="text-xs text-gray-500">Lifetime counts per placement (bots excluded from scans/unique).</p>
         </div>
-        {(analytics?.placements?.length ?? 0) > 0 ? (
+        {placementAnalytics.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
@@ -191,7 +192,7 @@ export default function QrCampaignDetailPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {analytics.placements.map((p) => (
+                {placementAnalytics.map((p) => (
                   <tr key={p.slug} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{p.name}</div>
@@ -212,13 +213,13 @@ export default function QrCampaignDetailPage() {
               <tfoot className="border-t border-gray-200 bg-gray-50 text-sm font-semibold text-gray-900">
                 <tr>
                   <td className="px-4 py-3">Total</td>
-                  <td className="px-4 py-3 text-right">{analytics.total_scans}</td>
-                  <td className="px-4 py-3 text-right">{analytics.total_unique}</td>
-                  <td className="px-4 py-3 text-right">{analytics.total_ios}</td>
-                  <td className="px-4 py-3 text-right">{analytics.total_android}</td>
-                  <td className="px-4 py-3 text-right">{analytics.total_other}</td>
+                  <td className="px-4 py-3 text-right">{analytics?.total_scans ?? 0}</td>
+                  <td className="px-4 py-3 text-right">{analytics?.total_unique ?? 0}</td>
+                  <td className="px-4 py-3 text-right">{analytics?.total_ios ?? 0}</td>
+                  <td className="px-4 py-3 text-right">{analytics?.total_android ?? 0}</td>
+                  <td className="px-4 py-3 text-right">{analytics?.total_other ?? 0}</td>
                   <td className="px-4 py-3 text-right text-gray-400">
-                    {analytics.placements.reduce((sum, p) => sum + p.bot_count, 0)}
+                    {placementAnalytics.reduce((sum, p) => sum + p.bot_count, 0)}
                   </td>
                   <td className="px-4 py-3" />
                 </tr>
@@ -230,12 +231,12 @@ export default function QrCampaignDetailPage() {
         )}
       </Card>
 
-      {(analytics?.placements?.length ?? 0) > 0 && (
+      {placementAnalytics.length > 0 && (
         <Card className="p-4">
           <h2 className="text-lg font-semibold text-gray-900">Platform split by placement</h2>
           <p className="mb-4 text-xs text-gray-500">iOS / Android / Other breakdown for each placement.</p>
           <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-            {analytics.placements.map((p) => (
+            {placementAnalytics.map((p) => (
               <div key={p.slug} className="rounded-lg border border-gray-100 p-3">
                 <div className="mb-2 min-w-0">
                   <div className="truncate font-medium text-gray-900">{p.name}</div>
