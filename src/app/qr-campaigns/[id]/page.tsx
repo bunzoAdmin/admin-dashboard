@@ -150,6 +150,66 @@ export default function QrCampaignDetailPage() {
         {analytics ? <ScanBars data={analytics.daily} /> : <div className="text-sm text-gray-400">No data</div>}
       </Card>
 
+      <Card className="overflow-hidden p-0">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h2 className="text-lg font-semibold text-gray-900">Scans by placement</h2>
+          <p className="text-xs text-gray-500">Lifetime counts per placement (bots excluded from scans/unique).</p>
+        </div>
+        {analytics && analytics.placements.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
+                <tr>
+                  <th className="px-4 py-3">Placement</th>
+                  <th className="px-4 py-3 text-right">Scans</th>
+                  <th className="px-4 py-3 text-right">Unique</th>
+                  <th className="px-4 py-3 text-right">iOS</th>
+                  <th className="px-4 py-3 text-right">Android</th>
+                  <th className="px-4 py-3 text-right">Other</th>
+                  <th className="px-4 py-3 text-right">Bots</th>
+                  <th className="px-4 py-3">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {analytics.placements.map((p) => (
+                  <tr key={p.slug} className="hover:bg-gray-50">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{p.name}</div>
+                      {p.location && <div className="text-xs text-gray-400">{p.location}</div>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-gray-900">{p.scan_count}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{p.unique_count}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{p.ios_count}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{p.android_count}</td>
+                    <td className="px-4 py-3 text-right text-gray-600">{p.other_count}</td>
+                    <td className="px-4 py-3 text-right text-gray-400">{p.bot_count}</td>
+                    <td className="px-4 py-3">
+                      <Badge tone={p.enabled ? 'green' : 'gray'}>{p.enabled ? 'Active' : 'Disabled'}</Badge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t border-gray-200 bg-gray-50 text-sm font-semibold text-gray-900">
+                <tr>
+                  <td className="px-4 py-3">Total</td>
+                  <td className="px-4 py-3 text-right">{analytics.total_scans}</td>
+                  <td className="px-4 py-3 text-right">{analytics.total_unique}</td>
+                  <td className="px-4 py-3 text-right">{analytics.total_ios}</td>
+                  <td className="px-4 py-3 text-right">{analytics.total_android}</td>
+                  <td className="px-4 py-3 text-right">{analytics.total_other}</td>
+                  <td className="px-4 py-3 text-right text-gray-400">
+                    {analytics.placements.reduce((sum, p) => sum + p.bot_count, 0)}
+                  </td>
+                  <td className="px-4 py-3" />
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        ) : (
+          <div className="px-4 py-6 text-sm text-gray-400">No placements yet.</div>
+        )}
+      </Card>
+
       <Card className="p-4">
         <h2 className="mb-3 text-lg font-semibold text-gray-900">Add placement</h2>
         <form onSubmit={addPlacement} className="flex flex-wrap items-end gap-3">
