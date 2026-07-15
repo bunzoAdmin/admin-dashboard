@@ -89,7 +89,7 @@ export default function QrCampaignDetailPage() {
 
   async function downloadAllZip() {
     if (!detail || !gridRef.current) return;
-    const cards = Array.from(gridRef.current.querySelectorAll('svg')) as SVGSVGElement[];
+    const cards = Array.from(gridRef.current.querySelectorAll('[data-qr-svg] svg')) as SVGSVGElement[];
     if (!cards.length) return;
     const zip = new JSZip();
     for (let i = 0; i < detail.placements.length; i++) {

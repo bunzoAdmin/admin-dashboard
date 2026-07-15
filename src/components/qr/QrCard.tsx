@@ -18,7 +18,7 @@ export function QrCard({ placement }: { placement: QrPlacement }) {
 
   return (
     <div className="card flex flex-col items-center gap-3 p-4 print:break-inside-avoid">
-      <div ref={ref} className="rounded-lg bg-white p-2">
+      <div ref={ref} data-qr-svg className="rounded-lg bg-white p-2">
         <QRCode value={placement.url} size={180} level="M" />
       </div>
       <div className="text-center">
