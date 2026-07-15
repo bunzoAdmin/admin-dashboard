@@ -9,6 +9,7 @@ import type { QrCampaignDetail, QrPlacement, QrAnalytics } from '@/lib/qrTypes';
 import { Card, Loading, ErrorBox, Badge, Stat, useToast } from '@/components/ui';
 import { QrCard } from '@/components/qr/QrCard';
 import { ScanBars } from '@/components/qr/ScanBars';
+import { PlatformPie } from '@/components/qr/PlatformPie';
 import { svgElementToPngBlob, downloadBlob, sanitizeFilename } from '@/lib/qrImage';
 
 export default function QrCampaignDetailPage() {
@@ -133,22 +134,37 @@ export default function QrCampaignDetailPage() {
         </div>
       )}
 
-      <Card className="p-4">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-lg font-semibold text-gray-900">Scans over time</h2>
-          <div className="flex items-end gap-2 print:hidden">
-            <div>
-              <label className="label">From</label>
-              <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">To</label>
-              <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-4 lg:col-span-2">
+          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="text-lg font-semibold text-gray-900">Scans over time</h2>
+            <div className="flex items-end gap-2 print:hidden">
+              <div>
+                <label className="label">From</label>
+                <input type="date" className="input" value={from} onChange={(e) => setFrom(e.target.value)} />
+              </div>
+              <div>
+                <label className="label">To</label>
+                <input type="date" className="input" value={to} onChange={(e) => setTo(e.target.value)} />
+              </div>
             </div>
           </div>
-        </div>
-        {analytics ? <ScanBars data={analytics.daily} /> : <div className="text-sm text-gray-400">No data</div>}
-      </Card>
+          {analytics ? <ScanBars data={analytics.daily} /> : <div className="text-sm text-gray-400">No data</div>}
+        </Card>
+
+        <Card className="p-4">
+          <h2 className="mb-3 text-lg font-semibold text-gray-900">Platform split</h2>
+          {analytics ? (
+            <PlatformPie
+              ios={analytics.total_ios}
+              android={analytics.total_android}
+              other={analytics.total_other}
+            />
+          ) : (
+            <div className="text-sm text-gray-400">No data</div>
+          )}
+        </Card>
+      </div>
 
       <Card className="overflow-hidden p-0">
         <div className="border-b border-gray-100 px-4 py-3">
