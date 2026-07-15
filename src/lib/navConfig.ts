@@ -95,6 +95,14 @@ export const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
+    id: 'qr-campaigns',
+    label: 'QR Campaigns',
+    items: [
+      { href: '/qr-campaigns', label: 'All Campaigns', icon: QrCode, exact: true },
+      { href: '/qr-campaigns/new', label: 'Create Campaign', icon: Plus }
+    ]
+  },
+  {
     id: 'pickers',
     label: 'Pickers',
     items: [
