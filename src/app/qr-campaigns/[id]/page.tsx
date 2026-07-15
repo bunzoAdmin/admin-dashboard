@@ -226,6 +226,24 @@ export default function QrCampaignDetailPage() {
         )}
       </Card>
 
+      {analytics && analytics.placements.length > 0 && (
+        <Card className="p-4">
+          <h2 className="text-lg font-semibold text-gray-900">Platform split by placement</h2>
+          <p className="mb-4 text-xs text-gray-500">iOS / Android / Other breakdown for each placement.</p>
+          <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+            {analytics.placements.map((p) => (
+              <div key={p.slug} className="rounded-lg border border-gray-100 p-3">
+                <div className="mb-2 min-w-0">
+                  <div className="truncate font-medium text-gray-900">{p.name}</div>
+                  {p.location && <div className="truncate text-xs text-gray-400">{p.location}</div>}
+                </div>
+                <PlatformPie ios={p.ios_count} android={p.android_count} other={p.other_count} size={120} />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card className="p-4">
         <h2 className="mb-3 text-lg font-semibold text-gray-900">Add placement</h2>
         <form onSubmit={addPlacement} className="flex flex-wrap items-end gap-3">

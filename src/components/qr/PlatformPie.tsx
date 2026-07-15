@@ -10,7 +10,17 @@ interface Slice {
  * Dependency-free SVG pie chart of the platform split for a campaign's scans.
  * Renders a legend with per-platform counts and percentages.
  */
-export function PlatformPie({ ios, android, other }: { ios: number; android: number; other: number }) {
+export function PlatformPie({
+  ios,
+  android,
+  other,
+  size = 160
+}: {
+  ios: number;
+  android: number;
+  other: number;
+  size?: number;
+}) {
   const slices: Slice[] = [
     { label: 'iOS', value: ios, color: '#0ea5e9' },
     { label: 'Android', value: android, color: '#22c55e' },
@@ -19,7 +29,6 @@ export function PlatformPie({ ios, android, other }: { ios: number; android: num
   const total = slices.reduce((sum, s) => sum + s.value, 0);
   const active = slices.filter((s) => s.value > 0);
 
-  const size = 160;
   const r = size / 2;
   const cx = r;
   const cy = r;
