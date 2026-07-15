@@ -2,12 +2,13 @@
 
 import type { QrDailyBucket } from '@/lib/qrTypes';
 
-export function ScanBars({ data }: { data: QrDailyBucket[] }) {
-  if (!data.length) return <div className="text-sm text-gray-400">No scans in this range.</div>;
-  const max = Math.max(1, ...data.map((d) => d.scans));
+export function ScanBars({ data }: { data: QrDailyBucket[] | null | undefined }) {
+  const rows = data ?? [];
+  if (!rows.length) return <div className="text-sm text-gray-400">No scans in this range.</div>;
+  const max = Math.max(1, ...rows.map((d) => d.scans));
   return (
     <div className="flex h-40 items-end gap-1 overflow-x-auto">
-      {data.map((d) => (
+      {rows.map((d) => (
         <div key={d.date} className="flex min-w-[10px] flex-1 flex-col items-center gap-1" title={`${d.date}: ${d.scans}`}>
           <div className="text-[9px] text-gray-500">{d.scans || ''}</div>
           <div

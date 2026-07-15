@@ -39,8 +39,12 @@ export default function QrCampaignDetailPage() {
         qrApi.getCampaign(id),
         qrApi.analytics(id, `${from}T00:00:00Z`, `${to}T23:59:59Z`)
       ]);
-      setDetail(d);
-      setAnalytics(a);
+      setDetail({ ...d, placements: d.placements ?? [] });
+      setAnalytics({
+        ...a,
+        placements: a.placements ?? [],
+        daily: a.daily ?? []
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load campaign');
     } finally {
@@ -171,7 +175,7 @@ export default function QrCampaignDetailPage() {
           <h2 className="text-lg font-semibold text-gray-900">Scans by placement</h2>
           <p className="text-xs text-gray-500">Lifetime counts per placement (bots excluded from scans/unique).</p>
         </div>
-        {analytics && analytics.placements.length > 0 ? (
+        {(analytics?.placements?.length ?? 0) > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-left text-xs uppercase text-gray-500">
@@ -226,7 +230,7 @@ export default function QrCampaignDetailPage() {
         )}
       </Card>
 
-      {analytics && analytics.placements.length > 0 && (
+      {(analytics?.placements?.length ?? 0) > 0 && (
         <Card className="p-4">
           <h2 className="text-lg font-semibold text-gray-900">Platform split by placement</h2>
           <p className="mb-4 text-xs text-gray-500">iOS / Android / Other breakdown for each placement.</p>
