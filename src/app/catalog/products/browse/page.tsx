@@ -24,12 +24,15 @@ export default function BrowseProductsPage() {
   const [l1Ids, setL1Ids] = useState<number[]>([]);
   const [l2Ids, setL2Ids] = useState<number[]>([]);
   const [l3Ids, setL3Ids] = useState<number[]>([]);
+  const [categoryMatchMode, setCategoryMatchMode] = useState<'subtree' | 'exact'>('subtree');
 
   const l1Options = useMemo(() => flattenTreeAtDepth(tree, 1), [tree]);
   const l2Options = useMemo(() => flattenTreeAtDepth(tree, 2), [tree]);
   const l3Options = useMemo(() => flattenTreeAtDepth(tree, 3), [tree]);
 
   const selectedCategoryIds = useMemo(() => [...l1Ids, ...l2Ids, ...l3Ids], [l1Ids, l2Ids, l3Ids]);
+
+  const selectedCategoryIdSet = useMemo(() => new Set(selectedCategoryIds), [selectedCategoryIds]);
 
   const matchingCategoryIds = useMemo(
     () => expandCategorySelectionToSubtreeIds(tree, selectedCategoryIds),
@@ -38,9 +41,12 @@ export default function BrowseProductsPage() {
 
   const filteredItems = useMemo(() => {
     if (!items) return null;
-    if (matchingCategoryIds.size === 0) return items;
+    if (selectedCategoryIds.length === 0) return items;
+    if (categoryMatchMode === 'exact') {
+      return items.filter((p) => selectedCategoryIdSet.has(p.categoryId));
+    }
     return items.filter((p) => matchingCategoryIds.has(p.categoryId));
-  }, [items, matchingCategoryIds]);
+  }, [items, selectedCategoryIds.length, categoryMatchMode, selectedCategoryIdSet, matchingCategoryIds]);
 
   const load = useCallback(async (q: string) => {
     setLoading(true);
@@ -121,17 +127,31 @@ export default function BrowseProductsPage() {
       </Card>
 
       <Card className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-gray-800">Filter by category</p>
-          {hasCategoryFilters && (
-            <button type="button" className="text-xs text-gray-500 hover:text-gray-800" onClick={clearCategoryFilters}>
-              Clear all category filters
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-xs text-gray-600">
+              <span>Match:</span>
+              <select
+                className="input py-1 text-xs"
+                value={categoryMatchMode}
+                onChange={(e) => setCategoryMatchMode(e.target.value as 'subtree' | 'exact')}
+              >
+                <option value="subtree">Include subcategories</option>
+                <option value="exact">Exact category only</option>
+              </select>
+            </label>
+            {hasCategoryFilters && (
+              <button type="button" className="text-xs text-gray-500 hover:text-gray-800" onClick={clearCategoryFilters}>
+                Clear all category filters
+              </button>
+            )}
+          </div>
         </div>
         <p className="text-xs text-gray-500">
-          Pick any L1, L2, or L3 categories independently. Products match if they sit under any selected
-          category.
+          {categoryMatchMode === 'exact'
+            ? 'Shows products linked directly to the selected categories — useful for spotting mislinked L1/L2 assignments.'
+            : 'Pick any L1, L2, or L3 categories independently. Products match if they sit under any selected category.'}
         </p>
         <div className="grid gap-4 md:grid-cols-3">
           <CategoryLevelMultiFilter label="L1" options={l1Options} selectedIds={l1Ids} onChange={setL1Ids} />
