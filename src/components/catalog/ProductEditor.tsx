@@ -14,7 +14,7 @@ import type {
   TemperatureBand
 } from '@/lib/catalogTypes';
 import { CONTENT_UOM_OPTIONS } from '@/lib/catalogTypes';
-import { flattenCategoryTree } from '@/components/catalog/CategoryTree';
+import { LeafCategoryPicker, isLeafCategorySelection } from '@/components/catalog/LeafCategoryPicker';
 import { PdpDetailsPanel } from '@/components/catalog/PdpDetailsPanel';
 import { ImageUploadField } from '@/components/catalog/ImageUploadField';
 import type { ProductFormState } from '@/components/catalog/productFormTypes';
@@ -156,7 +156,7 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
     catalogApi.listBadges(false).then(setAllBadges).catch(() => setAllBadges([]));
   }, []);
 
-  const categoryOptions = flattenCategoryTree(categories);
+  const categoryIsLeaf = isLeafCategorySelection(categories, form.categoryId);
 
   const toggleBadge = useCallback((code: string) => {
     setForm((f) => {
@@ -181,6 +181,11 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
 
       if (!name || !Number.isFinite(categoryId) || !Number.isFinite(basePrice) || basePrice <= 0) {
         setError('Name, category, and a valid price are required.');
+        setTab('basics');
+        return;
+      }
+      if (!isLeafCategorySelection(categories, form.categoryId)) {
+        setError('Category must be a leaf category (no subcategories).');
         setTab('basics');
         return;
       }
@@ -238,7 +243,7 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
         setBusy(false);
       }
     },
-    [form, barcode, mode, product, toast, onSaved]
+    [form, barcode, mode, product, categories, toast, onSaved]
   );
 
   return (
@@ -287,20 +292,12 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
               <input className="input" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Category" hint="Assign to a level-3 leaf category when possible.">
-                <select
-                  className="input"
+              <Field label="Category" hint="Only leaf categories (no subcategories) can be assigned.">
+                <LeafCategoryPicker
+                  categories={categories}
                   value={form.categoryId}
-                  onChange={(e) => setForm((f) => ({ ...f, categoryId: e.target.value }))}
-                  required
-                >
-                  <option value="">Select category…</option>
-                  {categoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(categoryId) => setForm((f) => ({ ...f, categoryId }))}
+                />
               </Field>
               <Field label="Brand">
                 <input className="input" value={form.brand} onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))} />
@@ -446,7 +443,7 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
         {tab === 'pdp' && <PdpDetailsPanel form={form} setForm={setForm} />}
 
         <div className="flex flex-wrap gap-2 border-t border-gray-100 pt-4">
-          <button type="submit" className="btn-primary" disabled={busy}>
+          <button type="submit" className="btn-primary" disabled={busy || !categoryIsLeaf}>
             {busy ? <Spinner className="h-4 w-4" /> : mode === 'edit' ? 'Save changes' : 'Create product'}
           </button>
           <button type="button" className="btn-ghost" onClick={onCancel}>

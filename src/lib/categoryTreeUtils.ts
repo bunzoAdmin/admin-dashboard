@@ -56,3 +56,73 @@ export function findInvalidCategorySelections(
   const allowedIds = new Set(allowed.map((c) => c.id));
   return selectedIds.filter((id) => !allowedIds.has(id));
 }
+
+/** Flatten categories at a specific depth (1 = L1 roots). */
+export function flattenTreeAtDepth(
+  nodes: CategoryTreeNode[],
+  targetDepth: number,
+  depth = 1,
+  parentName?: string
+): FlatCategoryOption[] {
+  const result: FlatCategoryOption[] = [];
+  for (const node of nodes) {
+    const breadcrumb = parentName ? `${parentName} > ${node.name}` : node.name;
+    if (depth === targetDepth) {
+      result.push({ id: node.id, name: node.name, breadcrumb });
+    } else if (node.children?.length && depth < targetDepth) {
+      result.push(...flattenTreeAtDepth(node.children, targetDepth, depth + 1, breadcrumb));
+    }
+  }
+  return result;
+}
+
+/** All IDs in a node's subtree, including itself. */
+export function collectSubtreeIds(node: CategoryTreeNode): number[] {
+  const ids = [node.id];
+  for (const child of node.children ?? []) {
+    ids.push(...collectSubtreeIds(child));
+  }
+  return ids;
+}
+
+/**
+ * Expand selected category IDs to include every descendant (union of subtrees).
+ * Used when filtering products by L1/L2/L3 picks at any level.
+ */
+export function expandCategorySelectionToSubtreeIds(
+  tree: CategoryTreeNode[],
+  selectedIds: number[]
+): Set<number> {
+  if (selectedIds.length === 0) return new Set();
+  const selected = new Set(selectedIds);
+  const result = new Set<number>();
+
+  function walk(nodes: CategoryTreeNode[]) {
+    for (const node of nodes) {
+      if (selected.has(node.id)) {
+        for (const id of collectSubtreeIds(node)) result.add(id);
+      } else if (node.children?.length) {
+        walk(node.children);
+      }
+    }
+  }
+
+  walk(tree);
+  return result;
+}
+
+/** Breadcrumb label for any category id, or null if missing. */
+export function categoryBreadcrumbLabel(nodes: CategoryTreeNode[], id: number): string | null {
+  function walk(list: CategoryTreeNode[], prefix: string): string | null {
+    for (const node of list) {
+      const label = prefix ? `${prefix} > ${node.name}` : node.name;
+      if (node.id === id) return label;
+      if (node.children?.length) {
+        const found = walk(node.children, label);
+        if (found) return found;
+      }
+    }
+    return null;
+  }
+  return walk(nodes, '');
+}

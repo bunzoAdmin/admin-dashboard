@@ -8,7 +8,8 @@ import type {
   InventoryItemResponse,
   LocationStockResponse,
   ShelfLocationsResponse,
-  StockMovementsPageResponse
+  StockMovementsPageResponse,
+  StoreStockBrowsePageResponse
 } from './inventoryHealthTypes';
 
 export class InventoryHealthApiError extends Error {
@@ -98,5 +99,20 @@ export const inventoryHealthApi = {
     ),
 
   listShelfLocations: (storeId: number) =>
-    req<ShelfLocationsResponse>(`/admin/inventory/locations?storeId=${storeId}`)
+    req<ShelfLocationsResponse>(`/admin/inventory/locations?storeId=${storeId}`),
+
+  browseStoreStock: (params: {
+    storeId: number;
+    q?: string;
+    status?: string;
+    page?: number;
+    size?: number;
+  }) => {
+    const q = new URLSearchParams({ storeId: String(params.storeId) });
+    if (params.q?.trim()) q.set('q', params.q.trim());
+    if (params.status) q.set('status', params.status);
+    q.set('page', String(params.page ?? 0));
+    q.set('size', String(params.size ?? 50));
+    return req<StoreStockBrowsePageResponse>(`/admin/inventory/store-stock?${q}`);
+  }
 };

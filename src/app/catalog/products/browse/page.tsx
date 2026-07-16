@@ -1,24 +1,54 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Download } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
-import type { ProductResponse } from '@/lib/catalogTypes';
+import type { CategoryTreeNode, ProductResponse } from '@/lib/catalogTypes';
+import {
+  expandCategorySelectionToSubtreeIds,
+  flattenTreeAtDepth
+} from '@/lib/categoryTreeUtils';
+import { downloadProductsCsv } from '@/lib/exportProductsCsv';
+import { CategoryLevelMultiFilter } from '@/components/catalog/CategoryLevelMultiFilter';
 import { Badge, Card, EmptyState, ErrorBox, Loading, money } from '@/components/ui';
 
 export default function BrowseProductsPage() {
   const router = useRouter();
   const [query, setQuery] = useState('');
   const [items, setItems] = useState<ProductResponse[] | null>(null);
+  const [tree, setTree] = useState<CategoryTreeNode[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [l1Ids, setL1Ids] = useState<number[]>([]);
+  const [l2Ids, setL2Ids] = useState<number[]>([]);
+  const [l3Ids, setL3Ids] = useState<number[]>([]);
+
+  const l1Options = useMemo(() => flattenTreeAtDepth(tree, 1), [tree]);
+  const l2Options = useMemo(() => flattenTreeAtDepth(tree, 2), [tree]);
+  const l3Options = useMemo(() => flattenTreeAtDepth(tree, 3), [tree]);
+
+  const selectedCategoryIds = useMemo(() => [...l1Ids, ...l2Ids, ...l3Ids], [l1Ids, l2Ids, l3Ids]);
+
+  const matchingCategoryIds = useMemo(
+    () => expandCategorySelectionToSubtreeIds(tree, selectedCategoryIds),
+    [tree, selectedCategoryIds]
+  );
+
+  const filteredItems = useMemo(() => {
+    if (!items) return null;
+    if (matchingCategoryIds.size === 0) return items;
+    return items.filter((p) => matchingCategoryIds.has(p.categoryId));
+  }, [items, matchingCategoryIds]);
 
   const load = useCallback(async (q: string) => {
     setLoading(true);
     setError(null);
     try {
-      const list = q.trim() ? await catalogApi.searchProducts(q.trim()) : await catalogApi.getAllProducts();
+      const list = q.trim()
+        ? await catalogApi.searchProducts(q.trim(), 5000)
+        : await catalogApi.getAllProducts();
       setItems(list);
     } catch (err) {
       setError(err instanceof CatalogApiError ? err.message : 'Failed to load products.');
@@ -30,12 +60,24 @@ export default function BrowseProductsPage() {
 
   useEffect(() => {
     load('');
+    catalogApi
+      .getCategoryTree()
+      .then(setTree)
+      .catch(() => setTree([]));
   }, [load]);
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     load(query);
   }
+
+  function clearCategoryFilters() {
+    setL1Ids([]);
+    setL2Ids([]);
+    setL3Ids([]);
+  }
+
+  const hasCategoryFilters = selectedCategoryIds.length > 0;
 
   return (
     <div className="space-y-6">
@@ -44,9 +86,24 @@ export default function BrowseProductsPage() {
           <h1 className="text-xl font-bold text-gray-900">Browse products</h1>
           <p className="text-sm text-gray-500">Search the catalog or open a product by barcode.</p>
         </div>
-        <Link href="/catalog/products" className="btn-primary text-sm">
-          Scan barcode
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className="btn-ghost text-sm inline-flex items-center gap-1.5"
+            disabled={!filteredItems?.length}
+            onClick={() => {
+              if (!filteredItems?.length) return;
+              const stamp = new Date().toISOString().slice(0, 10);
+              downloadProductsCsv(filteredItems, `products-${stamp}.csv`);
+            }}
+          >
+            <Download className="h-4 w-4" />
+            Download CSV
+          </button>
+          <Link href="/catalog/products" className="btn-primary text-sm">
+            Scan barcode
+          </Link>
+        </div>
       </div>
 
       <Card className="max-w-xl">
@@ -63,13 +120,37 @@ export default function BrowseProductsPage() {
         </form>
       </Card>
 
+      <Card className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium text-gray-800">Filter by category</p>
+          {hasCategoryFilters && (
+            <button type="button" className="text-xs text-gray-500 hover:text-gray-800" onClick={clearCategoryFilters}>
+              Clear all category filters
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">
+          Pick any L1, L2, or L3 categories independently. Products match if they sit under any selected
+          category.
+        </p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <CategoryLevelMultiFilter label="L1" options={l1Options} selectedIds={l1Ids} onChange={setL1Ids} />
+          <CategoryLevelMultiFilter label="L2" options={l2Options} selectedIds={l2Ids} onChange={setL2Ids} />
+          <CategoryLevelMultiFilter label="L3" options={l3Options} selectedIds={l3Ids} onChange={setL3Ids} />
+        </div>
+      </Card>
+
       {error && <ErrorBox message={error} />}
       {loading && <Loading label="Loading products…" />}
 
-      {!loading && items && items.length === 0 && <EmptyState>No products found.</EmptyState>}
+      {!loading && filteredItems && filteredItems.length === 0 && <EmptyState>No products found.</EmptyState>}
 
-      {!loading && items && items.length > 0 && (
+      {!loading && filteredItems && filteredItems.length > 0 && (
         <Card className="overflow-x-auto p-0">
+          <div className="border-b border-gray-100 px-5 py-2 text-xs text-gray-500">
+            Showing {filteredItems.length}
+            {items && items.length !== filteredItems.length ? ` of ${items.length}` : ''} products
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
@@ -83,7 +164,7 @@ export default function BrowseProductsPage() {
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
+              {filteredItems.map((p) => (
                 <tr key={p.id} className="border-b border-gray-50 last:border-0">
                   <td className="px-5 py-3 font-mono text-xs text-gray-600">{p.sku}</td>
                   <td className="px-5 py-3 font-medium text-gray-900">{p.name}</td>
@@ -91,7 +172,9 @@ export default function BrowseProductsPage() {
                   <td className="px-5 py-3 font-mono text-xs text-gray-500">{p.barcode ?? '—'}</td>
                   <td className="px-5 py-3 text-gray-600">{money(p.basePrice)}</td>
                   <td className="px-5 py-3">
-                    <Badge tone={p.isActive !== false ? 'green' : 'gray'}>{p.isActive !== false ? 'active' : 'inactive'}</Badge>
+                    <Badge tone={p.isActive !== false ? 'green' : 'gray'}>
+                      {p.isActive !== false ? 'active' : 'inactive'}
+                    </Badge>
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button

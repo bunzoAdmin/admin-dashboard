@@ -118,6 +118,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Inventory',
     items: [
       { href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true },
+      { href: '/inventory/browse', label: 'Browse stock', icon: LayoutGrid },
       { href: '/inventory/audit', label: 'Location audit', icon: MapPin },
       { href: '/inventory/alerts', label: 'Alerts', icon: AlertTriangle },
       { href: '/inventory/discrepancies', label: 'Discrepancies', icon: BarChart2 },

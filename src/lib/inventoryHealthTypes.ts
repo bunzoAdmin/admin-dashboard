@@ -45,6 +45,43 @@ export interface InventoryItemResponse {
   locationCode?: string | null;
 }
 
+export type StoreStockAvailabilityStatus = 'AVAILABLE' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+
+export interface StoreStockBrowseItem {
+  productId: number;
+  inventoryItemId?: number | null;
+  sku: string;
+  productName: string;
+  barcode?: string | null;
+  locationCode?: string | null;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  safetyStock?: number | null;
+  maxStock?: number | null;
+  availabilityStatus: StoreStockAvailabilityStatus;
+  lowStock: boolean;
+  lastUpdated?: string | null;
+}
+
+export interface StoreStockBrowsePageResponse {
+  storeId: number;
+  content: StoreStockBrowseItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+export const STORE_STOCK_STATUS_OPTIONS = [
+  { value: '', label: 'All statuses' },
+  { value: 'AVAILABLE', label: 'In stock' },
+  { value: 'LOW_STOCK', label: 'Low stock' },
+  { value: 'OUT_OF_STOCK', label: 'Out of stock' }
+] as const;
+
 export interface DiscrepancyDetailResponse {
   id: number;
   storeId: number;
