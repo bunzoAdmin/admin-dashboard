@@ -93,7 +93,8 @@ export default function BarcodeListPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">List of Barcodes</h1>
           <p className="text-sm text-gray-500">
-            All internally generated EAN-13 barcodes for unbranded products.
+            Internally generated EAN-13 barcodes for unbranded products. Rack labels are generated on
+            the Generate Labels page and are not stored here.
           </p>
         </div>
         <div className="flex items-center gap-2">

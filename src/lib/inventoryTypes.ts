@@ -47,6 +47,41 @@ export interface TransferStockResponse {
   idempotent: boolean;
 }
 
+export interface AdjustStockRequest {
+  sku: string;
+  storeId: number;
+  quantityDelta?: number;
+  targetCurrentStock?: number;
+  expectedCurrentStock?: number;
+  reason: string;
+  referenceId?: string;
+  storeroom?: boolean;
+  locationCode?: string;
+}
+
+export interface AdjustStockResponse {
+  sku: string;
+  storeId: number;
+  quantityAdjusted: number;
+  previousCurrentStock: number;
+  newCurrentStock: number;
+  movementId?: number | null;
+  locationCode: string;
+  idempotent: boolean;
+  noChange?: boolean;
+}
+
+export interface InventoryBinResponse {
+  id: number;
+  sku: string;
+  storeId: number;
+  locationCode: string;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  maxStock?: number | null;
+}
+
 export interface ProductAvailability {
   sku: string;
   productId?: number;

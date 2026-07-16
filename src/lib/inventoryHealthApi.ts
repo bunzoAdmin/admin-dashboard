@@ -6,6 +6,8 @@ import { inventoryApiErrorMessage, parseResponseBody } from './inventoryApiUtils
 import type {
   DiscrepancyDetailResponse,
   InventoryItemResponse,
+  LocationStockResponse,
+  ShelfLocationsResponse,
   StockMovementsPageResponse
 } from './inventoryHealthTypes';
 
@@ -88,5 +90,13 @@ export const inventoryHealthApi = {
     q.set('page', String(params.page ?? 0));
     q.set('size', String(params.size ?? 50));
     return req<StockMovementsPageResponse>(`/admin/inventory/stock-movements?${q}`);
-  }
+  },
+
+  getStockByLocation: (storeId: number, locationCode: string) =>
+    req<LocationStockResponse>(
+      `/admin/inventory/by-location?storeId=${storeId}&locationCode=${encodeURIComponent(locationCode)}`
+    ),
+
+  listShelfLocations: (storeId: number) =>
+    req<ShelfLocationsResponse>(`/admin/inventory/locations?storeId=${storeId}`)
 };

@@ -1,3 +1,33 @@
+export interface ShelfLocationSummary {
+  locationCode: string;
+  skuCount: number;
+  totalUnits: number;
+}
+
+export interface ShelfLocationsResponse {
+  storeId: number;
+  locations: ShelfLocationSummary[];
+}
+
+export interface LocationStockItem {
+  inventoryItemId: number;
+  sku: string;
+  productName: string;
+  barcode?: string | null;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  lastUpdated?: string | null;
+}
+
+export interface LocationStockResponse {
+  storeId: number;
+  locationCode: string;
+  items: LocationStockItem[];
+  totalSkus: number;
+  totalUnits: number;
+}
+
 export interface InventoryItemResponse {
   id: number;
   sku: string;

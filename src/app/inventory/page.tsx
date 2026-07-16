@@ -80,7 +80,7 @@ function InventoryPageContent() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Inventory inwarding</h1>
-          <p className="text-sm text-gray-500">Scan a product, then add or transfer stock at a store.</p>
+          <p className="text-sm text-gray-500">Scan a product, then add, transfer, or adjust stock at a store.</p>
         </div>
       </div>
 

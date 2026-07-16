@@ -6,7 +6,7 @@ import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
 import type { BarcodeEntryResponse, CategoryTreeNode, ContentUom } from '@/lib/catalogTypes';
 import { CONTENT_UOM_OPTIONS } from '@/lib/catalogTypes';
 import { Card, ErrorBox, Field, Spinner } from '@/components/ui';
-import { flattenCategories } from './barcodeUtils';
+import { flattenCategories, toProductBarcodeEntry, type BarcodeDisplayEntry } from './barcodeUtils';
 
 interface FormState {
   name: string;
@@ -21,7 +21,7 @@ export function GenerateBarcodeForm({
   onGenerated
 }: {
   categories: CategoryTreeNode[];
-  onGenerated: (entry: BarcodeEntryResponse) => void;
+  onGenerated: (entry: BarcodeDisplayEntry) => void;
 }) {
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -63,7 +63,7 @@ export function GenerateBarcodeForm({
         categoryId: form.categoryId ? Number(form.categoryId) : undefined,
         format: 'EAN13'
       });
-      onGenerated(entry);
+      onGenerated(toProductBarcodeEntry(entry));
     } catch (err) {
       setError(err instanceof CatalogApiError ? err.message : 'Generation failed.');
     } finally {

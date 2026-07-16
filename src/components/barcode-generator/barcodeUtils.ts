@@ -1,4 +1,62 @@
-import type { CategoryTreeNode } from '@/lib/catalogTypes';
+import type { BarcodeEntryResponse, BarcodeFormat, CategoryTreeNode } from '@/lib/catalogTypes';
+
+export const RACK_CODE_MAX_LENGTH = 32;
+
+export type BarcodeLabelKind = 'product' | 'rack';
+
+export interface BarcodeDisplayEntry {
+  key: string;
+  barcode: string;
+  format: BarcodeFormat;
+  label: string;
+  kind: BarcodeLabelKind;
+}
+
+export function normalizeRackCode(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const upper = trimmed.toUpperCase();
+  if (upper.length > RACK_CODE_MAX_LENGTH) {
+    throw new Error(`Rack code must be at most ${RACK_CODE_MAX_LENGTH} characters.`);
+  }
+  return upper;
+}
+
+export function parseRackCodesInput(raw: string): string[] {
+  const codes = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (codes.length === 0) {
+    throw new Error('Enter at least one rack code.');
+  }
+  const normalized = codes.map((code) => normalizeRackCode(code));
+  const unique = [...new Set(normalized.filter((code): code is string => code != null))];
+  if (unique.length === 0) {
+    throw new Error('Enter at least one valid rack code.');
+  }
+  return unique;
+}
+
+export function toProductBarcodeEntry(entry: BarcodeEntryResponse): BarcodeDisplayEntry {
+  return {
+    key: `product-${entry.id}`,
+    barcode: entry.barcode,
+    format: entry.format,
+    label: entry.productName,
+    kind: 'product'
+  };
+}
+
+export function toRackBarcodeEntry(code: string): BarcodeDisplayEntry {
+  return {
+    key: `rack-${code}`,
+    barcode: code,
+    format: 'CODE128',
+    label: code,
+    kind: 'rack'
+  };
+}
 
 export function downloadBarcodePng(svgEl: SVGSVGElement, filename: string): void {
   const serializer = new XMLSerializer();

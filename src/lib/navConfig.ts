@@ -29,6 +29,7 @@ import {
   Warehouse,
   ClipboardList,
   Clock,
+  MapPin,
   RefreshCw
 } from 'lucide-react';
 
@@ -91,7 +92,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Barcode Generator',
     items: [
       { href: '/barcode-generator/list', label: 'List of Barcodes', icon: List },
-      { href: '/barcode-generator/generate', label: 'Generate New', icon: Plus }
+      { href: '/barcode-generator/generate', label: 'Generate Labels', icon: Plus }
     ]
   },
   {
@@ -117,6 +118,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Inventory',
     items: [
       { href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true },
+      { href: '/inventory/audit', label: 'Location audit', icon: MapPin },
       { href: '/inventory/alerts', label: 'Alerts', icon: AlertTriangle },
       { href: '/inventory/discrepancies', label: 'Discrepancies', icon: BarChart2 },
       { href: '/inventory/movements', label: 'Movements', icon: History }

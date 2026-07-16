@@ -3,7 +3,10 @@
 import type {
   AddStockRequest,
   AddStockResponse,
+  AdjustStockRequest,
+  AdjustStockResponse,
   InventoryAvailabilityResponse,
+  InventoryBinResponse,
   TransferStockRequest,
   TransferStockResponse
 } from './inventoryTypes';
@@ -76,6 +79,11 @@ export const inventoryApi = {
       `/inventory/availability/single?storeId=${storeId}&sku=${encodeURIComponent(sku)}`
     ),
 
+  getBins: (storeId: number, sku: string) =>
+    inventoryRequest<InventoryBinResponse[]>(
+      `/inventory/bins?storeId=${storeId}&sku=${encodeURIComponent(sku)}`
+    ),
+
   addStock: (body: AddStockRequest, idempotencyKey = newIdempotencyKey()) =>
     inventoryRequest<AddStockResponse>('/inventory/stock/add', {
       method: 'POST',
@@ -85,6 +93,13 @@ export const inventoryApi = {
 
   transferStock: (body: TransferStockRequest, idempotencyKey = newIdempotencyKey()) =>
     inventoryRequest<TransferStockResponse>('/inventory/stock/transfer', {
+      method: 'POST',
+      body,
+      idempotencyKey
+    }),
+
+  adjustStock: (body: AdjustStockRequest, idempotencyKey = newIdempotencyKey()) =>
+    inventoryRequest<AdjustStockResponse>('/inventory/stock/adjust', {
       method: 'POST',
       body,
       idempotencyKey

@@ -75,7 +75,7 @@ export default function BrowseProductsPage() {
               <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
                 <th className="px-5 py-3 font-medium">SKU</th>
                 <th className="px-5 py-3 font-medium">Name</th>
-                <th className="px-5 py-3 font-medium">Brand</th>
+                <th className="px-5 py-3 font-medium">Category</th>
                 <th className="px-5 py-3 font-medium">Barcode</th>
                 <th className="px-5 py-3 font-medium">Price</th>
                 <th className="px-5 py-3 font-medium">Status</th>
@@ -87,7 +87,7 @@ export default function BrowseProductsPage() {
                 <tr key={p.id} className="border-b border-gray-50 last:border-0">
                   <td className="px-5 py-3 font-mono text-xs text-gray-600">{p.sku}</td>
                   <td className="px-5 py-3 font-medium text-gray-900">{p.name}</td>
-                  <td className="px-5 py-3 text-gray-600">{p.brand ?? '—'}</td>
+                  <td className="px-5 py-3 text-gray-600">{p.categoryName ?? '—'}</td>
                   <td className="px-5 py-3 font-mono text-xs text-gray-500">{p.barcode ?? '—'}</td>
                   <td className="px-5 py-3 text-gray-600">{money(p.basePrice)}</td>
                   <td className="px-5 py-3">

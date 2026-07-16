@@ -2,24 +2,24 @@
 
 import { useRef } from 'react';
 import { Download, Printer } from 'lucide-react';
-import type { BarcodeEntryResponse } from '@/lib/catalogTypes';
+import type { BarcodeDisplayEntry } from './barcodeUtils';
 import { BarcodeSvg } from './BarcodeSvg';
 import { downloadBarcodePng, printBarcode } from './barcodeUtils';
 
-export function BarcodeCard({ entry }: { entry: BarcodeEntryResponse }) {
+export function BarcodeCard({ entry }: { entry: BarcodeDisplayEntry }) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   function handleDownload() {
-    if (svgRef.current) downloadBarcodePng(svgRef.current, entry.productName);
+    if (svgRef.current) downloadBarcodePng(svgRef.current, entry.label);
   }
 
   function handlePrint() {
-    if (svgRef.current) printBarcode(svgRef.current, entry.productName);
+    if (svgRef.current) printBarcode(svgRef.current, entry.label);
   }
 
   return (
     <div className="card p-4 space-y-2 print:break-inside-avoid">
-      <p className="text-sm font-semibold text-gray-800">{entry.productName}</p>
+      <p className="text-sm font-semibold text-gray-800">{entry.label}</p>
       <div className="flex items-center justify-center rounded-lg border border-gray-100 bg-white p-2">
         <BarcodeSvg ref={svgRef} value={entry.barcode} format={entry.format} height={65} />
       </div>
