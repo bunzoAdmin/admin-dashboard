@@ -10,8 +10,13 @@ import {
   type StoreStockBrowsePageResponse
 } from '@/lib/inventoryHealthTypes';
 import { downloadStoreStockCsv } from '@/lib/exportStoreStockCsv';
+import { RelocateStockModal } from '@/components/inventory/RelocateStockModal';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner } from '@/components/ui';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
+
+function canRelocate(row: StoreStockBrowseItem): boolean {
+  return Boolean(row.inventoryItemId && row.locationCode?.trim() && row.availableStock > 0);
+}
 
 function statusTone(status: string): 'green' | 'amber' | 'red' | 'gray' {
   switch (status) {
@@ -72,6 +77,7 @@ export default function InventoryBrowsePage() {
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [relocateRow, setRelocateRow] = useState<StoreStockBrowseItem | null>(null);
 
   const load = useCallback(async (sid: number | null, pg: number) => {
     if (sid == null) return;
@@ -227,9 +233,20 @@ export default function InventoryBrowsePage() {
                     <Badge tone={statusTone(row.availabilityStatus)}>{statusLabel(row.availabilityStatus)}</Badge>
                   </td>
                   <td className="px-5 py-3 text-right">
-                    <Link href="/inventory" className="text-sm font-medium text-brand-green-dark hover:underline">
-                      Inward
-                    </Link>
+                    <div className="flex items-center justify-end gap-3">
+                      {canRelocate(row) && (
+                        <button
+                          type="button"
+                          className="text-sm font-medium text-brand-green-dark hover:underline"
+                          onClick={() => setRelocateRow(row)}
+                        >
+                          Relocate
+                        </button>
+                      )}
+                      <Link href="/inventory" className="text-sm font-medium text-gray-500 hover:underline">
+                        Inward
+                      </Link>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -267,6 +284,16 @@ export default function InventoryBrowsePage() {
             </div>
           )}
         </Card>
+      )}
+
+      {storeId != null && (
+        <RelocateStockModal
+          open={relocateRow != null}
+          storeId={storeId}
+          row={relocateRow}
+          onClose={() => setRelocateRow(null)}
+          onDone={() => void load(storeId, page)}
+        />
       )}
     </div>
   );
