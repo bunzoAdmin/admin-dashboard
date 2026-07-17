@@ -51,7 +51,7 @@ export default function BannersPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Banners</h1>
           <p className="text-sm text-gray-500">
-            Clickable tiles shown in the home carousel. Assign banners to time slots to schedule when they appear.
+            Promotional tiles shown in the home carousel — clickable or display-only. Assign banners to time slots to schedule when they appear.
           </p>
         </div>
         <Link href="/catalog/banners/new" className="btn-primary">
@@ -96,11 +96,15 @@ export default function BannersPage() {
                   </div>
                   <p className="font-mono text-xs text-gray-400">{banner.slug}</p>
                   <Badge tone="blue">{actionLabel(banner.actionType)}</Badge>
-                  <p className="text-xs text-gray-500">
-                    {banner.actionItemIds.length} item{banner.actionItemIds.length !== 1 ? 's' : ''} ·{' '}
-                    IDs: {banner.actionItemIds.slice(0, 5).join(', ')}
-                    {banner.actionItemIds.length > 5 ? '…' : ''}
-                  </p>
+                  {banner.actionType === 'NONE' ? (
+                    <p className="text-xs text-gray-500">Not clickable</p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      {banner.actionItemIds.length} item{banner.actionItemIds.length !== 1 ? 's' : ''} ·{' '}
+                      IDs: {banner.actionItemIds.slice(0, 5).join(', ')}
+                      {banner.actionItemIds.length > 5 ? '…' : ''}
+                    </p>
+                  )}
                 </div>
 
                 {/* Actions */}

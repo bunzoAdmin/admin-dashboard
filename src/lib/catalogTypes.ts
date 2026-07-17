@@ -272,7 +272,7 @@ export function slugifyCategoryName(name: string): string {
 // ── Banners ────────────────────────────────────────────────────────────────
 
 /** Must match BannerActionType enum in the backend. */
-export type BannerActionType = 'CATEGORY_LIST' | 'PRODUCT_LIST';
+export type BannerActionType = 'NONE' | 'CATEGORY_LIST' | 'PRODUCT_LIST';
 
 export interface BannerResponse {
   id: number;
@@ -357,6 +357,7 @@ export interface ReorderBannerSlotRequest {
 }
 
 export const BANNER_ACTION_TYPE_OPTIONS: { value: BannerActionType; label: string }[] = [
+  { value: 'NONE', label: 'Display only — not clickable' },
   { value: 'CATEGORY_LIST', label: 'Category List — open filtered product listing by categories' },
   { value: 'PRODUCT_LIST', label: 'Product List — open specific products by ID' }
 ];

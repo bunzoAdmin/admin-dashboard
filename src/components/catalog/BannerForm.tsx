@@ -65,7 +65,7 @@ export function BannerForm({ editing }: BannerFormProps) {
     if (!title) { setError('Title is required.'); return; }
     if (!slug) { setError('Slug is required.'); return; }
     if (!imageUrl) { setError('Upload a banner image first.'); return; }
-    if (form.actionItemIds.length === 0) {
+    if (form.actionType !== 'NONE' && form.actionItemIds.length === 0) {
       setError(
         form.actionType === 'CATEGORY_LIST'
           ? 'Select at least one category.'
@@ -86,7 +86,7 @@ export function BannerForm({ editing }: BannerFormProps) {
         const body: UpdateBannerRequest = {
           slug, title, imageUrl,
           actionType: form.actionType,
-          actionItemIds: form.actionItemIds,
+          actionItemIds: form.actionType === 'NONE' ? [] : form.actionItemIds,
           isActive: form.isActive
         };
         await catalogApi.updateBanner(editing.id, body);
@@ -94,7 +94,7 @@ export function BannerForm({ editing }: BannerFormProps) {
         const body: CreateBannerRequest = {
           slug, title, imageUrl,
           actionType: form.actionType,
-          actionItemIds: form.actionItemIds,
+          actionItemIds: form.actionType === 'NONE' ? [] : form.actionItemIds,
           isActive: form.isActive
         };
         await catalogApi.createBanner(body);
@@ -112,7 +112,14 @@ export function BannerForm({ editing }: BannerFormProps) {
     <form onSubmit={handleSubmit} className="space-y-5 max-w-xl">
       {error && <ErrorBox message={error} />}
 
-      <Field label="Title" hint="Screen header shown when the customer taps the banner.">
+      <Field
+        label="Title"
+        hint={
+          form.actionType === 'NONE'
+            ? 'Label for this banner in the admin dashboard. Not shown to customers on display-only banners.'
+            : 'Screen header shown when the customer taps the banner.'
+        }
+      >
         <input
           className="input"
           value={form.title}
@@ -142,13 +149,13 @@ export function BannerForm({ editing }: BannerFormProps) {
         onChange={(v) => set('imageUrl', v)}
       />
 
-      <Field label="Action type" hint="What opens when the customer taps this banner.">
+      <Field label="Action type" hint="What happens when the customer taps this banner. Choose Display only for promotional images with no navigation.">
         <select
           className="input"
           value={form.actionType}
           onChange={(e) => {
             set('actionType', e.target.value as BannerActionType);
-            set('actionItemIds', []); // clear selection when type changes
+            set('actionItemIds', []);
             setCategorySelectionValid(true);
           }}
         >
@@ -158,21 +165,23 @@ export function BannerForm({ editing }: BannerFormProps) {
         </select>
       </Field>
 
-      <Field
-        label={form.actionType === 'CATEGORY_LIST' ? 'Categories (leaf only)' : 'Products'}
-        hint={
-          form.actionType === 'CATEGORY_LIST'
-            ? 'Only categories without subcategories can be linked. Parent categories with children are excluded.'
-            : 'Search and select the products to open.'
-        }
-      >
-        <ActionItemPicker
-          actionType={form.actionType}
-          value={form.actionItemIds}
-          onChange={(ids) => set('actionItemIds', ids)}
-          onCategorySelectionValidityChange={setCategorySelectionValid}
-        />
-      </Field>
+      {form.actionType !== 'NONE' && (
+        <Field
+          label={form.actionType === 'CATEGORY_LIST' ? 'Categories (leaf only)' : 'Products'}
+          hint={
+            form.actionType === 'CATEGORY_LIST'
+              ? 'Only categories without subcategories can be linked. Parent categories with children are excluded.'
+              : 'Search and select the products to open.'
+          }
+        >
+          <ActionItemPicker
+            actionType={form.actionType}
+            value={form.actionItemIds}
+            onChange={(ids) => set('actionItemIds', ids)}
+            onCategorySelectionValidityChange={setCategorySelectionValid}
+          />
+        </Field>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
