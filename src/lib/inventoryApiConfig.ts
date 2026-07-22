@@ -46,9 +46,10 @@ export function inventoryApiConfigured(): boolean {
   return true;
 }
 
-/** Paths served by order-service (picker admin, order admin, coupon admin, refund admin). */
+/** Paths served by order-service (customer order actions, picker admin, order admin, etc.). */
 export function isOrderServicePath(apiPath: string): boolean {
   return (
+    apiPath.startsWith('/api/v1/orders') ||
     apiPath.startsWith('/api/v1/admin/picker') ||
     apiPath.startsWith('/api/v1/admin/orders') ||
     apiPath.startsWith('/api/v1/admin/coupons') ||

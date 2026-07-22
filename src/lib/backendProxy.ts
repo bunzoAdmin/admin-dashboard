@@ -8,7 +8,14 @@ import {
 
 export const runtime = 'nodejs';
 
-const FORWARD_REQUEST_HEADERS = ['authorization', 'idempotency-key', 'accept'];
+const FORWARD_REQUEST_HEADERS = [
+  'authorization',
+  'idempotency-key',
+  'accept',
+  'x-internal-admin',
+  'actor-id',
+  'customer-id'
+];
 
 function buildTargetUrl(basePath: string, pathSegments: string[] | undefined, search: string, targetOverride?: string): string {
   const host = targetOverride
@@ -100,6 +107,9 @@ export const adminBannerSlotsProxy = handlers('/api/v1/admin/banner-slots');
 export const adminProductShowcasesProxy = handlers('/api/v1/admin/product-showcases');
 export const adminCategoryShowcasesProxy = handlers('/api/v1/admin/category-showcases');
 export const adminCatalogProductsProxy = handlers('/api/v1/admin/catalog/products');
+
+// Order-service customer order routes (cancel, status, etc.)
+export const ordersProxy = handlers('/api/v1/orders');
 
 // Order-service admin routes
 export const adminOrdersProxy = handlers('/api/v1/admin/orders');
