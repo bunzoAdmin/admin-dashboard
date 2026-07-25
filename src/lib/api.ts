@@ -18,6 +18,7 @@ import type {
   LoginResponse,
   PresenceResponse,
   PresignResponse,
+  ReassignCandidate,
   ReferralScreen,
   Rule,
   StoreQR
@@ -173,6 +174,15 @@ export const api = {
     request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/drop/complete`, {
       method: 'POST',
       body: { otp }
+    }),
+  getReassignCandidates: (tripId: string) =>
+    request<{ candidates: ReassignCandidate[] }>(
+      `/admin/trips/${encodeURIComponent(tripId)}/reassign-candidates`
+    ),
+  reassignTrip: (tripId: string, body: { to_de_phone: string; reason_code: string; note?: string }) =>
+    request<{ status: string }>(`/admin/trips/${encodeURIComponent(tripId)}/reassign`, {
+      method: 'POST',
+      body
     }),
   getDriverEarnings: (phone: string, cursor?: string) =>
     request<EarningsSummary>(`/admin/drivers/${encodePhone(phone)}/earnings`, { query: { cursor } }),
