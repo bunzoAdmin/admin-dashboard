@@ -176,7 +176,7 @@ export const api = {
       body: { otp }
     }),
   getReassignCandidates: (tripId: string) =>
-    request<{ candidates: ReassignCandidate[] | null }>(
+    request<{ candidates: ReassignCandidate[] }>(
       `/admin/trips/${encodeURIComponent(tripId)}/reassign-candidates`
     ),
   reassignTrip: (tripId: string, body: { to_de_phone: string; reason_code: string; note?: string }) =>
