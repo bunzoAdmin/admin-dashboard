@@ -94,7 +94,42 @@ export interface Trip {
   created_at: string;
   updated_at: string;
   assigned_at?: string;
+  reassignments?: TripReassignment[];
 }
+
+export interface TripReassignment {
+  from_de_id: string;
+  from_de_phone: string;
+  to_de_id: string;
+  to_de_phone: string;
+  trip_status_at_reassign: TripStatus;
+  reason_code: string;
+  note?: string;
+  admin_username: string;
+  at: string;
+}
+
+export interface ReassignCandidate {
+  de_id: string;
+  phone_number: string;
+  name: string;
+  status: DEStatus;
+  in_hand_cash_zmw: number;
+  cash_over_limit: boolean;
+  previously_held: boolean;
+}
+
+// Must stay in sync with models.reassignReasonCodes in the qcom backend —
+// the server rejects anything outside this set with 400 INVALID_REASON_CODE.
+export const REASSIGN_REASONS: { value: string; label: string }[] = [
+  { value: 'bike_breakdown', label: 'Bike breakdown' },
+  { value: 'rider_unreachable', label: 'Rider unreachable' },
+  { value: 'rider_sick_or_accident', label: 'Rider sick / accident' },
+  { value: 'rider_too_far', label: 'Rider too far away' },
+  { value: 'cash_limit_reached', label: 'Cash limit reached' },
+  { value: 'customer_request', label: 'Customer request' },
+  { value: 'other', label: 'Other' }
+];
 
 export interface DriverTripResponse {
   trip: Trip | null;
