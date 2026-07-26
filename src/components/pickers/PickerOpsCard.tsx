@@ -5,6 +5,7 @@ import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { TaskListResponse } from '@/lib/pickerTypes';
 import { Badge, Card, ErrorBox, Loading, SectionTitle, formatDate } from '@/components/ui';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
+import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 
 /** UI-only threshold for flagging a stuck pick on the order detail page — not a backend config. */
 const PICKING_ALERT_MINUTES = 5;
@@ -24,6 +25,7 @@ interface PickerOpsCardProps {
   orderNumber: string;
   orderStatus: string;
   storeId: number;
+  onTaskChanged?: () => void;
 }
 
 /** Order hasn't been confirmed yet — no pick task can exist, nothing to show. */
@@ -35,11 +37,12 @@ const NOT_YET_RELEVANT: string[] = ['PENDING_PAYMENT'];
  * IN_PROGRESS), which in practice only overlaps CONFIRMED/PACKING orders — for later order
  * statuses this renders a read-only summary of who picked the order, no actions.
  */
-export function PickerOpsCard({ orderNumber, orderStatus, storeId }: PickerOpsCardProps) {
+export function PickerOpsCard({ orderNumber, orderStatus, storeId, onTaskChanged }: PickerOpsCardProps) {
   const [task, setTask] = useState<TaskListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<'assign' | 'reassign' | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   const relevant = !NOT_YET_RELEVANT.includes(orderStatus);
 
@@ -63,7 +66,14 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId }: PickerOpsCa
     load();
   }, [load]);
 
+  function afterAction() {
+    load();
+    onTaskChanged?.();
+  }
+
   if (!relevant) return null;
+
+  const canCancel = task != null && !['PICKED', 'CANCELLED'].includes(task.status);
 
   return (
     <Card>
@@ -78,6 +88,7 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId }: PickerOpsCa
           orderStatus={orderStatus}
           onAssign={() => setModalMode('assign')}
           onReassign={() => setModalMode('reassign')}
+          onCancel={canCancel ? () => setCancelOpen(true) : undefined}
         />
       )}
       <TaskReassignModal
@@ -87,7 +98,13 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId }: PickerOpsCa
         orderNumber={modalMode === 'assign' ? orderNumber : undefined}
         storeId={storeId}
         onClose={() => setModalMode(null)}
-        onDone={load}
+        onDone={afterAction}
+      />
+      <TaskCancelModal
+        open={cancelOpen}
+        task={task}
+        onClose={() => setCancelOpen(false)}
+        onDone={afterAction}
       />
     </Card>
   );
@@ -97,12 +114,14 @@ function PickerOpsBody({
   task,
   orderStatus,
   onAssign,
-  onReassign
+  onReassign,
+  onCancel
 }: {
   task: TaskListResponse | null;
   orderStatus: string;
   onAssign: () => void;
   onReassign: () => void;
+  onCancel?: () => void;
 }) {
   if (!task) {
     // A CONFIRMED order with no task yet is the normal "auto-assignment hasn't run" window —
@@ -131,9 +150,16 @@ function PickerOpsBody({
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           Stuck — no picker was available to auto-assign.
         </div>
-        <button type="button" className="btn-primary text-sm" onClick={onAssign}>
-          Assign Picker
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary text-sm" onClick={onAssign}>
+            Assign Picker
+          </button>
+          {onCancel && (
+            <button type="button" className="btn-danger text-sm" onClick={onCancel}>
+              Cancel task
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -146,9 +172,16 @@ function PickerOpsBody({
           <span className="text-gray-500">Picker #{task.pickerId}</span>
         </div>
         <p className="text-xs text-gray-400">Assigned {formatDate(task.assignedAt ?? undefined)}</p>
-        <button type="button" className="btn-primary text-sm" onClick={onReassign}>
-          Reassign
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary text-sm" onClick={onReassign}>
+            Reassign
+          </button>
+          {onCancel && (
+            <button type="button" className="btn-danger text-sm" onClick={onCancel}>
+              Cancel task
+            </button>
+          )}
+        </div>
       </div>
     );
   }
@@ -172,9 +205,16 @@ function PickerOpsBody({
             Picking longer than expected ({task.elapsedMinutes}m) — consider reassigning.
           </div>
         )}
-        <button type="button" className="btn-primary text-sm" onClick={onReassign}>
-          Reassign
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary text-sm" onClick={onReassign}>
+            Reassign
+          </button>
+          {onCancel && (
+            <button type="button" className="btn-danger text-sm" onClick={onCancel}>
+              Cancel task
+            </button>
+          )}
+        </div>
       </div>
     );
   }

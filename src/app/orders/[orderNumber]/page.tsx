@@ -1,12 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
-import type { OrderEventResponse, OrderResponse } from '@/lib/orderAdminTypes';
+import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/orderAdminTypes';
+import { ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
+import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
+import {
+  ageMinutesSince,
+  ageToneClass,
+  ageUrgencyTone,
+  formatAgeMinutes,
+  formatStoreDateTime,
+  isTerminalOrderStatus
+} from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -16,12 +26,6 @@ function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | '
     case 'CANCELLED': return 'red';
     default: return 'gray';
   }
-}
-
-function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
 const CANCELLABLE = ['PENDING_PAYMENT', 'CONFIRMED', 'PACKING', 'READY_FOR_DELIVERY'];
@@ -39,6 +43,9 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [showCancelForm, setShowCancelForm] = useState(false);
+  const [statusTarget, setStatusTarget] = useState<OrderStatus | null>(null);
+  const [statusNotes, setStatusNotes] = useState('');
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   const loadOrder = useCallback(async () => {
     setLoadingOrder(true);
@@ -68,6 +75,11 @@ export default function OrderDetailPage() {
     loadEvents();
   }, [loadOrder, loadEvents]);
 
+  const nextStatuses = useMemo(
+    () => (order ? ORDER_NEXT_STATUSES[order.status] ?? [] : []),
+    [order]
+  );
+
   async function handleCancel() {
     if (!cancelReason.trim()) {
       toast.push('error', 'Please enter a cancellation reason.');
@@ -85,6 +97,26 @@ export default function OrderDetailPage() {
       toast.push('error', err instanceof OrderAdminApiError ? err.message : 'Cancel failed.');
     } finally {
       setCancelling(false);
+    }
+  }
+
+  async function handleStatusAdvance() {
+    if (!statusTarget) return;
+    setUpdatingStatus(true);
+    try {
+      const updated = await orderAdminApi.updateStatus(orderNumber, {
+        status: statusTarget,
+        notes: statusNotes.trim() || undefined
+      });
+      setOrder(updated);
+      await loadEvents();
+      toast.push('success', `Status updated to ${statusTarget.replace(/_/g, ' ')}.`);
+      setStatusTarget(null);
+      setStatusNotes('');
+    } catch (err) {
+      toast.push('error', err instanceof OrderAdminApiError ? err.message : 'Status update failed.');
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
@@ -106,6 +138,10 @@ export default function OrderDetailPage() {
   if (!order) return null;
 
   const canCancel = CANCELLABLE.includes(order.status);
+  const waitingMinutes = ageMinutesSince(order.createdAt);
+  const waitingTone = ageUrgencyTone(waitingMinutes, {
+    terminal: isTerminalOrderStatus(order.status)
+  });
 
   return (
     <div className="space-y-6">
@@ -114,10 +150,32 @@ export default function OrderDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Back
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-900">Order {order.orderNumber}</h1>
-          <p className="text-xs text-gray-500">Customer: {order.customerId} &middot; Created: {fmtDate(order.createdAt)}</p>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 className="text-xl font-bold text-gray-900">Order {order.orderNumber}</h1>
+            <span className={`text-base ${ageToneClass(waitingTone)}`}>
+              {isTerminalOrderStatus(order.status)
+                ? `Age ${formatAgeMinutes(waitingMinutes)}`
+                : `Waiting ${formatAgeMinutes(waitingMinutes)}`}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500">
+            Customer: {order.customerId} &middot; Placed {formatStoreDateTime(order.createdAt)}
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {nextStatuses.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className="btn-primary text-sm"
+              onClick={() => {
+                setStatusTarget(s);
+                setStatusNotes('');
+              }}
+            >
+              Advance to {s.replace(/_/g, ' ')}
+            </button>
+          ))}
           {canCancel && (
             <button className="btn-danger text-sm" onClick={() => setShowCancelForm(v => !v)}>
               Cancel Order
@@ -216,7 +274,15 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="space-y-5">
-          <PickerOpsCard orderNumber={order.orderNumber} orderStatus={order.status} storeId={order.storeId} />
+          <PickerOpsCard
+            orderNumber={order.orderNumber}
+            orderStatus={order.status}
+            storeId={order.storeId}
+            onTaskChanged={() => {
+              loadOrder();
+              loadEvents();
+            }}
+          />
 
           <Card>
             <SectionTitle>Event Timeline</SectionTitle>
@@ -236,7 +302,7 @@ export default function OrderDetailPage() {
                       </p>
                     )}
                     {ev.notes && <p className="text-xs text-gray-400 break-words">{ev.notes}</p>}
-                    <p className="text-xs text-gray-300">{fmtDate(ev.occurredAt)} &middot; {ev.actorId}</p>
+                    <p className="text-xs text-gray-300">{formatStoreDateTime(ev.occurredAt)} &middot; {ev.actorId}</p>
                   </li>
                 ))}
               </ol>
@@ -244,6 +310,37 @@ export default function OrderDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Modal
+        open={!!statusTarget}
+        onClose={() => setStatusTarget(null)}
+        title={statusTarget ? `Advance to ${statusTarget.replace(/_/g, ' ')}` : 'Advance status'}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Move order from <strong>{order.status.replace(/_/g, ' ')}</strong> to{' '}
+            <strong>{statusTarget?.replace(/_/g, ' ')}</strong>?
+            Manual advances into picker-owned states fail if an active pick task still owns fulfillment.
+          </p>
+          <label className="block space-y-1.5">
+            <span className="label">Notes (optional)</span>
+            <input
+              className="input w-full"
+              value={statusNotes}
+              onChange={(e) => setStatusNotes(e.target.value)}
+              placeholder="Why is ops advancing this status?"
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <button type="button" className="btn-ghost" onClick={() => setStatusTarget(null)}>
+              Back
+            </button>
+            <button type="button" className="btn-primary" disabled={updatingStatus} onClick={handleStatusAdvance}>
+              {updatingStatus ? <Spinner className="h-4 w-4" /> : 'Confirm'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

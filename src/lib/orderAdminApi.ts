@@ -6,7 +6,9 @@ import { inventoryApiErrorMessage, parseResponseBody } from './inventoryApiUtils
 import type {
   CancelOrderRequest,
   OrderEventResponse,
+  OrderPipelineResponse,
   OrderResponse,
+  PagedAdminOrderResponse,
   PagedOrderResponse,
   UpdateOrderStatusRequest
 } from './orderAdminTypes';
@@ -69,11 +71,14 @@ export const orderAdminApi = {
     if (params.dateTo) q.set('dateTo', params.dateTo);
     q.set('page', String(params.page ?? 0));
     q.set('size', String(params.size ?? 20));
-    return req<PagedOrderResponse>(`/admin/orders?${q}`);
+    return req<PagedAdminOrderResponse>(`/admin/orders?${q}`);
   },
 
   getOrder: (orderNumber: string) =>
     req<OrderResponse>(`/admin/orders/${encodeURIComponent(orderNumber)}`),
+
+  getPipeline: (storeId: number) =>
+    req<OrderPipelineResponse>(`/admin/orders/pipeline?storeId=${storeId}`),
 
   getOrderEvents: (orderNumber: string) =>
     req<OrderEventResponse[]>(`/admin/orders/${encodeURIComponent(orderNumber)}/events`),

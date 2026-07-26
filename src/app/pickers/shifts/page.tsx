@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
-import type { ShiftResponse } from '@/lib/pickerTypes';
+import type { ShiftCoverageListResponse, ShiftResponse } from '@/lib/pickerTypes';
 import { formatShiftTime } from '@/lib/pickerUtils';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Modal } from '@/components/Modal';
@@ -29,6 +29,7 @@ export default function ShiftsPage() {
   const toast = useToast();
   const { storeId, setStoreId } = useStoreContext();
   const [shifts, setShifts] = useState<ShiftResponse[] | null>(null);
+  const [coverage, setCoverage] = useState<ShiftCoverageListResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ShiftResponse | null>(null);
@@ -40,7 +41,12 @@ export default function ShiftsPage() {
     if (storeId == null) return;
     setLoadError(null);
     try {
-      setShifts(await pickerApi.listShifts(storeId));
+      const [shiftList, cov] = await Promise.all([
+        pickerApi.listShifts(storeId),
+        pickerApi.getShiftCoverage(storeId).catch(() => null)
+      ]);
+      setShifts(shiftList);
+      setCoverage(cov);
     } catch (err) {
       setLoadError(err instanceof PickerApiError ? err.message : 'Failed to load shifts.');
     }
@@ -146,6 +152,30 @@ export default function ShiftsPage() {
       </Card>
 
       {loadError && <ErrorBox message={loadError} />}
+
+      {coverage && storeId != null && (
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-gray-900">Shift coverage</h2>
+            <p className="text-xs text-gray-500">
+              {coverage.storePendingTasks} pending · {coverage.storeActiveTasks} active tasks
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {coverage.shifts.map((row) => (
+              <div key={row.shiftId} className="rounded-lg border border-gray-100 bg-gray-50/50 p-3 text-sm">
+                <div className="font-medium text-gray-900">{row.shiftDisplayName}</div>
+                <div className="mt-1 text-xs text-gray-500">{row.shiftCode}</div>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded bg-green-100 px-2 py-0.5 text-green-800">{row.available} avail</span>
+                  <span className="rounded bg-blue-100 px-2 py-0.5 text-blue-800">{row.picking} picking</span>
+                  <span className="rounded bg-gray-200 px-2 py-0.5 text-gray-700">{row.offline} offline</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Card className="overflow-hidden p-0">
         {storeId == null ? (

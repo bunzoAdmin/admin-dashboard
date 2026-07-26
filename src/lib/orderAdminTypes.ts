@@ -82,6 +82,33 @@ export interface OrderResponse {
   refundSummary?: RefundSummary | null;
 }
 
+/**
+ * Admin ops list row — the base `OrderResponse` fields plus pick task / picker / age fields
+ * that only the admin order list renders. Kept separate from `OrderResponse` (returned to the
+ * customer app, rider service, and the admin single-order detail endpoint) so those callers
+ * never see fields they don't use. The backend flattens this into the same top-level JSON
+ * shape as `OrderResponse` (see `AdminOrderResponse` @JsonUnwrapped on the order-service side).
+ */
+export interface AdminOrderListItem extends OrderResponse {
+  ageMinutes?: number | null;
+  pickTaskId?: number | null;
+  pickTaskStatus?: string | null;
+  pickerId?: number | null;
+  pickerName?: string | null;
+}
+
+export interface OrderPipelineStage {
+  status: string;
+  count: number;
+  oldestCreatedAt?: string | null;
+  oldestAgeMinutes?: number | null;
+}
+
+export interface OrderPipelineResponse {
+  storeId: number;
+  stages: OrderPipelineStage[];
+}
+
 export interface PageMeta {
   page: number;
   size: number;
@@ -93,6 +120,11 @@ export interface PageMeta {
 
 export interface PagedOrderResponse {
   content: OrderResponse[];
+  meta: PageMeta;
+}
+
+export interface PagedAdminOrderResponse {
+  content: AdminOrderListItem[];
   meta: PageMeta;
 }
 
@@ -125,6 +157,15 @@ export const ORDER_STATUS_OPTIONS: { value: OrderStatus | ''; label: string; col
   { value: 'DELIVERED', label: 'Delivered', color: 'green' },
   { value: 'CANCELLED', label: 'Cancelled', color: 'red' }
 ];
+
+/** Manual status advances only (cancel uses the dedicated cancel endpoint). */
+export const ORDER_NEXT_STATUSES: Partial<Record<OrderStatus, OrderStatus[]>> = {
+  PENDING_PAYMENT: ['CONFIRMED'],
+  CONFIRMED: ['PACKING'],
+  PACKING: ['READY_FOR_DELIVERY'],
+  READY_FOR_DELIVERY: ['OUT_FOR_DELIVERY'],
+  OUT_FOR_DELIVERY: ['DELIVERED']
+};
 
 export const PAYMENT_STATUS_OPTIONS: { value: PaymentStatus | ''; label: string }[] = [
   { value: '', label: 'All payment statuses' },
