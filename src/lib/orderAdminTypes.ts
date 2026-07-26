@@ -158,6 +158,15 @@ export const ORDER_STATUS_OPTIONS: { value: OrderStatus | ''; label: string; col
   { value: 'CANCELLED', label: 'Cancelled', color: 'red' }
 ];
 
+/** Admin cancel is allowed for these statuses (backend also blocks DELIVERED). */
+export const CANCELLABLE_ORDER_STATUSES: OrderStatus[] = [
+  'PENDING_PAYMENT',
+  'CONFIRMED',
+  'PACKING',
+  'READY_FOR_DELIVERY',
+  'OUT_FOR_DELIVERY'
+];
+
 /** Manual status advances only (cancel uses the dedicated cancel endpoint). */
 export const ORDER_NEXT_STATUSES: Partial<Record<OrderStatus, OrderStatus[]>> = {
   PENDING_PAYMENT: ['CONFIRMED'],

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/orderAdminTypes';
-import { ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
+import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { Modal } from '@/components/Modal';
@@ -27,8 +27,6 @@ function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | '
     default: return 'gray';
   }
 }
-
-const CANCELLABLE = ['PENDING_PAYMENT', 'CONFIRMED', 'PACKING', 'READY_FOR_DELIVERY'];
 
 export default function OrderDetailPage() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
@@ -137,7 +135,7 @@ export default function OrderDetailPage() {
 
   if (!order) return null;
 
-  const canCancel = CANCELLABLE.includes(order.status);
+  const canCancel = CANCELLABLE_ORDER_STATUSES.includes(order.status);
   const waitingMinutes = ageMinutesSince(order.createdAt);
   const waitingTone = ageUrgencyTone(waitingMinutes, {
     terminal: isTerminalOrderStatus(order.status)
