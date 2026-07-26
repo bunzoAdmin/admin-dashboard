@@ -30,7 +30,8 @@ import {
   ClipboardList,
   Clock,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  Bell
 } from 'lucide-react';
 
 export interface NavItem {
@@ -41,6 +42,10 @@ export interface NavItem {
   exact?: boolean;
   /** Show open dispute count badge (Orders › Disputes). */
   disputeBadge?: boolean;
+  /** Show needs-attention count badge (Pickers › Needs Attention). */
+  attentionBadge?: boolean;
+  /** Show abandoned sync count badge (Pickers › Sync Failures). */
+  reconcileBadge?: boolean;
 }
 
 export interface NavSection {
@@ -60,6 +65,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Orders',
     items: [
       { href: '/orders/list', label: 'All Orders', icon: List },
+      { href: '/orders/pipeline', label: 'Pipeline', icon: BarChart2 },
       { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true },
       { href: '/orders/assign', label: 'Assign Order', icon: PackageCheck }
     ]
@@ -108,9 +114,12 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Pickers',
     items: [
       { href: '/pickers', label: 'Live Ops', icon: ClipboardList, exact: true },
+      { href: '/pickers/attention', label: 'Needs Attention', icon: Bell, attentionBadge: true },
+      { href: '/pickers/metrics', label: 'Metrics', icon: BarChart2 },
       { href: '/pickers/onboard', label: 'Onboard', icon: UserPlus },
       { href: '/pickers/shifts', label: 'Shifts', icon: Clock },
-      { href: '/pickers/reconcile', label: 'Sync Failures', icon: RefreshCw }
+      { href: '/pickers/delivery-zones', label: 'Delivery Zones', icon: Layers },
+      { href: '/pickers/reconcile', label: 'Sync Failures', icon: RefreshCw, reconcileBadge: true }
     ]
   },
   {
@@ -161,8 +170,32 @@ export const NAV_SECTIONS: NavSection[] = [
 /** Flat list of all nav items for breadcrumbs lookup. */
 export const ALL_NAV_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
+/** Filter sidebar sections/items by query (label, section name, or path). */
+export function filterNavSections(query: string): NavSection[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return NAV_SECTIONS;
+
+  return NAV_SECTIONS.map((section) => {
+    const sectionLabel = section.label.toLowerCase();
+    const sectionMatches = sectionLabel.includes(q);
+    const items = sectionMatches
+      ? section.items
+      : section.items.filter(
+          (item) =>
+            item.label.toLowerCase().includes(q) ||
+            item.href.toLowerCase().includes(q) ||
+            sectionLabel.includes(q)
+        );
+    return { ...section, items };
+  }).filter((section) => section.items.length > 0);
+}
+
 export function isNavItemActive(pathname: string, href: string, exact?: boolean): boolean {
   if (href === '/') return pathname === '/';
+  // Picker profile / task detail → highlight Live Ops so sidebar scroll/section stay useful.
+  if (href === '/pickers' && (/^\/pickers\/\d+(\/|$)/.test(pathname) || pathname.startsWith('/pickers/tasks/'))) {
+    return true;
+  }
   if (exact) return pathname === href;
   return pathname === href || pathname.startsWith(href + '/');
 }

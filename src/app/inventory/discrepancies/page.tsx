@@ -4,12 +4,11 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { inventoryHealthApi, InventoryHealthApiError } from '@/lib/inventoryHealthApi';
 import type { DiscrepancyDetailResponse } from '@/lib/inventoryHealthTypes';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, useToast } from '@/components/ui';
+import { formatStoreDateTimeShort } from '@/lib/storeTime';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return formatStoreDateTimeShort(iso);
 }
 
 export default function DiscrepanciesPage() {

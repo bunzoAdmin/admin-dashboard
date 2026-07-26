@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
+import clsx from 'clsx';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { ReconciliationOutboxResponse } from '@/lib/pickerTypes';
 import { formatTime } from '@/lib/pickerUtils';
+import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, useToast } from '@/components/ui';
 
 function statusTone(status: string): 'red' | 'amber' | 'green' | 'gray' {
@@ -36,6 +39,7 @@ function typeLabel(type: string): string {
 
 export default function SyncFailuresPage() {
   const toast = useToast();
+  const { storeId, setStoreId } = useStoreContext();
   const [rows, setRows] = useState<ReconciliationOutboxResponse[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,13 +49,13 @@ export default function SyncFailuresPage() {
     setLoading(true);
     setError(null);
     try {
-      setRows(await pickerApi.listReconcileFailures(0, 100));
+      setRows(await pickerApi.listReconcileFailures(0, 100, storeId ?? undefined));
     } catch (err) {
       setError(err instanceof PickerApiError ? err.message : 'Failed to load sync failures.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeId]);
 
   useEffect(() => {
     load();
@@ -79,13 +83,23 @@ export default function SyncFailuresPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">Inventory Sync Failures</h1>
-        <p className="text-sm text-gray-500">
-          Failed inventory sync jobs from picker and order events — retried automatically every 15 min.
-          Replay now to force an immediate retry.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">Inventory Sync Failures</h1>
+          <p className="text-sm text-gray-500">
+            Failed inventory sync jobs from picker and order events — retried automatically every 15 min.
+            Replay now to force an immediate retry.
+          </p>
+        </div>
+        <button type="button" className="btn-ghost text-sm" onClick={load} disabled={loading}>
+          <RefreshCw className={clsx('h-4 w-4', loading && 'animate-spin')} />
+          Refresh
+        </button>
       </div>
+
+      <Card>
+        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
+      </Card>
 
       {abandonedCount > 0 && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -111,6 +125,9 @@ export default function SyncFailuresPage() {
                 <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                   <th className="px-4 py-3 font-medium">ID</th>
                   <th className="px-4 py-3 font-medium">Type</th>
+                  <th className="px-4 py-3 font-medium">Order</th>
+                  <th className="px-4 py-3 font-medium">SKU</th>
+                  <th className="px-4 py-3 font-medium">Store</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Attempts</th>
                   <th className="px-4 py-3 font-medium">Next retry</th>
@@ -124,6 +141,26 @@ export default function SyncFailuresPage() {
                   <tr key={r.id} className="border-b border-gray-50 last:border-0">
                     <td className="px-4 py-3 font-mono text-xs">{r.id}</td>
                     <td className="px-4 py-3 text-xs font-medium">{typeLabel(r.type)}</td>
+                    <td className="px-4 py-3 text-xs">
+                      {r.orderNumber ? (
+                        <a href={`/orders/${encodeURIComponent(r.orderNumber)}`} className="font-mono text-blue-600 hover:underline">
+                          {r.orderNumber}
+                        </a>
+                      ) : r.orderUuid ? (
+                        <span className="font-mono text-gray-400">{r.orderUuid.slice(0, 8)}…</span>
+                      ) : (
+                        '—'
+                      )}
+                      {r.pickTaskId ? (
+                        <div>
+                          <a href={`/pickers/tasks/${r.pickTaskId}`} className="text-brand-green hover:underline">
+                            Task #{r.pickTaskId}
+                          </a>
+                        </div>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-gray-500">{r.sku ?? '—'}</td>
+                    <td className="px-4 py-3 text-xs text-gray-500">{r.storeId ?? '—'}</td>
                     <td className="px-4 py-3">
                       <Badge tone={statusTone(r.status)}>{statusLabel(r.status)}</Badge>
                     </td>

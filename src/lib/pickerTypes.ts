@@ -11,6 +11,7 @@ export interface PickerResponse {
   createdAt?: string;
   updatedAt?: string;
   initialPin?: string;
+  offboardedAt?: string | null;
 }
 
 export interface RegisterPickerRequest {
@@ -39,13 +40,14 @@ export interface TaskListResponse {
   orderNumber?: string | null;
   storeId: number;
   pickerId?: number | null;
+  pickerName?: string | null;
   status: PickTaskStatus;
   cancelledReason?: string | null;
   createdAt?: string;
   assignedAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
-  elapsedMinutes?: number | null;
+  elapsedSeconds?: number | null;
   processedItemCount?: number | null;
   pendingItemCount?: number | null;
 }
@@ -105,6 +107,164 @@ export interface ReconciliationOutboxResponse {
   lastError?: string | null;
   nextRetryAt?: string | null;
   createdAt?: string | null;
+  storeId?: number | null;
+  orderUuid?: string | null;
+  orderNumber?: string | null;
+  sku?: string | null;
+  pickTaskId?: number | null;
+}
+
+export type AttentionKind = 'PENDING_TASK' | 'ORPHAN_ORDER' | 'ACCEPTANCE_TIMEOUT' | 'IN_PROGRESS_STALE';
+
+export interface AttentionItemResponse {
+  kind: AttentionKind | string;
+  taskId?: number | null;
+  orderUuid?: string | null;
+  orderNumber?: string | null;
+  storeId?: number | null;
+  pickerId?: number | null;
+  pickerName?: string | null;
+  taskStatus?: string | null;
+  since?: string | null;
+  elapsedSeconds?: number | null;
+  detail?: string | null;
+}
+
+export interface AttentionSummaryResponse {
+  items: AttentionItemResponse[];
+  total: number;
+}
+
+export interface PickTaskItemResponse {
+  id: number;
+  sku: string;
+  productName: string;
+  imageUrl?: string | null;
+  barcode?: string | null;
+  locationCode?: string | null;
+  quantity: number;
+  pickedQuantity: number;
+  unitPrice: number;
+  status: string;
+  verified: boolean;
+}
+
+export interface TaskDetailResponse extends TaskListResponse {
+  pickerName?: string | null;
+  paymentMethod?: string | null;
+  deliveryZoneLabel?: string | null;
+  acceptanceDeadline?: string | null;
+  items: PickTaskItemResponse[];
+}
+
+export interface PickerPerformanceRow {
+  pickerId: number;
+  name: string;
+  completedToday: number;
+  avgPickSeconds?: number | null;
+}
+
+export interface PickerStoreMetricsResponse {
+  storeId: number;
+  availablePickers: number;
+  pickingPickers: number;
+  onBreakPickers: number;
+  offlinePickers: number;
+  pendingTasks: number;
+  activeTasks: number;
+  completedToday: number;
+  avgPickSecondsToday?: number | null;
+  attentionCount: number;
+  topPickers: PickerPerformanceRow[];
+}
+
+export type PickerAnalyticsPeriod = 'DAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
+
+export interface PickerAnalyticsResponse {
+  storeId: number;
+  period: PickerAnalyticsPeriod;
+  fromDate: string;
+  toDate: string;
+  periodLabel: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+  overview: {
+    completedTasks: number;
+    avgPickSeconds?: number | null;
+    fastestPickSeconds?: number | null;
+    slowestPickSeconds?: number | null;
+    activePickers: number;
+    pendingTasks: number;
+    activeTasks: number;
+    avgAssignToStartSeconds?: number | null;
+    avgStartToCompleteSeconds?: number | null;
+    acceptanceTimeoutCount?: number;
+    orphanOrderCount?: number;
+  };
+  roster: {
+    available: number;
+    picking: number;
+    onBreak: number;
+    offline: number;
+  };
+  dailyTrend: Array<{
+    date: string;
+    completedTasks: number;
+    avgPickSeconds?: number | null;
+  }>;
+  pickers: Array<{
+    pickerId: number;
+    name: string;
+    completedTasks: number;
+    avgPickSeconds?: number | null;
+    fastestPickSeconds?: number | null;
+    slowestPickSeconds?: number | null;
+  }>;
+}
+
+export interface ShiftCoverageRow {
+  shiftId: number;
+  shiftCode: string;
+  shiftDisplayName: string;
+  available: number;
+  picking: number;
+  onBreak: number;
+  offline: number;
+  totalActive: number;
+}
+
+export interface ShiftCoverageListResponse {
+  shifts: ShiftCoverageRow[];
+  storeActiveTasks: number;
+  storePendingTasks: number;
+}
+
+export interface DeliveryZoneResponse {
+  id: number;
+  storeId: number;
+  color: string;
+  rackNumber: number;
+  displayLabel: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt?: string | null;
+}
+
+export interface CreateDeliveryZoneRequest {
+  storeId: number;
+  color: string;
+  rackNumber: number;
+  displayLabel?: string;
+  sortOrder: number;
+  active?: boolean;
+}
+
+export interface UpdateDeliveryZoneRequest {
+  color: string;
+  rackNumber: number;
+  displayLabel: string;
+  sortOrder: number;
+  active: boolean;
 }
 
 export interface StoreResponse {
@@ -116,6 +276,30 @@ export interface StoreResponse {
   longitude?: number | null;
   serviceableRadiusKm?: number | null;
   isActive?: boolean | null;
+}
+
+export interface TaskHistoryEntry {
+  pickTaskId: number;
+  orderUuid: string;
+  orderNumber?: string | null;
+  status: string;
+  paymentMethod?: string | null;
+  completedAt?: string | null;
+  startedAt?: string | null;
+  durationSeconds?: number | null;
+  itemCount: number;
+  pickedCount: number;
+  unavailableCount: number;
+}
+
+export interface TaskHistoryPageResponse {
+  items: TaskHistoryEntry[];
+  total: number;
+  page: number;
+  size: number;
+  hasMore: boolean;
+  period?: string;
+  sort?: string;
 }
 
 export const PICKER_STATUS_OPTIONS: { value: PickerStatus | ''; label: string }[] = [

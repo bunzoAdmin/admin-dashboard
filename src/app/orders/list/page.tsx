@@ -2,16 +2,24 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import {
   ORDER_STATUS_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
-  type OrderResponse,
-  type PagedOrderResponse
+  type AdminOrderListItem,
+  type PagedAdminOrderResponse
 } from '@/lib/orderAdminTypes';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, money } from '@/components/ui';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
+import {
+  ageToneClass,
+  ageUrgencyTone,
+  formatAgeMinutes,
+  formatStoreDateTimeShort,
+  isTerminalOrderStatus,
+  parseStoreDatetimeLocal
+} from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -26,25 +34,36 @@ function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | '
   }
 }
 
-function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString();
+function pickStatusTone(status?: string | null): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
+  switch (status) {
+    case 'PENDING': return 'amber';
+    case 'ASSIGNED':
+    case 'IN_PROGRESS': return 'blue';
+    case 'PICKED': return 'green';
+    case 'CANCELLED': return 'red';
+    default: return 'gray';
+  }
 }
 
 export default function OrdersListPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { storeId, setStoreId } = useStoreContext();
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [paymentStatus, setPaymentStatus] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [data, setData] = useState<PagedOrderResponse | null>(null);
+  const [data, setData] = useState<PagedAdminOrderResponse | null>(null);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('status') ?? '';
+    setStatus(fromUrl);
+  }, [searchParams]);
 
   const load = useCallback(async (sid: number | null, pg: number) => {
     if (sid == null) return;
@@ -57,8 +76,8 @@ export default function OrdersListPage() {
         paymentStatus: paymentStatus || undefined,
         customerPhone: customerPhone.trim() || undefined,
         orderNumber: orderNumber.trim() || undefined,
-        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
-        dateTo: dateTo ? new Date(dateTo).toISOString() : undefined,
+        dateFrom: dateFrom ? parseStoreDatetimeLocal(dateFrom) : undefined,
+        dateTo: dateTo ? parseStoreDatetimeLocal(dateTo) : undefined,
         page: pg,
         size: 20
       });
@@ -90,7 +109,9 @@ export default function OrdersListPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-bold text-gray-900">Orders</h1>
-        <p className="text-sm text-gray-500">Search and manage orders across the store.</p>
+        <p className="text-sm text-gray-500">
+          Waiting time is the ops signal — absolute times are store local (CAT).
+        </p>
       </div>
 
       <form onSubmit={handleSearch}>
@@ -122,11 +143,11 @@ export default function OrdersListPage() {
               <input type="text" className="input w-full font-mono" placeholder="ORD…" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">From</span>
+              <span className="label">From (CAT)</span>
               <input type="datetime-local" className="input w-full" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">To</span>
+              <span className="label">To (CAT)</span>
               <input type="datetime-local" className="input w-full" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </label>
             <div className="flex items-end">
@@ -162,40 +183,70 @@ export default function OrdersListPage() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-4 py-3 font-medium">Order #</th>
-                      <th className="px-4 py-3 font-medium">Customer</th>
+                      <th className="px-4 py-3 font-medium">Waiting</th>
                       <th className="px-4 py-3 font-medium">Status</th>
+                      <th className="px-4 py-3 font-medium">Pick</th>
+                      <th className="px-4 py-3 font-medium">Picker</th>
                       <th className="px-4 py-3 font-medium">Payment</th>
                       <th className="px-4 py-3 font-medium">Total</th>
-                      <th className="px-4 py-3 font-medium">Created</th>
                       <th className="px-4 py-3 font-medium" />
                     </tr>
                   </thead>
                   <tbody>
-                    {data.content.map((order: OrderResponse) => (
+                    {data.content.map((order: AdminOrderListItem) => {
+                      const waitingTone = ageUrgencyTone(order.ageMinutes, {
+                        terminal: isTerminalOrderStatus(order.status)
+                      });
+                      return (
                       <tr
                         key={order.orderNumber}
                         className="border-b border-gray-50 last:border-0 hover:bg-gray-50 cursor-pointer"
                         onClick={() => router.push(`/orders/${order.orderNumber}`)}
                       >
                         <td className="px-4 py-3 font-mono text-xs font-medium text-blue-600">{order.orderNumber}</td>
-                        <td className="px-4 py-3 text-xs text-gray-600 max-w-[120px] truncate" title={order.customerId}>{order.customerId}</td>
+                        <td className="px-4 py-3">
+                          <div className={`text-sm ${ageToneClass(waitingTone)}`}>
+                            {formatAgeMinutes(order.ageMinutes)}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-gray-400">
+                            {formatStoreDateTimeShort(order.createdAt)}
+                          </div>
+                        </td>
                         <td className="px-4 py-3">
                           <Badge tone={orderStatusTone(order.status)}>
                             {order.status.replace(/_/g, ' ')}
                           </Badge>
                         </td>
+                        <td className="px-4 py-3">
+                          {order.pickTaskStatus ? (
+                            <Link
+                              href={`/pickers/tasks/${order.pickTaskId}`}
+                              className="inline-flex"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Badge tone={pickStatusTone(order.pickTaskStatus)}>
+                                {order.pickTaskStatus.replace(/_/g, ' ')}
+                              </Badge>
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-gray-600">
+                          {order.pickerName ?? (order.pickerId != null ? `#${order.pickerId}` : '—')}
+                        </td>
                         <td className="px-4 py-3 text-xs text-gray-500">
                           {order.paymentMethod} &middot; {order.paymentStatus.replace(/_/g, ' ')}
                         </td>
                         <td className="px-4 py-3 font-medium">{money(order.grandTotal)}</td>
-                        <td className="px-4 py-3 text-xs text-gray-500">{fmtDate(order.createdAt)}</td>
                         <td className="px-4 py-3 text-right">
                           <Link href={`/orders/${order.orderNumber}`} className="btn-ghost px-2 py-1 text-xs" onClick={e => e.stopPropagation()}>
                             View
                           </Link>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
