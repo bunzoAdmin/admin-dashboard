@@ -95,6 +95,7 @@ export function StoreSelector({ storeId, onStoreChange, className, excludeStoreI
     const id = parseInt(input, 10);
     if (!Number.isFinite(id) || id <= 0 || excluded.has(id)) return;
     writeStoreId(id);
+    onScopeChange?.(null);
     onStoreChange(id);
   }
 

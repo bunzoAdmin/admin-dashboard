@@ -36,8 +36,19 @@ export default function DisputesPage() {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState<DisputeSummary | null>(null);
 
-  // The value sent to the API: '' means all stores.
-  const storeFilter = scope === ALL_STORES ? '' : scope ?? (storeId != null ? String(storeId) : '');
+  // storeId is a number (StoreSelector's contract), which loses the zero-padding
+  // in canonical darkstore ids ("042" -> 42). The backend keys disputes on the
+  // padded string, so recover it from the loaded list; fall back to the plain
+  // number only if the list hasn't loaded or the id isn't in it.
+  const canonicalStoreId = useMemo(
+    () => stores.find((s) => parseInt(s.darkstore_id, 10) === storeId)?.darkstore_id
+          ?? (storeId != null ? String(storeId) : ''),
+    [stores, storeId]
+  );
+
+  // Three scopes map onto one wire value: '' = all stores, 'UNKNOWN' = disputes
+  // whose store could not be resolved, otherwise the canonical darkstore id.
+  const storeFilter = scope === ALL_STORES ? '' : scope ?? canonicalStoreId;
 
   useEffect(() => {
     api.listDarkstores().then((res) => setStores(res.darkstores)).catch(() => setStores([]));
@@ -50,8 +61,15 @@ export default function DisputesPage() {
 
   const loadSummary = useCallback(async () => {
     try {
+      if (!storeFilter) {
+        // Unscoped view: the scoped and global summaries are the same request.
+        const s = await api.getDisputeSummary();
+        setSummary(s);
+        setOpenCount(s.open);
+        return;
+      }
       const [scoped, global] = await Promise.all([
-        api.getDisputeSummary(storeFilter || undefined),
+        api.getDisputeSummary(storeFilter),
         api.getDisputeSummary()
       ]);
       setSummary(scoped);
