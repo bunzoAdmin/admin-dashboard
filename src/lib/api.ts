@@ -270,9 +270,10 @@ export const api = {
   deleteRule: (id: string) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 
   // --- Disputes ---
-  listDisputes: (status: DisputeStatus, cursor?: string) =>
-    request<DisputeListResponse>(`/admin/disputes`, { query: { status, cursor } }),
-  getDisputeSummary: () => request<DisputeSummary>(`/admin/disputes/summary`),
+  listDisputes: (status: DisputeStatus, cursor?: string, storeId?: string) =>
+    request<DisputeListResponse>(`/admin/disputes`, { query: { status, cursor, store_id: storeId || undefined } }),
+  getDisputeSummary: (storeId?: string) =>
+    request<DisputeSummary>(`/admin/disputes/summary`, { query: { store_id: storeId || undefined } }),
   getDispute: (id: string) =>
     request<{ dispute: AdminDisputeDetail }>(`/admin/disputes/${encodeURIComponent(id)}`),
   updateDispute: (id: string, body: { status: DisputeStatus; resolution_note?: string }) =>

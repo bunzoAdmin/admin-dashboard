@@ -26,3 +26,6 @@ export const DISPUTE_STATUS_LABEL: Record<DisputeStatus, string> = {
   RESOLVED: 'Resolved',
   REJECTED: 'Rejected'
 };
+
+/** Matches models.UnknownStoreID in qcom — disputes whose store could not be resolved. */
+export const UNKNOWN_STORE_ID = 'UNKNOWN';
