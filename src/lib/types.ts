@@ -335,6 +335,8 @@ export interface AdminDispute {
   dispute_id: string;
   order_number: string;
   customer_id: string;
+  /** Darkstore the disputed order belonged to. 'UNKNOWN' when unresolved; absent on disputes created before store attribution. */
+  store_id?: string;
   disposition_code: string;
   disposition_title?: string;
   description?: string;

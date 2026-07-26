@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, ApiClientError } from '@/lib/api';
 import { Badge, ErrorBox, Loading, Field, formatDate, useToast } from '@/components/ui';
-import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE } from '@/lib/disputes';
+import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, UNKNOWN_STORE_ID } from '@/lib/disputes';
 import type { AdminDisputeDetail, DisputeStatus } from '@/lib/types';
 
 export default function DisputeDetailPage() {
@@ -74,7 +74,18 @@ export default function DisputeDetailPage() {
             Order {dispute.order_number}
           </h1>
           <p className="text-sm text-gray-500">
-            {dispute.disposition_title || dispute.disposition_code} · Filed {formatDate(dispute.created_at)}
+            {dispute.disposition_title || dispute.disposition_code}
+            {dispute.store_id && (
+              <>
+                {' · '}
+                {dispute.store_id === UNKNOWN_STORE_ID ? (
+                  <span className="text-gray-400">Unknown store</span>
+                ) : (
+                  `Store ${dispute.store_id}`
+                )}
+              </>
+            )}
+            {' · '}Filed {formatDate(dispute.created_at)}
           </p>
         </div>
         <Badge tone={DISPUTE_STATUS_TONE[dispute.status]}>{DISPUTE_STATUS_LABEL[dispute.status]}</Badge>

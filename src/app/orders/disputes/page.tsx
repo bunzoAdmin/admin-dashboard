@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, ApiClientError } from '@/lib/api';
 import { Badge, ErrorBox, Loading, EmptyState, formatDate } from '@/components/ui';
-import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, useDisputes } from '@/lib/disputes';
-import type { AdminDispute, DisputeStatus, DisputeSummary } from '@/lib/types';
+import { DISPUTE_STATUS_LABEL, DISPUTE_STATUS_TONE, UNKNOWN_STORE_ID, useDisputes } from '@/lib/disputes';
+import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
+import type { AdminDispute, Darkstore, DisputeStatus, DisputeSummary } from '@/lib/types';
 
 const TABS: { status: DisputeStatus; label: string; countKey: keyof DisputeSummary }[] = [
   { status: 'OPEN', label: 'Open', countKey: 'open' },
@@ -14,9 +15,19 @@ const TABS: { status: DisputeStatus; label: string; countKey: keyof DisputeSumma
   { status: 'REJECTED', label: 'Rejected', countKey: 'rejected' }
 ];
 
+const ALL_STORES = 'ALL';
+
+const DISPUTE_SCOPES = [
+  { value: ALL_STORES, label: 'All stores' },
+  { value: UNKNOWN_STORE_ID, label: 'Unknown store' }
+] as const;
+
 export default function DisputesPage() {
   const router = useRouter();
   const setOpenCount = useDisputes((s) => s.setOpenCount);
+  const { storeId, setStoreId } = useStoreContext();
+  const [scope, setScope] = useState<string | null>(ALL_STORES);
+  const [stores, setStores] = useState<Darkstore[]>([]);
   const [status, setStatus] = useState<DisputeStatus>('OPEN');
   const [items, setItems] = useState<AdminDispute[]>([]);
   const [cursor, setCursor] = useState('');
@@ -25,21 +36,37 @@ export default function DisputesPage() {
   const [error, setError] = useState('');
   const [summary, setSummary] = useState<DisputeSummary | null>(null);
 
+  // The value sent to the API: '' means all stores.
+  const storeFilter = scope === ALL_STORES ? '' : scope ?? (storeId != null ? String(storeId) : '');
+
+  useEffect(() => {
+    api.listDarkstores().then((res) => setStores(res.darkstores)).catch(() => setStores([]));
+  }, []);
+
+  const storeNames = useMemo(
+    () => new Map(stores.map((s) => [s.darkstore_id, s.name])),
+    [stores]
+  );
+
   const loadSummary = useCallback(async () => {
     try {
-      const s = await api.getDisputeSummary();
-      setSummary(s);
-      setOpenCount(s.open);
+      const [scoped, global] = await Promise.all([
+        api.getDisputeSummary(storeFilter || undefined),
+        api.getDisputeSummary()
+      ]);
+      setSummary(scoped);
+      // The badge lives in AppFrame, outside any store context, so it stays global.
+      setOpenCount(global.open);
     } catch {
       // non-fatal
     }
-  }, [setOpenCount]);
+  }, [setOpenCount, storeFilter]);
 
   const loadFirstPage = useCallback(async (st: DisputeStatus) => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.listDisputes(st);
+      const res = await api.listDisputes(st, undefined, storeFilter || undefined);
       setItems(res.disputes);
       setCursor(res.next_cursor);
     } catch (e) {
@@ -47,7 +74,7 @@ export default function DisputesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storeFilter]);
 
   useEffect(() => {
     loadFirstPage(status);
@@ -61,7 +88,7 @@ export default function DisputesPage() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const res = await api.listDisputes(status, cursor);
+      const res = await api.listDisputes(status, cursor, storeFilter || undefined);
       setItems((prev) => [...prev, ...res.disputes]);
       setCursor(res.next_cursor);
     } catch (e) {
@@ -76,6 +103,16 @@ export default function DisputesPage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900">Disputes</h1>
         <p className="text-sm text-gray-500">Customer-reported issues. Triage open disputes and resolve or reject them.</p>
+      </div>
+
+      <div className="card flex flex-wrap items-end gap-4 p-4">
+        <StoreSelector
+          storeId={storeId}
+          onStoreChange={setStoreId}
+          extraScopes={DISPUTE_SCOPES}
+          scope={scope}
+          onScopeChange={setScope}
+        />
       </div>
 
       <div className="flex flex-wrap gap-2 border-b border-gray-200">
@@ -116,7 +153,20 @@ export default function DisputesPage() {
             >
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium text-gray-900">{d.disposition_title || d.disposition_code}</div>
-                <div className="truncate text-xs text-gray-500">Order {d.order_number} · Customer {d.customer_id}</div>
+                <div className="truncate text-xs text-gray-500">
+                  Order {d.order_number}
+                  {d.store_id && (
+                    <>
+                      {' · '}
+                      {d.store_id === UNKNOWN_STORE_ID ? (
+                        <span className="text-gray-400">Unknown store</span>
+                      ) : (
+                        storeNames.get(d.store_id) ?? `Store ${d.store_id}`
+                      )}
+                    </>
+                  )}
+                  {' · '}Customer {d.customer_id}
+                </div>
               </div>
               <div className="flex shrink-0 items-center gap-3">
                 <span className="text-xs text-gray-400">{formatDate(d.created_at)}</span>
