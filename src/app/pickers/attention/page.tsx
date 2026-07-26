@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { RefreshCw } from 'lucide-react';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { AttentionItemResponse, TaskListResponse } from '@/lib/pickerTypes';
-import { formatTime } from '@/lib/pickerUtils';
+import { formatDurationSeconds, formatTime } from '@/lib/pickerUtils';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
@@ -162,7 +162,7 @@ export default function PickerAttentionPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-gray-500">
                         {formatTime(item.since ?? undefined)}
-                        {item.elapsedMinutes != null ? ` · ${item.elapsedMinutes}m` : ''}
+                        {item.elapsedSeconds != null ? ` · ${formatDurationSeconds(item.elapsedSeconds)}` : ''}
                       </td>
                       <td className="max-w-xs px-4 py-3 text-xs text-gray-500">{item.detail ?? '—'}</td>
                       <td className="px-4 py-3 text-right">

@@ -8,7 +8,7 @@ import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import { listStores } from '@/lib/storesApi';
 import type { PickerResponse, ShiftResponse, StoreResponse, TaskHistoryEntry } from '@/lib/pickerTypes';
 import { resolveLocalMetricsRange, todayIsoLocal } from '@/lib/pickerMetricsRange';
-import { formatPickerStatus, formatTime, pickerStatusTone, taskStatusTone } from '@/lib/pickerUtils';
+import { formatDurationSeconds, formatPickerStatus, formatTime, pickerStatusTone, taskStatusTone } from '@/lib/pickerUtils';
 import { PinRevealModal } from '@/components/pickers/PinRevealModal';
 import { Badge, Card, ErrorBox, Loading, Spinner, useToast } from '@/components/ui';
 import { Modal } from '@/components/Modal';
@@ -34,7 +34,7 @@ export default function PickerDetailPage() {
   const [showEdit, setShowEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
   const [todayTasks, setTodayTasks] = useState<number | null>(null);
-  const [todayAvgMinutes, setTodayAvgMinutes] = useState<number | null>(null);
+  const [todayAvgSeconds, setTodayAvgSeconds] = useState<number | null>(null);
   const [taskHistory, setTaskHistory] = useState<TaskHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -58,10 +58,10 @@ export default function PickerDetailPage() {
       });
       const row = analytics.pickers.find((p) => p.pickerId === id);
       setTodayTasks(row?.completedTasks ?? 0);
-      setTodayAvgMinutes(row?.avgPickMinutes ?? null);
+      setTodayAvgSeconds(row?.avgPickSeconds ?? null);
     } catch {
       setTodayTasks(null);
-      setTodayAvgMinutes(null);
+      setTodayAvgSeconds(null);
     }
   }, []);
 
@@ -275,7 +275,7 @@ export default function PickerDetailPage() {
               <div className="card p-4">
                 <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Avg pick time</dt>
                 <dd className="mt-1 text-2xl font-semibold text-gray-900">
-                  {todayAvgMinutes != null ? `${todayAvgMinutes.toFixed(1)}m` : '—'}
+                  {todayAvgSeconds != null ? formatDurationSeconds(todayAvgSeconds) : '—'}
                 </dd>
               </div>
             </div>

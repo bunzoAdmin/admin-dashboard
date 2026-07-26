@@ -7,8 +7,10 @@ import { Badge, Card, ErrorBox, Loading, SectionTitle, formatDate } from '@/comp
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 
+import { formatDurationSeconds } from '@/lib/pickerUtils';
+
 /** UI-only threshold for flagging a stuck pick on the order detail page — not a backend config. */
-const PICKING_ALERT_MINUTES = 5;
+const PICKING_ALERT_SECONDS = 5 * 60;
 
 function taskStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -187,7 +189,7 @@ function PickerOpsBody({
   }
 
   if (task.status === 'IN_PROGRESS') {
-    const stale = (task.elapsedMinutes ?? 0) >= PICKING_ALERT_MINUTES;
+    const stale = (task.elapsedSeconds ?? 0) >= PICKING_ALERT_SECONDS;
     const totalItems = task.processedItemCount != null ? task.processedItemCount + (task.pendingItemCount ?? 0) : null;
     return (
       <div className="space-y-3 text-sm">
@@ -198,11 +200,11 @@ function PickerOpsBody({
         <p className="text-xs text-gray-400">
           Started {formatDate(task.startedAt ?? undefined)}
           {totalItems != null && <> &middot; {task.processedItemCount}/{totalItems} items</>}
-          {task.elapsedMinutes != null && <> &middot; {task.elapsedMinutes}m elapsed</>}
+          {task.elapsedSeconds != null && <> &middot; {formatDurationSeconds(task.elapsedSeconds)} elapsed</>}
         </p>
         {stale && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-            Picking longer than expected ({task.elapsedMinutes}m) — consider reassigning.
+            Picking longer than expected ({formatDurationSeconds(task.elapsedSeconds)}) — consider reassigning.
           </div>
         )}
         <div className="flex flex-wrap gap-2">

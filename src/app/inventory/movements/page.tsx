@@ -4,12 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { inventoryHealthApi, InventoryHealthApiError } from '@/lib/inventoryHealthApi';
 import { MOVEMENT_TYPE_OPTIONS, type StockMovementResponse, type StockMovementsPageResponse } from '@/lib/inventoryHealthTypes';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner } from '@/components/ui';
+import { formatStoreDateTimeShort, parseStoreDatetimeLocal } from '@/lib/storeTime';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return formatStoreDateTimeShort(iso);
 }
 
 function movementTone(type: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -43,8 +42,8 @@ export default function StockMovementsPage() {
         storeId: sid,
         sku: sku.trim() || undefined,
         movementType: movementType || undefined,
-        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
-        dateTo: dateTo ? new Date(dateTo).toISOString() : undefined,
+        dateFrom: dateFrom ? parseStoreDatetimeLocal(dateFrom) : undefined,
+        dateTo: dateTo ? parseStoreDatetimeLocal(dateTo) : undefined,
         page: pg,
         size: 50
       });
@@ -89,11 +88,11 @@ export default function StockMovementsPage() {
               </select>
             </label>
             <label className="block space-y-1.5">
-              <span className="label">From</span>
+              <span className="label">From (CAT)</span>
               <input type="datetime-local" className="input" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">To</span>
+              <span className="label">To (CAT)</span>
               <input type="datetime-local" className="input" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </label>
             <div className="flex items-end">

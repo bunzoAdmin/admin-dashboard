@@ -1,9 +1,12 @@
 import type { PickerAnalyticsPeriod } from './pickerTypes';
-
-/** Minutes east of UTC (IST = 330). Matches MySQL DATE_ADD offset. */
-export function localUtcOffsetMinutes(): number {
-  return -new Date().getTimezoneOffset();
-}
+import {
+  STORE_UTC_OFFSET_MINUTES,
+  addStoreCalendarDays,
+  storeDayStartInstant,
+  storeWeekday,
+  storeYmd,
+  todayIsoStore
+} from './storeTime';
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -18,40 +21,43 @@ export function parseIsoDateLocal(iso: string): Date {
   return new Date(y, m - 1, d, 12, 0, 0, 0);
 }
 
+/** @deprecated Use todayIsoStore — metrics use store calendar (CAT), not browser local. */
 export function todayIsoLocal(): string {
-  return toIsoDate(new Date());
+  return todayIsoStore();
 }
 
-function startOfLocalDay(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+function formatDayLabel(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d, 12).toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric'
+  });
 }
 
-function addLocalDays(d: Date, days: number): Date {
-  const next = new Date(d);
-  next.setDate(next.getDate() + days);
-  return next;
+function formatMonthLabel(iso: string): string {
+  const [y, m] = iso.split('-').map(Number);
+  return new Date(y, m - 1, 1, 12).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric'
+  });
 }
 
-function startOfLocalWeekMonday(d: Date): Date {
-  const day = d.getDay(); // 0=Sun
-  const diff = day === 0 ? -6 : 1 - day;
-  return startOfLocalDay(addLocalDays(d, diff));
+function startOfStoreWeekMonday(iso: string): string {
+  const wd = storeWeekday(iso);
+  const diff = wd === 0 ? -6 : 1 - wd;
+  return addStoreCalendarDays(iso, diff);
 }
 
-function startOfLocalMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+function startOfStoreMonth(iso: string): string {
+  const [y, m] = iso.split('-');
+  return `${y}-${m}-01`;
 }
 
-function endOfLocalMonth(d: Date): Date {
-  return new Date(d.getFullYear(), d.getMonth() + 1, 0, 12, 0, 0, 0);
-}
-
-function formatDayLabel(d: Date): string {
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function formatMonthLabel(d: Date): string {
-  return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+function endOfStoreMonth(iso: string): string {
+  const [y, m] = iso.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${y}-${pad(m)}-${pad(lastDay)}`;
 }
 
 export interface ResolvedLocalRange {
@@ -70,26 +76,28 @@ export function resolveLocalMetricsRange(opts: {
   customFrom: string;
   customTo: string;
 }): ResolvedLocalRange {
-  const utcOffsetMinutes = localUtcOffsetMinutes();
+  const utcOffsetMinutes = STORE_UTC_OFFSET_MINUTES;
   const { period } = opts;
 
   if (period === 'CUSTOM') {
-    const fromDay = startOfLocalDay(parseIsoDateLocal(opts.customFrom));
-    const toDay = startOfLocalDay(parseIsoDateLocal(opts.customTo));
-    if (toDay < fromDay) {
+    const calendarFrom = opts.customFrom;
+    const calendarTo = opts.customTo;
+    if (calendarTo < calendarFrom) {
       throw new Error('End date must be on or after start date');
     }
-    const days = Math.round((toDay.getTime() - fromDay.getTime()) / 86_400_000) + 1;
+    const fromDay = calendarFrom;
+    const toDay = calendarTo;
+    const fromMs = new Date(storeDayStartInstant(fromDay)).getTime();
+    const toMs = new Date(storeDayStartInstant(addStoreCalendarDays(toDay, 1))).getTime();
+    const days = Math.round((toMs - fromMs) / 86_400_000);
     if (days > 366) {
       throw new Error('Custom range cannot exceed 366 days');
     }
-    const toExclusive = startOfLocalDay(addLocalDays(toDay, 1));
-    const calendarFrom = toIsoDate(fromDay);
-    const calendarTo = toIsoDate(toDay);
+    const toExclusive = storeDayStartInstant(addStoreCalendarDays(toDay, 1));
     return {
       period,
-      from: fromDay.toISOString(),
-      toExclusive: toExclusive.toISOString(),
+      from: storeDayStartInstant(fromDay),
+      toExclusive,
       calendarFrom,
       calendarTo,
       label: calendarFrom === calendarTo
@@ -99,61 +107,60 @@ export function resolveLocalMetricsRange(opts: {
     };
   }
 
-  const anchor = parseIsoDateLocal(opts.anchorDate);
+  const anchor = opts.anchorDate;
 
   if (period === 'DAY') {
-    const fromDay = startOfLocalDay(anchor);
-    const toExclusive = startOfLocalDay(addLocalDays(fromDay, 1));
-    const calendarFrom = toIsoDate(fromDay);
+    const calendarFrom = anchor;
     return {
       period,
-      from: fromDay.toISOString(),
-      toExclusive: toExclusive.toISOString(),
+      from: storeDayStartInstant(calendarFrom),
+      toExclusive: storeDayStartInstant(addStoreCalendarDays(calendarFrom, 1)),
       calendarFrom,
       calendarTo: calendarFrom,
-      label: formatDayLabel(fromDay),
+      label: formatDayLabel(calendarFrom),
       utcOffsetMinutes
     };
   }
 
   if (period === 'WEEK') {
-    const weekStart = startOfLocalWeekMonday(anchor);
-    const weekEnd = addLocalDays(weekStart, 6);
-    const toExclusive = startOfLocalDay(addLocalDays(weekStart, 7));
+    const weekStart = startOfStoreWeekMonday(anchor);
+    const weekEnd = addStoreCalendarDays(weekStart, 6);
     return {
       period,
-      from: weekStart.toISOString(),
-      toExclusive: toExclusive.toISOString(),
-      calendarFrom: toIsoDate(weekStart),
-      calendarTo: toIsoDate(weekEnd),
+      from: storeDayStartInstant(weekStart),
+      toExclusive: storeDayStartInstant(addStoreCalendarDays(weekStart, 7)),
+      calendarFrom: weekStart,
+      calendarTo: weekEnd,
       label: `${formatDayLabel(weekStart)} – ${formatDayLabel(weekEnd)}`,
       utcOffsetMinutes
     };
   }
 
   // MONTH
-  const monthStart = startOfLocalMonth(anchor);
-  const monthEnd = endOfLocalMonth(anchor);
-  const toExclusive = startOfLocalDay(addLocalDays(startOfLocalDay(monthEnd), 1));
+  const monthStart = startOfStoreMonth(anchor);
+  const monthEnd = endOfStoreMonth(anchor);
   return {
     period,
-    from: monthStart.toISOString(),
-    toExclusive: toExclusive.toISOString(),
-    calendarFrom: toIsoDate(monthStart),
-    calendarTo: toIsoDate(monthEnd),
+    from: storeDayStartInstant(monthStart),
+    toExclusive: storeDayStartInstant(addStoreCalendarDays(monthEnd, 1)),
+    calendarFrom: monthStart,
+    calendarTo: monthEnd,
     label: formatMonthLabel(monthStart),
     utcOffsetMinutes
   };
 }
 
-/** Shift the anchor by one period unit (day/week/month). */
+/** Shift the anchor by one period unit (day/week/month) in store calendar. */
 export function nudgeAnchorDate(iso: string, period: PickerAnalyticsPeriod, direction: -1 | 1): string {
-  const d = parseIsoDateLocal(iso);
   if (period === 'WEEK') {
-    return toIsoDate(addLocalDays(d, direction * 7));
+    return addStoreCalendarDays(iso, direction * 7);
   }
   if (period === 'MONTH') {
-    return toIsoDate(new Date(d.getFullYear(), d.getMonth() + direction, 1, 12, 0, 0, 0));
+    const [y, m] = iso.split('-').map(Number);
+    const absolute = y * 12 + (m - 1) + direction;
+    const ny = Math.floor(absolute / 12);
+    const nm = (absolute % 12) + 1;
+    return `${ny}-${pad(nm)}-01`;
   }
-  return toIsoDate(addLocalDays(d, direction));
+  return addStoreCalendarDays(iso, direction);
 }

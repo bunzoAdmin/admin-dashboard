@@ -4,11 +4,10 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { refundAdminApi, RefundAdminApiError, type StuckRefundEntry } from '@/lib/refundAdminApi';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, money, useToast } from '@/components/ui';
+import { formatStoreDateTimeShort } from '@/lib/storeTime';
 
 function fmtDate(iso?: string | null) {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return isNaN(d.getTime()) ? iso : d.toLocaleString();
+  return formatStoreDateTimeShort(iso);
 }
 
 export default function StuckRefundsPage() {

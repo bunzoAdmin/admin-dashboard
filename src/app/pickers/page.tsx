@@ -13,16 +13,12 @@ import type {
   TaskListResponse
 } from '@/lib/pickerTypes';
 import { PICKER_STATUS_OPTIONS, TASK_STATUS_OPTIONS } from '@/lib/pickerTypes';
-import { formatPickerStatus, formatTime, pickerStatusTone, taskStatusTone } from '@/lib/pickerUtils';
+import { formatDurationSeconds, formatPickerStatus, formatTime, pickerStatusTone, taskStatusTone } from '@/lib/pickerUtils';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
 
-function fmtMinutes(v?: number | null): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  return `${v.toFixed(1)}m`;
-}
 
 export default function PickersLiveOpsPage() {
   const { storeId, setStoreId } = useStoreContext();
@@ -125,7 +121,7 @@ export default function PickersLiveOpsPage() {
             <Stat
               label="Completed today"
               value={metrics?.completedToday ?? '—'}
-              sub={metrics ? `Avg ${fmtMinutes(metrics.avgPickMinutesToday)}` : undefined}
+              sub={metrics ? `Avg ${formatDurationSeconds(metrics.avgPickSecondsToday)}` : undefined}
             />
             <Stat
               label="Needs attention"
@@ -154,7 +150,7 @@ export default function PickersLiveOpsPage() {
                   >
                     <span className="font-medium text-gray-900">{row.name}</span>
                     <span className="ml-2 text-xs text-gray-500">
-                      {row.completedToday} · {fmtMinutes(row.avgPickMinutes)}
+                      {row.completedToday} · {formatDurationSeconds(row.avgPickSeconds)}
                     </span>
                   </Link>
                 ))}
@@ -287,7 +283,7 @@ export default function PickersLiveOpsPage() {
                           {t.status === 'IN_PROGRESS' && t.processedItemCount != null ? (
                             <>
                               {t.processedItemCount}/{t.processedItemCount + (t.pendingItemCount ?? 0)} items
-                              {t.elapsedMinutes != null ? ` · ${t.elapsedMinutes}m` : ''}
+                              {t.elapsedSeconds != null ? ` · ${formatDurationSeconds(t.elapsedSeconds)}` : ''}
                             </>
                           ) : (
                             '—'

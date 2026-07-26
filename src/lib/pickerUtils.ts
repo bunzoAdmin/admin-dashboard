@@ -1,4 +1,5 @@
 import type { PickTaskStatus, PickerStatus } from './pickerTypes';
+import { formatStoreDateTimeShort } from './storeTime';
 
 type BadgeTone = 'gray' | 'green' | 'amber' | 'red' | 'blue';
 
@@ -34,11 +35,19 @@ export function formatPickerStatus(status: string): string {
   return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Format a duration in seconds as human-readable text, e.g. "6 sec", "1 min 7 sec". */
+export function formatDurationSeconds(totalSeconds?: number | null): string {
+  if (totalSeconds == null || Number.isNaN(totalSeconds)) return '—';
+  const sec = Math.round(totalSeconds);
+  if (sec < 60) return `${sec} sec`;
+  const mins = Math.floor(sec / 60);
+  const rem = sec % 60;
+  if (rem === 0) return `${mins} min`;
+  return `${mins} min ${rem} sec`;
+}
+
 export function formatTime(iso?: string | null): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return formatStoreDateTimeShort(iso);
 }
 
 export function formatShiftTime(t: string): string {

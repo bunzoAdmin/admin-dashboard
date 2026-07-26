@@ -47,7 +47,7 @@ export interface TaskListResponse {
   assignedAt?: string | null;
   startedAt?: string | null;
   completedAt?: string | null;
-  elapsedMinutes?: number | null;
+  elapsedSeconds?: number | null;
   processedItemCount?: number | null;
   pendingItemCount?: number | null;
 }
@@ -126,7 +126,7 @@ export interface AttentionItemResponse {
   pickerName?: string | null;
   taskStatus?: string | null;
   since?: string | null;
-  elapsedMinutes?: number | null;
+  elapsedSeconds?: number | null;
   detail?: string | null;
 }
 
@@ -161,7 +161,7 @@ export interface PickerPerformanceRow {
   pickerId: number;
   name: string;
   completedToday: number;
-  avgPickMinutes?: number | null;
+  avgPickSeconds?: number | null;
 }
 
 export interface PickerStoreMetricsResponse {
@@ -173,7 +173,7 @@ export interface PickerStoreMetricsResponse {
   pendingTasks: number;
   activeTasks: number;
   completedToday: number;
-  avgPickMinutesToday?: number | null;
+  avgPickSecondsToday?: number | null;
   attentionCount: number;
   topPickers: PickerPerformanceRow[];
 }
@@ -190,14 +190,14 @@ export interface PickerAnalyticsResponse {
   rangeEnd?: string;
   overview: {
     completedTasks: number;
-    avgPickMinutes?: number | null;
-    fastestPickMinutes?: number | null;
-    slowestPickMinutes?: number | null;
+    avgPickSeconds?: number | null;
+    fastestPickSeconds?: number | null;
+    slowestPickSeconds?: number | null;
     activePickers: number;
     pendingTasks: number;
     activeTasks: number;
-    avgAssignToStartMinutes?: number | null;
-    avgStartToCompleteMinutes?: number | null;
+    avgAssignToStartSeconds?: number | null;
+    avgStartToCompleteSeconds?: number | null;
     acceptanceTimeoutCount?: number;
     orphanOrderCount?: number;
   };
@@ -210,15 +210,15 @@ export interface PickerAnalyticsResponse {
   dailyTrend: Array<{
     date: string;
     completedTasks: number;
-    avgPickMinutes?: number | null;
+    avgPickSeconds?: number | null;
   }>;
   pickers: Array<{
     pickerId: number;
     name: string;
     completedTasks: number;
-    avgPickMinutes?: number | null;
-    fastestPickMinutes?: number | null;
-    slowestPickMinutes?: number | null;
+    avgPickSeconds?: number | null;
+    fastestPickSeconds?: number | null;
+    slowestPickSeconds?: number | null;
   }>;
 }
 

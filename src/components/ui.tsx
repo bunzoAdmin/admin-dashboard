@@ -4,6 +4,7 @@ import clsx from 'clsx';
 import { Loader2, AlertCircle, CheckCircle2, Info, X } from 'lucide-react';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import type { DEStatus } from '@/lib/types';
+import { formatStoreDateTimeShort } from '@/lib/storeTime';
 
 export function Card({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={clsx('card p-5', className)}>{children}</div>;
@@ -105,10 +106,7 @@ export function money(zmw: number | undefined | null): string {
 }
 
 export function formatDate(iso?: string): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleString();
+  return formatStoreDateTimeShort(iso);
 }
 
 // --- Toast ---

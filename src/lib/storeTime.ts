@@ -7,6 +7,44 @@
 
 export const STORE_TIMEZONE = 'Africa/Lusaka';
 export const STORE_TZ_LABEL = 'CAT';
+/** CAT is fixed UTC+2 (no DST). Used for metrics day bucketing. */
+export const STORE_UTC_OFFSET_MINUTES = 120;
+
+/** Calendar date YYYY-MM-DD in store timezone. */
+export function storeYmd(d: Date = new Date()): string {
+  return d.toLocaleDateString('en-CA', { timeZone: STORE_TIMEZONE });
+}
+
+/** UTC instant of midnight at the start of a store calendar day. */
+export function storeDayStartInstant(iso: string): string {
+  return new Date(`${iso}T00:00:00+02:00`).toISOString();
+}
+
+/** Store weekday 0=Sun … 6=Sat for a store calendar date. */
+export function storeWeekday(iso: string): number {
+  const noon = new Date(`${iso}T12:00:00+02:00`);
+  const shortDay = new Intl.DateTimeFormat('en-US', {
+    timeZone: STORE_TIMEZONE,
+    weekday: 'short'
+  }).format(noon);
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(shortDay);
+}
+
+export function addStoreCalendarDays(iso: string, days: number): string {
+  const t = new Date(`${iso}T12:00:00+02:00`).getTime() + days * 86_400_000;
+  return storeYmd(new Date(t));
+}
+
+export function todayIsoStore(): string {
+  return storeYmd(new Date());
+}
+
+/** Parse {@code datetime-local} input as store wall time (CAT) → UTC ISO instant. */
+export function parseStoreDatetimeLocal(value: string): string | undefined {
+  if (!value?.trim()) return undefined;
+  const normalized = value.length === 16 ? `${value}:00` : value;
+  return new Date(`${normalized}+02:00`).toISOString();
+}
 
 const storeDateTimeFmt = new Intl.DateTimeFormat('en-GB', {
   timeZone: STORE_TIMEZONE,

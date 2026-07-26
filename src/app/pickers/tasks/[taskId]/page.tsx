@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { TaskDetailResponse } from '@/lib/pickerTypes';
-import { formatPickerStatus, formatTime, taskStatusTone } from '@/lib/pickerUtils';
+import { formatDurationSeconds, formatPickerStatus, formatTime, taskStatusTone } from '@/lib/pickerUtils';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
 import { Badge, Card, ErrorBox, Loading, SectionTitle } from '@/components/ui';
@@ -127,7 +127,7 @@ export default function PickTaskDetailPage() {
                     {task.processedItemCount != null
                       ? `${task.processedItemCount}/${task.processedItemCount + (task.pendingItemCount ?? 0)} items`
                       : '—'}
-                    {task.elapsedMinutes != null ? ` · ${task.elapsedMinutes}m elapsed` : ''}
+                    {task.elapsedSeconds != null ? ` · ${formatDurationSeconds(task.elapsedSeconds)} elapsed` : ''}
                   </dd>
                 </>
               )}

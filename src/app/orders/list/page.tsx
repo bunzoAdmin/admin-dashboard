@@ -17,7 +17,8 @@ import {
   ageUrgencyTone,
   formatAgeMinutes,
   formatStoreDateTimeShort,
-  isTerminalOrderStatus
+  isTerminalOrderStatus,
+  parseStoreDatetimeLocal
 } from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -75,8 +76,8 @@ export default function OrdersListPage() {
         paymentStatus: paymentStatus || undefined,
         customerPhone: customerPhone.trim() || undefined,
         orderNumber: orderNumber.trim() || undefined,
-        dateFrom: dateFrom ? new Date(dateFrom).toISOString() : undefined,
-        dateTo: dateTo ? new Date(dateTo).toISOString() : undefined,
+        dateFrom: dateFrom ? parseStoreDatetimeLocal(dateFrom) : undefined,
+        dateTo: dateTo ? parseStoreDatetimeLocal(dateTo) : undefined,
         page: pg,
         size: 20
       });
@@ -142,11 +143,11 @@ export default function OrdersListPage() {
               <input type="text" className="input w-full font-mono" placeholder="ORD…" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">From</span>
+              <span className="label">From (CAT)</span>
               <input type="datetime-local" className="input w-full" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">To</span>
+              <span className="label">To (CAT)</span>
               <input type="datetime-local" className="input w-full" value={dateTo} onChange={e => setDateTo(e.target.value)} />
             </label>
             <div className="flex items-end">

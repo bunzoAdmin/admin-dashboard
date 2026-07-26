@@ -7,20 +7,16 @@ import clsx from 'clsx';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { PickerAnalyticsPeriod, PickerAnalyticsResponse } from '@/lib/pickerTypes';
 import { nudgeAnchorDate, resolveLocalMetricsRange, todayIsoLocal } from '@/lib/pickerMetricsRange';
+import { formatDurationSeconds } from '@/lib/pickerUtils';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
 
 const PERIODS: { id: PickerAnalyticsPeriod; label: string; hint: string }[] = [
-  { id: 'DAY', label: 'Day', hint: 'Your local calendar day' },
-  { id: 'WEEK', label: 'Week', hint: 'Mon–Sun in your local timezone' },
-  { id: 'MONTH', label: 'Month', hint: 'Full local calendar month' },
-  { id: 'CUSTOM', label: 'Custom', hint: 'Any local date range' }
+  { id: 'DAY', label: 'Day', hint: 'Store calendar day (CAT)' },
+  { id: 'WEEK', label: 'Week', hint: 'Mon–Sun in store time (CAT)' },
+  { id: 'MONTH', label: 'Month', hint: 'Full store calendar month (CAT)' },
+  { id: 'CUSTOM', label: 'Custom', hint: 'Store date range (CAT)' }
 ];
-
-function fmtMinutes(v?: number | null): string {
-  if (v == null || Number.isNaN(v)) return '—';
-  return `${v.toFixed(1)}m`;
-}
 
 function fmtDayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -90,7 +86,7 @@ export default function PickerMetricsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Picker metrics</h1>
           <p className="text-sm text-gray-500">
-            Store throughput and per-picker performance — dates use your browser timezone; backend stores UTC.
+            Store throughput and per-picker performance — all dates use store time (CAT).
           </p>
         </div>
         <button type="button" className="btn-ghost text-sm" onClick={load} disabled={loading}>
@@ -179,12 +175,12 @@ export default function PickerMetricsPage() {
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Stat
                 label="Avg assign → start"
-                value={fmtMinutes(data.overview.avgAssignToStartMinutes)}
+                value={formatDurationSeconds(data.overview.avgAssignToStartSeconds)}
                 sub="Time to accept task"
               />
               <Stat
                 label="Avg start → complete"
-                value={fmtMinutes(data.overview.avgStartToCompleteMinutes)}
+                value={formatDurationSeconds(data.overview.avgStartToCompleteSeconds)}
                 sub="Active pick duration"
               />
               <Stat
@@ -204,9 +200,9 @@ export default function PickerMetricsPage() {
             <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Store performance</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <Stat label="Tasks completed" value={data.overview.completedTasks} />
-              <Stat label="Avg pick time" value={fmtMinutes(data.overview.avgPickMinutes)} />
-              <Stat label="Fastest pick" value={fmtMinutes(data.overview.fastestPickMinutes)} sub="Best single task" />
-              <Stat label="Slowest pick" value={fmtMinutes(data.overview.slowestPickMinutes)} sub="Longest single task" />
+              <Stat label="Avg pick time" value={formatDurationSeconds(data.overview.avgPickSeconds)} />
+              <Stat label="Fastest pick" value={formatDurationSeconds(data.overview.fastestPickSeconds)} sub="Best single task" />
+              <Stat label="Slowest pick" value={formatDurationSeconds(data.overview.slowestPickSeconds)} sub="Longest single task" />
               <Stat label="Active pickers" value={data.overview.activePickers} sub="Completed ≥1 task" />
               <Stat
                 label="Queue now"
@@ -231,7 +227,7 @@ export default function PickerMetricsPage() {
                       <div
                         className="w-full max-w-[36px] rounded-t-md bg-brand-green/80 transition-all"
                         style={{ height: `${height}px` }}
-                        title={`${point.date}: ${point.completedTasks} tasks, avg ${fmtMinutes(point.avgPickMinutes)}`}
+                        title={`${point.date}: ${point.completedTasks} tasks, avg ${formatDurationSeconds(point.avgPickSeconds)}`}
                       />
                       <span className="text-[10px] text-gray-400">{fmtDayLabel(point.date)}</span>
                     </div>
@@ -287,9 +283,9 @@ export default function PickerMetricsPage() {
                           <div className="font-mono text-xs text-gray-400">#{row.pickerId}</div>
                         </td>
                         <td className="px-4 py-3 text-right font-semibold tabular-nums">{row.completedTasks}</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-gray-600">{fmtMinutes(row.avgPickMinutes)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{fmtMinutes(row.fastestPickMinutes)}</td>
-                        <td className="px-4 py-3 text-right tabular-nums text-amber-700">{fmtMinutes(row.slowestPickMinutes)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-gray-600">{formatDurationSeconds(row.avgPickSeconds)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-emerald-700">{formatDurationSeconds(row.fastestPickSeconds)}</td>
+                        <td className="px-4 py-3 text-right tabular-nums text-amber-700">{formatDurationSeconds(row.slowestPickSeconds)}</td>
                         <td className="px-4 py-3 text-right">
                           <Link href={`/pickers/${row.pickerId}`} className="text-sm font-medium text-brand-green hover:underline">
                             Profile
