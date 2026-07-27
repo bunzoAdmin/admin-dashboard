@@ -100,9 +100,10 @@ export function Stat({ label, value, sub }: { label: string; value: ReactNode; s
   );
 }
 
-export function money(zmw: number | undefined | null): string {
-  const n = typeof zmw === 'number' ? zmw : 0;
-  return `K${n.toFixed(2)}`;
+export function money(zmw: number | string | undefined | null): string {
+  const n = typeof zmw === 'number' ? zmw : typeof zmw === 'string' ? Number(zmw) : 0;
+  const safe = Number.isFinite(n) ? n : 0;
+  return `K${safe.toFixed(2)}`;
 }
 
 export function formatDate(iso?: string): string {

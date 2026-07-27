@@ -12,6 +12,7 @@ import type {
   PagedOrderResponse,
   UpdateOrderStatusRequest
 } from './orderAdminTypes';
+import type { OrderAnalyticsPeriod, OrderAnalyticsResponse } from './orderAnalyticsTypes';
 
 export class OrderAdminApiError extends Error {
   status: number;
@@ -79,6 +80,33 @@ export const orderAdminApi = {
 
   getPipeline: (storeId: number) =>
     req<OrderPipelineResponse>(`/admin/orders/pipeline?storeId=${storeId}`),
+
+  getAnalytics: (
+    storeId: number,
+    opts: {
+      period: OrderAnalyticsPeriod;
+      from: string;
+      toExclusive: string;
+      label?: string;
+      calendarFrom?: string;
+      calendarTo?: string;
+      utcOffsetMinutes?: number;
+      slaMinutes?: number;
+    }
+  ) => {
+    const q = new URLSearchParams({
+      storeId: String(storeId),
+      period: opts.period,
+      from: opts.from,
+      toExclusive: opts.toExclusive
+    });
+    if (opts.label) q.set('label', opts.label);
+    if (opts.calendarFrom) q.set('calendarFrom', opts.calendarFrom);
+    if (opts.calendarTo) q.set('calendarTo', opts.calendarTo);
+    if (opts.utcOffsetMinutes != null) q.set('utcOffsetMinutes', String(opts.utcOffsetMinutes));
+    if (opts.slaMinutes != null) q.set('slaMinutes', String(opts.slaMinutes));
+    return req<OrderAnalyticsResponse>(`/admin/orders/metrics/analytics?${q}`);
+  },
 
   getOrderEvents: (orderNumber: string) =>
     req<OrderEventResponse[]>(`/admin/orders/${encodeURIComponent(orderNumber)}/events`),

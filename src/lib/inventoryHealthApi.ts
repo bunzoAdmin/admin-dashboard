@@ -11,6 +11,7 @@ import type {
   StockMovementsPageResponse,
   StoreStockBrowsePageResponse
 } from './inventoryHealthTypes';
+import type { ExpiryBucket, ExpiryStockReportResponse } from './expiryStockTypes';
 
 export class InventoryHealthApiError extends Error {
   status: number;
@@ -114,5 +115,58 @@ export const inventoryHealthApi = {
     q.set('page', String(params.page ?? 0));
     q.set('size', String(params.size ?? 50));
     return req<StoreStockBrowsePageResponse>(`/admin/inventory/store-stock?${q}`);
+  },
+
+  getExpiryReport: (params: {
+    storeId: number;
+    withinDays?: number;
+    bucket?: ExpiryBucket;
+    page?: number;
+    size?: number;
+  }) => {
+    const q = new URLSearchParams({ storeId: String(params.storeId) });
+    q.set('withinDays', String(params.withinDays ?? 3));
+    if (params.bucket) q.set('bucket', params.bucket);
+    q.set('page', String(params.page ?? 0));
+    q.set('size', String(params.size ?? 50));
+    return req<ExpiryStockReportResponse>(`/admin/inventory/expiry?${q}`);
+  },
+
+  /** Downloads CSV via browser; returns blob URL caller should revoke. */
+  downloadExpiryCsv: async (params: {
+    storeId: number;
+    withinDays?: number;
+    bucket?: ExpiryBucket;
+  }): Promise<void> => {
+    const q = new URLSearchParams({ storeId: String(params.storeId), format: 'csv' });
+    q.set('withinDays', String(params.withinDays ?? 3));
+    if (params.bucket) q.set('bucket', params.bucket);
+
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res: Response;
+    try {
+      res = await fetch(inventoryApiUrl(`/admin/inventory/expiry?${q}`), { headers });
+    } catch {
+      throw new InventoryHealthApiError(0, 'Could not reach the inventory service.');
+    }
+    if (!res.ok) {
+      const data = await parseResponseBody(res);
+      throw new InventoryHealthApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'Expiry CSV download failed.')
+      );
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `expiry-store-${params.storeId}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   }
 };

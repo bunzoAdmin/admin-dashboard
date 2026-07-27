@@ -66,6 +66,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/orders/list', label: 'All Orders', icon: List },
       { href: '/orders/pipeline', label: 'Pipeline', icon: BarChart2 },
+      { href: '/orders/metrics', label: 'Metrics', icon: BarChart2 },
       { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true },
       { href: '/orders/assign', label: 'Assign Order', icon: PackageCheck }
     ]
@@ -128,6 +129,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true },
       { href: '/inventory/browse', label: 'Browse stock', icon: LayoutGrid },
+      { href: '/inventory/expiry', label: 'Expiry report', icon: Timer },
       { href: '/inventory/audit', label: 'Location audit', icon: MapPin },
       { href: '/inventory/alerts', label: 'Alerts', icon: AlertTriangle },
       { href: '/inventory/discrepancies', label: 'Discrepancies', icon: BarChart2 },

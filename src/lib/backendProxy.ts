@@ -72,12 +72,16 @@ async function proxy(req: NextRequest, basePath: string, pathSegments?: string[]
     return new NextResponse(null, { status: upstream.status });
   }
 
-  const responseText = await upstream.text();
-  return new NextResponse(responseText, {
+  const contentType = upstream.headers.get('content-type') ?? 'application/json';
+  const responseHeaders = new Headers({ 'Content-Type': contentType });
+  const disposition = upstream.headers.get('content-disposition');
+  if (disposition) responseHeaders.set('Content-Disposition', disposition);
+
+  // Preserve binary bodies (e.g. CSV UTF-8 BOM) — text() would strip the BOM.
+  const responseBody = await upstream.arrayBuffer();
+  return new NextResponse(responseBody, {
     status: upstream.status,
-    headers: {
-      'Content-Type': upstream.headers.get('content-type') ?? 'application/json'
-    }
+    headers: responseHeaders
   });
 }
 
