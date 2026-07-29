@@ -80,6 +80,19 @@ export interface OrderResponse {
   cancelType?: string | null;
   cancelledAt?: string | null;
   refundSummary?: RefundSummary | null;
+  invoice?: InvoiceInfo | null;
+}
+
+export interface InvoiceInfo {
+  available: boolean;
+  status?: string | null;
+  invoiceNumber?: number | null;
+  receiptNumber?: string | null;
+  issuedAt?: string | null;
+  pdfUrl?: string | null;
+  s3Url?: string | null;
+  qrCodeUrl?: string | null;
+  lastError?: string | null;
 }
 
 /**
@@ -146,6 +159,14 @@ export interface UpdateOrderStatusRequest {
   status: OrderStatus;
   notes?: string;
 }
+
+export const INVOICE_BACKLOG_STATUS_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'All missing / failed' },
+  { value: 'MISSING', label: 'No invoice row' },
+  { value: 'FAILED', label: 'Failed' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'SKIPPED', label: 'Skipped' }
+];
 
 export const ORDER_STATUS_OPTIONS: { value: OrderStatus | ''; label: string; color: string }[] = [
   { value: '', label: 'All statuses', color: 'gray' },

@@ -6,6 +6,7 @@ import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/orderAdminTypes';
 import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
+import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
@@ -267,6 +268,18 @@ export default function OrderDetailPage() {
                 <div className="text-gray-500">Refunded</div><div className="text-green-600">{money(order.refundSummary.amountRefunded ?? 0)}</div>
                 <div className="text-gray-500">Net paid</div><div className="font-medium">{money(order.refundSummary.netPaid ?? 0)}</div>
               </div>
+            </Card>
+          )}
+
+          {order.status === 'DELIVERED' && (
+            <Card>
+              <SectionTitle>Invoice</SectionTitle>
+              <InvoiceOpsPanel
+                orderNumber={order.orderNumber}
+                invoice={order.invoice}
+                compact
+                onUpdated={(invoice) => setOrder(prev => prev ? { ...prev, invoice } : prev)}
+              />
             </Card>
           )}
         </div>

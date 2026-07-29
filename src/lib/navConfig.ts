@@ -29,6 +29,7 @@ import {
   Warehouse,
   ClipboardList,
   Clock,
+  FileText,
   MapPin,
   RefreshCw,
   Bell
@@ -65,6 +66,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Orders',
     items: [
       { href: '/orders/list', label: 'All Orders', icon: List },
+      { href: '/orders/invoices', label: 'Missing Invoices', icon: FileText },
       { href: '/orders/pipeline', label: 'Pipeline', icon: BarChart2 },
       { href: '/orders/metrics', label: 'Metrics', icon: BarChart2 },
       { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true },

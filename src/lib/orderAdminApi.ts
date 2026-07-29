@@ -5,6 +5,7 @@ import { inventoryApiUrl } from './inventoryApiConfig';
 import { inventoryApiErrorMessage, parseResponseBody } from './inventoryApiUtils';
 import type {
   CancelOrderRequest,
+  InvoiceInfo,
   OrderEventResponse,
   OrderPipelineResponse,
   OrderResponse,
@@ -127,5 +128,82 @@ export const orderAdminApi = {
       method: 'POST',
       body,
       extraHeaders: { 'Actor-Id': actorId }
-    })
+    }),
+
+  listInvoiceBacklog: (params: {
+    storeId: number;
+    invoiceStatus?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    size?: number;
+  }) => {
+    const q = new URLSearchParams({ storeId: String(params.storeId) });
+    if (params.invoiceStatus) q.set('invoiceStatus', params.invoiceStatus);
+    if (params.dateFrom) q.set('dateFrom', params.dateFrom);
+    if (params.dateTo) q.set('dateTo', params.dateTo);
+    q.set('page', String(params.page ?? 0));
+    q.set('size', String(params.size ?? 20));
+    return req<PagedAdminOrderResponse>(`/admin/orders/invoices/backlog?${q}`);
+  },
+
+  uploadInvoice: async (orderNumber: string, file: File) => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const form = new FormData();
+    form.append('file', file);
+
+    let res: Response;
+    try {
+      res = await fetch(inventoryApiUrl(`/admin/orders/${encodeURIComponent(orderNumber)}/invoice`), {
+        method: 'POST',
+        headers,
+        body: form
+      });
+    } catch {
+      throw new OrderAdminApiError(0, 'Could not reach the order service.');
+    }
+
+    const data = await parseResponseBody(res);
+    if (!res.ok) {
+      throw new OrderAdminApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'Invoice upload failed.')
+      );
+    }
+    return data as InvoiceInfo;
+  },
+
+  retryInvoice: (orderNumber: string) =>
+    req<InvoiceInfo>(`/admin/orders/${encodeURIComponent(orderNumber)}/invoice/retry`, { method: 'POST' }),
+
+  /** Fetches the invoice PDF as a blob URL. Caller is responsible for opening/revoking it. */
+  fetchInvoicePdfBlobUrl: async (orderNumber: string): Promise<string> => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res: Response;
+    try {
+      res = await fetch(
+        inventoryApiUrl(`/admin/orders/${encodeURIComponent(orderNumber)}/invoice.pdf`),
+        { headers }
+      );
+    } catch {
+      throw new OrderAdminApiError(0, 'Could not reach the order service.');
+    }
+
+    if (!res.ok) {
+      const data = await parseResponseBody(res);
+      throw new OrderAdminApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'Could not load invoice PDF.')
+      );
+    }
+
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  }
 };
