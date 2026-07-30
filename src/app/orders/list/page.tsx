@@ -13,12 +13,16 @@ import {
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, money } from '@/components/ui';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import {
+  ORDER_DATE_PRESET_GROUPS,
+  resolveOrderDateRange,
+  type OrderDatePreset
+} from '@/lib/orderDateRange';
+import {
   ageToneClass,
   ageUrgencyTone,
   formatAgeMinutes,
   formatStoreDateTimeShort,
-  isTerminalOrderStatus,
-  parseStoreDatetimeLocal
+  isTerminalOrderStatus
 } from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -53,6 +57,7 @@ export default function OrdersListPage() {
   const [paymentStatus, setPaymentStatus] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
+  const [datePreset, setDatePreset] = useState<OrderDatePreset>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [data, setData] = useState<PagedAdminOrderResponse | null>(null);
@@ -70,14 +75,15 @@ export default function OrdersListPage() {
     setLoading(true);
     setError(null);
     try {
+      const range = resolveOrderDateRange(datePreset, dateFrom, dateTo);
       const result = await orderAdminApi.listOrders({
         storeId: sid,
         status: status || undefined,
         paymentStatus: paymentStatus || undefined,
         customerPhone: customerPhone.trim() || undefined,
         orderNumber: orderNumber.trim() || undefined,
-        dateFrom: dateFrom ? parseStoreDatetimeLocal(dateFrom) : undefined,
-        dateTo: dateTo ? parseStoreDatetimeLocal(dateTo) : undefined,
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
         page: pg,
         size: 20
       });
@@ -87,7 +93,7 @@ export default function OrdersListPage() {
     } finally {
       setLoading(false);
     }
-  }, [status, paymentStatus, customerPhone, orderNumber, dateFrom, dateTo]);
+  }, [status, paymentStatus, customerPhone, orderNumber, datePreset, dateFrom, dateTo]);
 
   useEffect(() => {
     setPage(0);
@@ -143,13 +149,33 @@ export default function OrdersListPage() {
               <input type="text" className="input w-full font-mono" placeholder="ORD…" value={orderNumber} onChange={e => setOrderNumber(e.target.value.toUpperCase())} />
             </label>
             <label className="block space-y-1.5">
-              <span className="label">From (CAT)</span>
-              <input type="datetime-local" className="input w-full" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+              <span className="label">Date range</span>
+              <select
+                className="input w-full"
+                value={datePreset}
+                onChange={e => setDatePreset(e.target.value as OrderDatePreset)}
+              >
+                {ORDER_DATE_PRESET_GROUPS.map(group => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.options.map(o => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
             </label>
-            <label className="block space-y-1.5">
-              <span className="label">To (CAT)</span>
-              <input type="datetime-local" className="input w-full" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-            </label>
+            {datePreset === 'custom' && (
+              <>
+                <label className="block space-y-1.5">
+                  <span className="label">From (CAT)</span>
+                  <input type="datetime-local" className="input w-full" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="label">To (CAT)</span>
+                  <input type="datetime-local" className="input w-full" value={dateTo} onChange={e => setDateTo(e.target.value)} />
+                </label>
+              </>
+            )}
             <div className="flex items-end">
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? <Spinner className="h-4 w-4 mx-auto" /> : 'Search'}
