@@ -118,6 +118,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/pickers', label: 'Live Ops', icon: ClipboardList, exact: true },
       { href: '/pickers/attention', label: 'Needs Attention', icon: Bell, attentionBadge: true },
+      { href: '/pickers/short-picks', label: 'Short Picks', icon: Package },
       { href: '/pickers/metrics', label: 'Metrics', icon: BarChart2 },
       { href: '/pickers/onboard', label: 'Onboard', icon: UserPlus },
       { href: '/pickers/shifts', label: 'Shifts', icon: Clock },

@@ -86,15 +86,22 @@ export interface DiscrepancyDetailResponse {
   id: number;
   storeId: number;
   sku: string;
+  orderUuid?: string | null;
+  pickTaskId?: number | null;
+  expectedQty: number;
+  foundQty: number;
+  discrepancyQty: number;
+  reason?: string | null;
+  locationCode?: string | null;
+  autoZeroed?: boolean | null;
+  status: 'OPEN' | 'RESOLVED' | string;
+  reportCount?: number | null;
+  /** Picker id as string when reported from the pick flow. */
   reportedBy?: string | null;
-  expectedQuantity: number;
-  actualQuantity: number;
-  discrepancyQuantity: number;
-  status: 'OPEN' | 'RESOLVED';
-  notes?: string | null;
   resolvedBy?: string | null;
   resolvedAt?: string | null;
   createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface StockMovementResponse {

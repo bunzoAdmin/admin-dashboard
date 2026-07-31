@@ -320,3 +320,147 @@ export const TASK_STATUS_OPTIONS: { value: PickTaskStatus | ''; label: string }[
 ];
 
 export const ACTIVE_TASK_STATUSES: PickTaskStatus[] = ['ASSIGNED', 'IN_PROGRESS'];
+
+export type ShortPickType =
+  | 'PARTIAL_SHORT'
+  | 'ITEM_UNAVAILABLE'
+  | 'ALL_UNAVAILABLE_CANCEL'
+  | 'PREPAID_BLOCKED_CANCEL';
+
+export interface ShortPickListEntryResponse {
+  taskId: number;
+  orderUuid: string;
+  orderNumber?: string | null;
+  storeId: number;
+  pickerId?: number | null;
+  pickerName?: string | null;
+  taskStatus: string;
+  orderStatus?: string | null;
+  paymentMethod?: string | null;
+  cancelledReason?: string | null;
+  primaryOutcome: string;
+  outcomes: string[];
+  shortedItemCount: number;
+  unavailableItemCount: number;
+  partialShortItemCount: number;
+  totalItemCount: number;
+  orderGrandTotal?: number | null;
+  paidAmount?: number | null;
+  refundedAmount?: number | null;
+  occurredAt?: string | null;
+  createdAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface ShortPickPageResponse {
+  items: ShortPickListEntryResponse[];
+  total: number;
+  page: number;
+  size: number;
+}
+
+export interface ShortPickLineResponse {
+  pickItemId: number;
+  sku: string;
+  productName: string;
+  imageUrl?: string | null;
+  barcode?: string | null;
+  locationCode?: string | null;
+  orderedQuantity: number;
+  pickedQuantity: number;
+  fulfilledQuantity?: number | null;
+  unitPrice?: number | null;
+  lineSubTotal?: number | null;
+  pickItemStatus: string;
+  lineOutcome: string;
+  stockOutcome?: string | null;
+  pickedAt?: string | null;
+}
+
+export interface ShortPickRefundResponse {
+  refundId: string;
+  amount: number;
+  currency?: string | null;
+  reason?: string | null;
+  status?: string | null;
+  failureReason?: string | null;
+  createdAt?: string | null;
+  resolvedAt?: string | null;
+}
+
+export interface ShortPickEventResponse {
+  eventType: string;
+  fromStatus?: string | null;
+  toStatus?: string | null;
+  actorId?: string | null;
+  notes?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ShortPickDiscrepancyResponse {
+  id: number;
+  sku: string;
+  locationCode?: string | null;
+  expectedQty: number;
+  foundQty: number;
+  discrepancyQty: number;
+  reason: string;
+  autoZeroed?: boolean | null;
+  status?: string | null;
+  reportCount?: number | null;
+  reportedBy?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ShortPickStockReturnResponse {
+  id: number;
+  sku?: string | null;
+  locationCode?: string | null;
+  quantity: number;
+  reason?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ShortPickDetailResponse {
+  taskId: number;
+  orderUuid: string;
+  orderNumber?: string | null;
+  storeId: number;
+  pickerId?: number | null;
+  pickerName?: string | null;
+  taskStatus: string;
+  orderStatus?: string | null;
+  paymentMethod?: string | null;
+  paymentStatus?: string | null;
+  cancelledReason?: string | null;
+  cancelType?: string | null;
+  primaryOutcome: string;
+  outcomes: string[];
+  subtotalBeforeDiscount?: number | null;
+  discountAmount?: number | null;
+  totalAmount?: number | null;
+  deliveryFee?: number | null;
+  handlingFee?: number | null;
+  paidAmount?: number | null;
+  orderGrandTotal?: number | null;
+  currency?: string | null;
+  taskCreatedAt?: string | null;
+  taskAssignedAt?: string | null;
+  taskStartedAt?: string | null;
+  taskCompletedAt?: string | null;
+  orderCreatedAt?: string | null;
+  items: ShortPickLineResponse[];
+  refunds: ShortPickRefundResponse[];
+  events: ShortPickEventResponse[];
+  discrepancies: ShortPickDiscrepancyResponse[];
+  cancellationReturns: ShortPickStockReturnResponse[];
+  stockOutcomeNotes: string[];
+}
+
+export const SHORT_PICK_TYPE_OPTIONS: { value: ShortPickType | ''; label: string }[] = [
+  { value: '', label: 'All outcomes' },
+  { value: 'PARTIAL_SHORT', label: 'Partial short pick' },
+  { value: 'ITEM_UNAVAILABLE', label: 'Item unavailable' },
+  { value: 'ALL_UNAVAILABLE_CANCEL', label: 'All unavailable (cancelled)' },
+  { value: 'PREPAID_BLOCKED_CANCEL', label: 'Prepaid blocked cancel' }
+];

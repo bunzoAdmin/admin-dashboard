@@ -19,6 +19,9 @@ import type {
   RegisterPickerRequest,
   ShiftCoverageListResponse,
   ShiftResponse,
+  ShortPickDetailResponse,
+  ShortPickPageResponse,
+  ShortPickType,
   TaskDetailResponse,
   TaskHistoryPageResponse,
   TaskListResponse,
@@ -138,6 +141,28 @@ export const pickerApi = {
     pickerRequest<AttentionSummaryResponse>(
       `/admin/picker/attention?storeId=${storeId}&inProgressStaleMinutes=${inProgressStaleMinutes}`
     ),
+
+  listShortPicks: (
+    storeId: number,
+    opts: {
+      type?: ShortPickType | '';
+      from?: string;
+      toExclusive?: string;
+      page?: number;
+      size?: number;
+    } = {}
+  ) => {
+    const q = new URLSearchParams({ storeId: String(storeId) });
+    if (opts.type) q.set('type', opts.type);
+    if (opts.from) q.set('from', opts.from);
+    if (opts.toExclusive) q.set('toExclusive', opts.toExclusive);
+    q.set('page', String(opts.page ?? 0));
+    q.set('size', String(opts.size ?? 20));
+    return pickerRequest<ShortPickPageResponse>(`/admin/picker/short-picks?${q}`);
+  },
+
+  getShortPickDetail: (taskId: number) =>
+    pickerRequest<ShortPickDetailResponse>(`/admin/picker/short-picks/${taskId}`),
 
   getMetrics: (storeId: number) =>
     pickerRequest<PickerStoreMetricsResponse>(`/admin/picker/metrics?storeId=${storeId}`),
