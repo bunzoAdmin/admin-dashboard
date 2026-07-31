@@ -40,7 +40,6 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
   const [error, setError] = useState<string | null>(null);
   const [pickupBusy, setPickupBusy] = useState(false);
   const [dropModal, setDropModal] = useState(false);
-  const [otp, setOtp] = useState('');
   const [dropBusy, setDropBusy] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const [reassignModal, setReassignModal] = useState(false);
@@ -132,20 +131,13 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
     }
   }
 
-  async function markDropDone(e: React.FormEvent) {
-    e.preventDefault();
+  async function markDropDone() {
     if (!canMarkDrop) return;
-    const code = otp.trim();
-    if (code.length < 4) {
-      setDropError('Enter the 4-digit delivery OTP from the customer.');
-      return;
-    }
     setDropBusy(true);
     setDropError(null);
     try {
-      await api.adminCompleteDrop(phone, code);
+      await api.adminCompleteDrop(phone);
       toast.push('success', 'Drop marked done.');
-      setOtp('');
       setDropModal(false);
       await load();
       onTripChanged();
@@ -249,7 +241,7 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
               </button>
             )}
             {canMarkDrop && (
-              <button type="button" className="btn-primary" onClick={() => { setDropError(null); setOtp(''); setDropModal(true); }}>
+              <button type="button" className="btn-primary" onClick={() => { setDropError(null); setDropModal(true); }}>
                 Mark drop done
               </button>
             )}
@@ -277,30 +269,20 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
       </Card>
 
       <Modal open={dropModal} onClose={() => setDropModal(false)} title="Mark drop done">
-        <form onSubmit={markDropDone} className="space-y-4">
-          <p className="text-sm text-gray-500">Ask the customer for their 4-digit delivery OTP.</p>
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Mark this drop done? This closes the trip and marks the order delivered.
+          </p>
           {dropError && <ErrorBox message={dropError} />}
-          <Field label="Delivery OTP">
-            <input
-              className="input font-mono tracking-widest"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              maxLength={4}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="••••"
-              autoFocus
-            />
-          </Field>
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-ghost" onClick={() => setDropModal(false)} disabled={dropBusy}>
               Cancel
             </button>
-            <button type="submit" className="btn-primary" disabled={dropBusy || otp.length < 4}>
+            <button type="button" className="btn-primary" disabled={dropBusy} onClick={markDropDone}>
               {dropBusy ? <Spinner className="h-4 w-4" /> : 'Confirm drop'}
             </button>
           </div>
-        </form>
+        </div>
       </Modal>
 
       <Modal open={reassignModal} onClose={() => setReassignModal(false)} title="Reassign to another rider">

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
+import { api, ApiClientError } from '@/lib/api';
 import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/orderAdminTypes';
 import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
@@ -103,17 +104,27 @@ export default function OrderDetailPage() {
     if (!statusTarget) return;
     setUpdatingStatus(true);
     try {
-      const updated = await orderAdminApi.updateStatus(orderNumber, {
-        status: statusTarget,
-        notes: statusNotes.trim() || undefined
-      });
-      setOrder(updated);
+      if (statusTarget === 'DELIVERED') {
+        // DELIVERED is driven by qcom drop completion (closes the trip, frees the
+        // rider, and syncs the order), not a direct Java status write.
+        await api.adminCompleteOrderDrop(orderNumber);
+        await loadOrder();
+      } else {
+        const updated = await orderAdminApi.updateStatus(orderNumber, {
+          status: statusTarget,
+          notes: statusNotes.trim() || undefined
+        });
+        setOrder(updated);
+      }
       await loadEvents();
       toast.push('success', `Status updated to ${statusTarget.replace(/_/g, ' ')}.`);
       setStatusTarget(null);
       setStatusNotes('');
     } catch (err) {
-      toast.push('error', err instanceof OrderAdminApiError ? err.message : 'Status update failed.');
+      toast.push(
+        'error',
+        err instanceof ApiClientError || err instanceof OrderAdminApiError ? err.message : 'Status update failed.'
+      );
     } finally {
       setUpdatingStatus(false);
     }
@@ -328,20 +339,29 @@ export default function OrderDetailPage() {
         title={statusTarget ? `Advance to ${statusTarget.replace(/_/g, ' ')}` : 'Advance status'}
       >
         <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Move order from <strong>{order.status.replace(/_/g, ' ')}</strong> to{' '}
-            <strong>{statusTarget?.replace(/_/g, ' ')}</strong>?
-            Manual advances into picker-owned states fail if an active pick task still owns fulfillment.
-          </p>
-          <label className="block space-y-1.5">
-            <span className="label">Notes (optional)</span>
-            <input
-              className="input w-full"
-              value={statusNotes}
-              onChange={(e) => setStatusNotes(e.target.value)}
-              placeholder="Why is ops advancing this status?"
-            />
-          </label>
+          {statusTarget === 'DELIVERED' ? (
+            <p className="text-sm text-gray-600">
+              Mark this order delivered? This completes the rider&apos;s drop, closes the trip, and marks the
+              order delivered — the same as completing the drop from the driver page.
+            </p>
+          ) : (
+            <p className="text-sm text-gray-600">
+              Move order from <strong>{order.status.replace(/_/g, ' ')}</strong> to{' '}
+              <strong>{statusTarget?.replace(/_/g, ' ')}</strong>?
+              Manual advances into picker-owned states fail if an active pick task still owns fulfillment.
+            </p>
+          )}
+          {statusTarget !== 'DELIVERED' && (
+            <label className="block space-y-1.5">
+              <span className="label">Notes (optional)</span>
+              <input
+                className="input w-full"
+                value={statusNotes}
+                onChange={(e) => setStatusNotes(e.target.value)}
+                placeholder="Why is ops advancing this status?"
+              />
+            </label>
+          )}
           <div className="flex justify-end gap-2">
             <button type="button" className="btn-ghost" onClick={() => setStatusTarget(null)}>
               Back

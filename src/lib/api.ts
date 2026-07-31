@@ -170,10 +170,14 @@ export const api = {
   getDriverTrip: (phone: string) => request<DriverTripResponse>(`/admin/drivers/${encodePhone(phone)}/trip`),
   adminCompletePickup: (phone: string) =>
     request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/pickup/complete`, { method: 'POST' }),
-  adminCompleteDrop: (phone: string, otp: string) =>
+  adminCompleteDrop: (phone: string) =>
     request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/trip/drop/complete`, {
       method: 'POST',
-      body: { otp }
+      body: {}
+    }),
+  adminCompleteOrderDrop: (orderNumber: string) =>
+    request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/complete`, {
+      method: 'POST'
     }),
   getReassignCandidates: (tripId: string) =>
     request<{ candidates: ReassignCandidate[] }>(
