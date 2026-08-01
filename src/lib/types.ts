@@ -256,6 +256,20 @@ export interface CashLedger {
   deposits: CashDeposit[];
 }
 
+export interface CashCollectionItem {
+  delivered_at: string;
+  order_number: string;
+  order_id: string;
+  amount_zmw: number;
+}
+
+export interface CashCollectionsResponse {
+  total_zmw: number;
+  order_count: number;
+  items: CashCollectionItem[];
+  next_cursor: string;
+}
+
 export type RuleFamily = 'rate_modifier' | 'accumulator' | 'ranking';
 
 export interface Reward {
