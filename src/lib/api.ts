@@ -4,6 +4,7 @@ import { getStoredToken, useAuth, type AdminUser } from './store';
 import type {
   AdminDispute,
   AdminDisputeDetail,
+  CashCollectionsResponse,
   CashLedger,
   Darkstore,
   Disbursement,
@@ -196,6 +197,15 @@ export const api = {
     request<ReferralScreen>(`/admin/drivers/${encodePhone(phone)}/referrals`),
   getDriverCashLedger: (phone: string) =>
     request<CashLedger>(`/admin/drivers/${encodePhone(phone)}/cash-ledger`),
+  getDriverCashCollections: (phone: string, params: { from: string; to: string; cursor?: string; limit?: number }) =>
+    request<CashCollectionsResponse>(`/admin/drivers/${encodePhone(phone)}/cash-collections`, {
+      query: {
+        from: params.from,
+        to: params.to,
+        cursor: params.cursor,
+        limit: params.limit ? String(params.limit) : undefined
+      }
+    }),
   getDriverPresence: (phone: string, date?: string) =>
     request<PresenceResponse>(`/admin/drivers/${encodePhone(phone)}/presence`, { query: { date } }),
   recordInKindDisbursement: (phone: string, body: { sku: string; quantity: number; notes?: string }) =>
