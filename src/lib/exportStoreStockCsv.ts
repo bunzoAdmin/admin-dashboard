@@ -16,11 +16,9 @@ function cell(value: unknown): string {
 
 const HEADERS = [
   'productId',
-  'inventoryItemId',
   'sku',
   'productName',
   'barcode',
-  'locationCode',
   'currentStock',
   'reservedStock',
   'availableStock',
@@ -28,17 +26,27 @@ const HEADERS = [
   'maxStock',
   'availabilityStatus',
   'lowStock',
+  'binCount',
+  'locations',
   'lastUpdated'
 ] as const;
+
+function locationsSummary(item: StoreStockBrowseItem): string {
+  if (!item.bins?.length) return '';
+  return item.bins
+    .map((b) => {
+      const code = (b.locationCode ?? '').trim() || '—';
+      return `${code}:${b.availableStock}`;
+    })
+    .join('; ');
+}
 
 function rowToCsv(r: StoreStockBrowseItem): string[] {
   return [
     cell(r.productId),
-    cell(r.inventoryItemId),
     cell(r.sku),
     cell(r.productName),
     cell(r.barcode),
-    cell(r.locationCode),
     cell(r.currentStock),
     cell(r.reservedStock),
     cell(r.availableStock),
@@ -46,6 +54,8 @@ function rowToCsv(r: StoreStockBrowseItem): string[] {
     cell(r.maxStock),
     cell(r.availabilityStatus),
     cell(r.lowStock),
+    cell(r.binCount),
+    cell(locationsSummary(r)),
     cell(r.lastUpdated)
   ];
 }

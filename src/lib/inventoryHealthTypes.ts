@@ -47,12 +47,9 @@ export interface InventoryItemResponse {
 
 export type StoreStockAvailabilityStatus = 'AVAILABLE' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 
-export interface StoreStockBrowseItem {
-  productId: number;
-  inventoryItemId?: number | null;
-  sku: string;
-  productName: string;
-  barcode?: string | null;
+/** One physical bin under a store/SKU browse row. */
+export interface StoreStockBrowseBin {
+  inventoryItemId: number;
   locationCode?: string | null;
   currentStock: number;
   reservedStock: number;
@@ -62,6 +59,24 @@ export interface StoreStockBrowseItem {
   availabilityStatus: StoreStockAvailabilityStatus;
   lowStock: boolean;
   lastUpdated?: string | null;
+}
+
+/** One catalog product at a store — stock aggregated across bins. */
+export interface StoreStockBrowseItem {
+  productId: number;
+  sku: string;
+  productName: string;
+  barcode?: string | null;
+  currentStock: number;
+  reservedStock: number;
+  availableStock: number;
+  safetyStock?: number | null;
+  maxStock?: number | null;
+  availabilityStatus: StoreStockAvailabilityStatus;
+  lowStock: boolean;
+  binCount: number;
+  lastUpdated?: string | null;
+  bins: StoreStockBrowseBin[];
 }
 
 export interface StoreStockBrowsePageResponse {

@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from 'react';
 import { inventoryApi, InventoryApiError } from '@/lib/inventoryApi';
-import type { StoreStockBrowseItem } from '@/lib/inventoryHealthTypes';
+import type { StoreStockBrowseBin } from '@/lib/inventoryHealthTypes';
 import { Modal } from '@/components/Modal';
 import { ErrorBox, Field, Spinner, useToast } from '@/components/ui';
+
+export interface RelocateBinTarget {
+  sku: string;
+  productName: string;
+  bin: StoreStockBrowseBin;
+}
 
 interface RelocateStockModalProps {
   open: boolean;
   storeId: number;
-  row: StoreStockBrowseItem | null;
+  target: RelocateBinTarget | null;
   onClose: () => void;
   onDone: () => void;
 }
@@ -18,7 +24,7 @@ function isStoreroom(code: string | null | undefined): boolean {
   return (code ?? '').trim().toUpperCase() === 'STOREROOM';
 }
 
-export function RelocateStockModal({ open, storeId, row, onClose, onDone }: RelocateStockModalProps) {
+export function RelocateStockModal({ open, storeId, target, onClose, onDone }: RelocateStockModalProps) {
   const toast = useToast();
   const [toStoreroom, setToStoreroom] = useState(false);
   const [toLocation, setToLocation] = useState('');
@@ -27,26 +33,27 @@ export function RelocateStockModal({ open, storeId, row, onClose, onDone }: Relo
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fromCode = (row?.locationCode ?? '').trim().toUpperCase();
+  const bin = target?.bin ?? null;
+  const fromCode = (bin?.locationCode ?? '').trim().toUpperCase();
   const fromIsStoreroom = isStoreroom(fromCode);
-  const maxQty = row?.availableStock ?? 0;
+  const maxQty = bin?.availableStock ?? 0;
   const toCode = toStoreroom ? 'STOREROOM' : toLocation.trim().toUpperCase();
   const sameLocation = Boolean(fromCode && toCode && fromCode === toCode);
   const parsedQty = parseInt(qty, 10);
 
   useEffect(() => {
-    if (!open || !row) return;
+    if (!open || !bin) return;
     setToStoreroom(false);
     setToLocation('');
-    setQty(String(row.availableStock > 0 ? row.availableStock : ''));
+    setQty(String(bin.availableStock > 0 ? bin.availableStock : ''));
     setReason('RELOCATE');
     setError(null);
     setBusy(false);
-  }, [open, row]);
+  }, [open, bin]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!row || !fromCode) {
+    if (!target || !bin || !fromCode) {
       setError('This row has no source location.');
       return;
     }
@@ -71,7 +78,7 @@ export function RelocateStockModal({ open, storeId, row, onClose, onDone }: Relo
     setError(null);
     try {
       const res = await inventoryApi.transferStock({
-        sku: row.sku,
+        sku: target.sku,
         storeId,
         quantity: parsedQty,
         reason: reason.trim() || 'RELOCATE',
@@ -97,20 +104,20 @@ export function RelocateStockModal({ open, storeId, row, onClose, onDone }: Relo
 
   return (
     <Modal open={open} onClose={onClose} title="Relocate stock">
-      {row && (
+      {target && bin && (
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-1 text-sm text-gray-600">
             <p>
-              <span className="font-medium text-gray-900">{row.productName}</span>
-              <span className="ml-2 font-mono text-xs text-gray-500">{row.sku}</span>
+              <span className="font-medium text-gray-900">{target.productName}</span>
+              <span className="ml-2 font-mono text-xs text-gray-500">{target.sku}</span>
             </p>
             <p>
               From{' '}
               <span className="font-mono text-xs font-semibold text-gray-900">{fromCode || '—'}</span>
               {' · '}
               <span className="font-semibold text-gray-900">{maxQty}</span> available
-              {row.reservedStock > 0 ? (
-                <span className="text-gray-400"> ({row.reservedStock} reserved stay put)</span>
+              {bin.reservedStock > 0 ? (
+                <span className="text-gray-400"> ({bin.reservedStock} reserved stay put)</span>
               ) : null}
             </p>
           </div>
@@ -120,8 +127,8 @@ export function RelocateStockModal({ open, storeId, row, onClose, onDone }: Relo
           {maxQty <= 0 ? (
             <p className="text-sm text-amber-700">
               Nothing transferable at this bin
-              {row.reservedStock > 0
-                ? ` (${row.reservedStock} reserved, ${row.currentStock} on hand).`
+              {bin.reservedStock > 0
+                ? ` (${bin.reservedStock} reserved, ${bin.currentStock} on hand).`
                 : '.'}
             </p>
           ) : (
