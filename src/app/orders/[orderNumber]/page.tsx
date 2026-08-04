@@ -12,12 +12,12 @@ import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
 import {
-  ageMinutesSince,
   ageToneClass,
   ageUrgencyTone,
   formatAgeMinutes,
   formatStoreDateTime,
-  isTerminalOrderStatus
+  isTerminalOrderStatus,
+  orderOpsAgeMinutes
 } from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -148,10 +148,14 @@ export default function OrderDetailPage() {
   if (!order) return null;
 
   const canCancel = CANCELLABLE_ORDER_STATUSES.includes(order.status);
-  const waitingMinutes = ageMinutesSince(order.createdAt);
-  const waitingTone = ageUrgencyTone(waitingMinutes, {
-    terminal: isTerminalOrderStatus(order.status)
+  const terminal = isTerminalOrderStatus(order.status);
+  const waitingMinutes = orderOpsAgeMinutes({
+    status: order.status,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    cancelledAt: order.cancelledAt
   });
+  const waitingTone = ageUrgencyTone(waitingMinutes, { terminal });
 
   return (
     <div className="space-y-6">
@@ -163,8 +167,8 @@ export default function OrderDetailPage() {
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 className="text-xl font-bold text-gray-900">Order {order.orderNumber}</h1>
             <span className={`text-base ${ageToneClass(waitingTone)}`}>
-              {isTerminalOrderStatus(order.status)
-                ? `Age ${formatAgeMinutes(waitingMinutes)}`
+              {terminal
+                ? `Took ${formatAgeMinutes(waitingMinutes)}`
                 : `Waiting ${formatAgeMinutes(waitingMinutes)}`}
             </span>
           </div>

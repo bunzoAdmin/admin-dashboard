@@ -80,12 +80,46 @@ export function formatStoreDateTimeShort(iso?: string | null): string {
   return `${fmt.format(d)} ${STORE_TZ_LABEL}`;
 }
 
-/** Minutes since an ISO instant (client-side; matches backend ageMinutes semantics). */
+/** Minutes since an ISO instant (client-side; matches backend ageMinutes for open orders). */
 export function ageMinutesSince(iso?: string | null, nowMs = Date.now()): number | null {
   if (!iso) return null;
   const t = new Date(iso).getTime();
   if (Number.isNaN(t)) return null;
   return Math.max(0, Math.floor((nowMs - t) / 60_000));
+}
+
+/** Minutes between two ISO instants (null if either missing/invalid). */
+export function ageMinutesBetween(
+  startIso?: string | null,
+  endIso?: string | null
+): number | null {
+  if (!startIso || !endIso) return null;
+  const start = new Date(startIso).getTime();
+  const end = new Date(endIso).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+  return Math.max(0, Math.floor((end - start) / 60_000));
+}
+
+/**
+ * Ops age for an order row/detail.
+ * Open: live wait since placed. Terminal: frozen cycle time to cancelledAt/updatedAt
+ * (not a forever-growing "still waiting" clock).
+ */
+export function orderOpsAgeMinutes(opts: {
+  status?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  cancelledAt?: string | null;
+  /** Backend ageMinutes when present (list API); ignored for terminal so UI stays correct pre-deploy. */
+  ageMinutes?: number | null;
+  nowMs?: number;
+}): number | null {
+  if (isTerminalOrderStatus(opts.status)) {
+    const end = opts.cancelledAt || opts.updatedAt;
+    return ageMinutesBetween(opts.createdAt, end) ?? opts.ageMinutes ?? null;
+  }
+  if (opts.ageMinutes != null) return opts.ageMinutes;
+  return ageMinutesSince(opts.createdAt, opts.nowMs);
 }
 
 /** Ops age display: "45m", "2h", "2h 15m". */
@@ -108,7 +142,7 @@ export type AgeTone = 'muted' | 'ok' | 'watch' | 'urgent';
 
 /**
  * Visual urgency for waiting time. Terminal orders (delivered/cancelled) stay muted —
- * age is history, not a call-to-action.
+ * age is cycle history, not a call-to-action.
  */
 export function ageUrgencyTone(
   minutes?: number | null,

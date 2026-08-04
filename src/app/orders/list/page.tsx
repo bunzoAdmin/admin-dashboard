@@ -22,7 +22,8 @@ import {
   ageUrgencyTone,
   formatAgeMinutes,
   formatStoreDateTimeShort,
-  isTerminalOrderStatus
+  isTerminalOrderStatus,
+  orderOpsAgeMinutes
 } from '@/lib/storeTime';
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -116,7 +117,7 @@ export default function OrdersListPage() {
       <div>
         <h1 className="text-xl font-bold text-gray-900">Orders</h1>
         <p className="text-sm text-gray-500">
-          Waiting time is the ops signal — absolute times are store local (CAT).
+          Age is live wait for open orders; cycle time once delivered/cancelled — times are store local (CAT).
         </p>
       </div>
 
@@ -209,7 +210,7 @@ export default function OrdersListPage() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-4 py-3 font-medium">Order #</th>
-                      <th className="px-4 py-3 font-medium">Waiting</th>
+                      <th className="px-4 py-3 font-medium">Age</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Pick</th>
                       <th className="px-4 py-3 font-medium">Picker</th>
@@ -220,9 +221,15 @@ export default function OrdersListPage() {
                   </thead>
                   <tbody>
                     {data.content.map((order: AdminOrderListItem) => {
-                      const waitingTone = ageUrgencyTone(order.ageMinutes, {
-                        terminal: isTerminalOrderStatus(order.status)
+                      const terminal = isTerminalOrderStatus(order.status);
+                      const ageMinutes = orderOpsAgeMinutes({
+                        status: order.status,
+                        createdAt: order.createdAt,
+                        updatedAt: order.updatedAt,
+                        cancelledAt: order.cancelledAt,
+                        ageMinutes: order.ageMinutes
                       });
+                      const waitingTone = ageUrgencyTone(ageMinutes, { terminal });
                       return (
                       <tr
                         key={order.orderNumber}
@@ -232,7 +239,7 @@ export default function OrdersListPage() {
                         <td className="px-4 py-3 font-mono text-xs font-medium text-blue-600">{order.orderNumber}</td>
                         <td className="px-4 py-3">
                           <div className={`text-sm ${ageToneClass(waitingTone)}`}>
-                            {formatAgeMinutes(order.ageMinutes)}
+                            {formatAgeMinutes(ageMinutes)}
                           </div>
                           <div className="mt-0.5 text-[11px] text-gray-400">
                             {formatStoreDateTimeShort(order.createdAt)}
