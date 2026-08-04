@@ -142,12 +142,14 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
   const toast = useToast();
   const [tab, setTab] = useState<EditorTab>('basics');
   const [form, setForm] = useState<ProductFormState>(() => (product ? productToForm(product) : EMPTY_FORM));
+  const [editableBarcode, setEditableBarcode] = useState(barcode);
   const [allBadges, setAllBadges] = useState<BadgeResponse[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setForm(product ? productToForm(product) : EMPTY_FORM);
+    setEditableBarcode(barcode);
     setError(null);
     setTab('basics');
   }, [product, mode, barcode]);
@@ -200,12 +202,14 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
         .map((s) => s.trim())
         .filter(Boolean);
 
+      const barcodeValue = (mode === 'edit' ? editableBarcode : barcode).trim();
+
       const item: ProductSyncItem = {
         name,
         categoryId,
         basePrice,
         content: { amount: contentAmount, uom: form.contentUom, multipackCount },
-        barcode: barcode.trim(),
+        barcode: barcodeValue || undefined,
         brand: form.brand.trim() || undefined,
         description: form.description.trim() || undefined,
         shortDescription: form.shortDescription.trim() || undefined,
@@ -243,7 +247,7 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
         setBusy(false);
       }
     },
-    [form, barcode, mode, product, categories, toast, onSaved]
+    [form, barcode, editableBarcode, mode, product, categories, toast, onSaved]
   );
 
   return (
@@ -279,9 +283,20 @@ export function ProductEditor({ mode, barcode, product, categories, onSaved, onC
         {tab === 'basics' && (
           <>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Barcode" hint="Set by scan — not editable.">
-                <input className="input input-readonly font-mono" value={barcode} readOnly />
-              </Field>
+              {mode === 'edit' ? (
+                <Field label="Barcode" hint="Correct a mistyped barcode here. Must be unique.">
+                  <input
+                    className="input font-mono"
+                    value={editableBarcode}
+                    onChange={(e) => setEditableBarcode(e.target.value)}
+                    placeholder="EAN / UPC barcode"
+                  />
+                </Field>
+              ) : (
+                <Field label="Barcode" hint="Set by scan — not editable on create.">
+                  <input className="input input-readonly font-mono" value={barcode} readOnly />
+                </Field>
+              )}
               {mode === 'edit' && product?.sku && (
                 <Field label="SKU" hint="Immutable after creation.">
                   <input className="input input-readonly font-mono" value={product.sku} readOnly />

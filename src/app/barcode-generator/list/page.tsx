@@ -2,16 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, ChevronRight, Download, Printer, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Printer, RefreshCw, Trash2 } from 'lucide-react';
 import { catalogApi, CatalogApiError } from '@/lib/catalogApi';
 import type { BarcodeEntryResponse, PagedBarcodeResponse } from '@/lib/catalogTypes';
 import { BarcodeSvg } from '@/components/barcode-generator/BarcodeSvg';
 import { formatBarcodeDate, downloadBarcodePng, printBarcode } from '@/components/barcode-generator/barcodeUtils';
-import { ErrorBox, Loading } from '@/components/ui';
+import { ErrorBox, Loading, useToast } from '@/components/ui';
 
 const PAGE_SIZE = 20;
 
-function BarcodeTableRow({ entry }: { entry: BarcodeEntryResponse }) {
+function BarcodeTableRow({
+  entry,
+  deleting,
+  onDelete
+}: {
+  entry: BarcodeEntryResponse;
+  deleting: boolean;
+  onDelete: (entry: BarcodeEntryResponse) => void;
+}) {
   const svgRef = useRef<SVGSVGElement>(null);
   const label = entry.productName;
 
@@ -54,6 +62,15 @@ function BarcodeTableRow({ entry }: { entry: BarcodeEntryResponse }) {
           >
             <Printer className="h-3.5 w-3.5" />
           </button>
+          <button
+            type="button"
+            className="btn-ghost p-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+            title={`Delete — ${label}`}
+            disabled={deleting}
+            onClick={() => onDelete(entry)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
         </div>
       </td>
     </tr>
@@ -61,10 +78,12 @@ function BarcodeTableRow({ entry }: { entry: BarcodeEntryResponse }) {
 }
 
 export default function BarcodeListPage() {
+  const toast = useToast();
   const [listData, setListData] = useState<PagedBarcodeResponse | null>(null);
   const [listPage, setListPage] = useState(0);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const loadList = useCallback(async (page: number) => {
     setListLoading(true);
@@ -85,6 +104,34 @@ export default function BarcodeListPage() {
   function handlePageChange(p: number) {
     setListPage(p);
     loadList(p);
+  }
+
+  async function handleDelete(entry: BarcodeEntryResponse) {
+    if (
+      !confirm(
+        `Delete barcode for "${entry.productName}" (${entry.barcode})?\n\nThis only removes it from the generator list. If a product already uses this barcode, delete will be blocked.`
+      )
+    ) {
+      return;
+    }
+
+    setDeletingId(entry.id);
+    setListError(null);
+    try {
+      await catalogApi.deleteBarcode(entry.id);
+      toast.push('success', `Deleted barcode ${entry.barcode}.`);
+
+      const remaining = (listData?.content.length ?? 1) - 1;
+      const nextPage = remaining <= 0 && listPage > 0 ? listPage - 1 : listPage;
+      setListPage(nextPage);
+      await loadList(nextPage);
+    } catch (err) {
+      const msg = err instanceof CatalogApiError ? err.message : 'Failed to delete barcode.';
+      setListError(msg);
+      toast.push('error', msg);
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   return (
@@ -153,7 +200,12 @@ export default function BarcodeListPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {listData.content.map((entry) => (
-                    <BarcodeTableRow key={entry.id} entry={entry} />
+                    <BarcodeTableRow
+                      key={entry.id}
+                      entry={entry}
+                      deleting={deletingId === entry.id}
+                      onDelete={handleDelete}
+                    />
                   ))}
                 </tbody>
               </table>

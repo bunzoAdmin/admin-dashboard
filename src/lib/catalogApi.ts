@@ -273,6 +273,9 @@ export const catalogApi = {
     return catalogRequest<PagedBarcodeResponse>(`/catalog/barcodes${qs ? '?' + qs : ''}`);
   },
 
+  deleteBarcode: (id: number) =>
+    catalogRequest<void>(`/catalog/barcodes/${id}`, { method: 'DELETE' }),
+
   uploadImage: async (
     file: File,
     opts: { scope: 'category' | 'product' | 'banner'; slug: string; index?: number }
