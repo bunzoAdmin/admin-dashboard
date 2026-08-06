@@ -205,5 +205,39 @@ export const orderAdminApi = {
 
     const blob = await res.blob();
     return URL.createObjectURL(blob);
-  }
+  },
+
+  /**
+   * Bulk-register catalog SKUs with ZRA via VSDC saveItem.
+   * Omit skus (or pass []) to register all active products.
+   */
+  registerZraItems: (body?: {
+    skus?: string[];
+    includeFeeItem?: boolean;
+    dryRun?: boolean;
+  }) =>
+    req<BulkRegisterZraItemsResponse>('/admin/zra/items/register', {
+      method: 'POST',
+      body: body ?? {}
+    })
+};
+
+export type BulkRegisterZraItemResult = {
+  itemCd: string;
+  itemNm?: string;
+  taxTyCd?: string;
+  itemClsCd?: string;
+  status: 'REGISTERED' | 'ALREADY_EXISTS' | 'FAILED' | 'WOULD_REGISTER' | 'SKIPPED' | string;
+  message?: string;
+  fromMapping?: boolean;
+};
+
+export type BulkRegisterZraItemsResponse = {
+  dryRun: boolean;
+  total: number;
+  registered: number;
+  alreadyExists: number;
+  failed: number;
+  skipped: number;
+  results: BulkRegisterZraItemResult[];
 };

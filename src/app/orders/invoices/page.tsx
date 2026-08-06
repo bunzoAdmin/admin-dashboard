@@ -11,6 +11,7 @@ import {
 } from '@/lib/orderAdminTypes';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, money } from '@/components/ui';
 import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
+import { ZraBulkRegisterPanel } from '@/components/orders/ZraBulkRegisterPanel';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import {
   addStoreCalendarDays,
@@ -123,6 +124,8 @@ export default function InvoiceBacklogPage() {
           Delivered orders without an issued invoice — upload a PDF manually or retry ZRA auto-issue.
         </p>
       </div>
+
+      <ZraBulkRegisterPanel />
 
       <form onSubmit={handleSearch}>
         <Card>

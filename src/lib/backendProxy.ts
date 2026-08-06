@@ -117,6 +117,7 @@ export const ordersProxy = handlers('/api/v1/orders');
 
 // Order-service admin routes
 export const adminOrdersProxy = handlers('/api/v1/admin/orders');
+export const adminZraProxy = handlers('/api/v1/admin/zra');
 export const adminCouponsProxy = handlers('/api/v1/admin/coupons');
 export const adminRefundsProxy = handlers('/api/v1/admin/refunds');
 

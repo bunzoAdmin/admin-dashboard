@@ -52,6 +52,7 @@ export function isOrderServicePath(apiPath: string): boolean {
     apiPath.startsWith('/api/v1/orders') ||
     apiPath.startsWith('/api/v1/admin/picker') ||
     apiPath.startsWith('/api/v1/admin/orders') ||
+    apiPath.startsWith('/api/v1/admin/zra') ||
     apiPath.startsWith('/api/v1/admin/coupons') ||
     apiPath.startsWith('/api/v1/admin/refunds')
   );
