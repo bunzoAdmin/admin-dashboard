@@ -14,7 +14,8 @@ const FORWARD_REQUEST_HEADERS = [
   'accept',
   'x-internal-admin',
   'actor-id',
-  'customer-id'
+  'customer-id',
+  'x-admin-user'
 ];
 
 function buildTargetUrl(basePath: string, pathSegments: string[] | undefined, search: string, targetOverride?: string): string {

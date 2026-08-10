@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderResponse } from '@/lib/orderAdminTypes';
 import { Badge, Spinner, useToast } from '@/components/ui';
+import { useAuth } from '@/lib/store';
+import { zraApi, ZraApiError } from '@/lib/zraApi';
+import { isZraFinanceAdmin } from '@/lib/zraFinance';
 
 type InvoiceInfo = NonNullable<OrderResponse['invoice']>;
 
@@ -27,14 +30,18 @@ function invoiceStatusTone(status?: string | null): 'gray' | 'green' | 'amber' |
 
 export function InvoiceOpsPanel({ orderNumber, invoice, onUpdated, compact = false }: InvoiceOpsPanelProps) {
   const toast = useToast();
+  const user = useAuth((s) => s.user);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [retrying, setRetrying] = useState(false);
   const [viewingPdf, setViewingPdf] = useState(false);
+  const [crediting, setCrediting] = useState(false);
 
+  const canFinance = isZraFinanceAdmin(user);
   const statusLabel = invoice?.status ?? 'MISSING';
   const canRetry = statusLabel !== 'ISSUED';
   const canViewPdf = invoice?.available === true;
+  const canCredit = statusLabel === 'ISSUED' && canFinance;
 
   async function handleDownloadPdf() {
     setViewingPdf(true);
@@ -78,6 +85,29 @@ export function InvoiceOpsPanel({ orderNumber, invoice, onUpdated, compact = fal
       toast.push('error', err instanceof OrderAdminApiError ? err.message : 'Retry failed.');
     } finally {
       setRetrying(false);
+    }
+  }
+
+  async function handleCreditNote() {
+    if (
+      !window.confirm(
+        `Issue a full ZRA credit note for order ${orderNumber}? This writes to Smart Invoice and cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setCrediting(true);
+    try {
+      const cn = await zraApi.issueCreditNote(
+        orderNumber,
+        { reasonCd: '01', reason: 'Customer return / refund', fullCredit: true },
+        user?.username
+      );
+      toast.push('success', `Credit note ${cn.status ?? 'submitted'} (invc ${cn.id}).`);
+    } catch (err) {
+      toast.push('error', err instanceof ZraApiError ? err.message : 'Credit note failed.');
+    } finally {
+      setCrediting(false);
     }
   }
 
@@ -131,6 +161,17 @@ export function InvoiceOpsPanel({ orderNumber, invoice, onUpdated, compact = fal
             onClick={() => void handleRetry()}
           >
             {retrying ? <Spinner className="h-3 w-3" /> : 'Retry ZRA'}
+          </button>
+        )}
+        {statusLabel === 'ISSUED' && canFinance && (
+          <button
+            type="button"
+            className="btn-ghost text-xs text-red-700"
+            disabled={crediting}
+            onClick={() => void handleCreditNote()}
+            title="Finance admin only"
+          >
+            {crediting ? <Spinner className="h-3 w-3" /> : 'Issue credit note'}
           </button>
         )}
         {!compact && (

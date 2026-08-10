@@ -148,6 +148,17 @@ export const NAV_SECTIONS: NavSection[] = [
     ]
   },
   {
+    id: 'zra',
+    label: 'ZRA',
+    items: [
+      { href: '/zra', label: 'Overview', icon: FileText, exact: true },
+      { href: '/zra/codes', label: 'Codes', icon: BookOpen },
+      { href: '/zra/mapping', label: 'Mapping', icon: Layers },
+      { href: '/zra/purchases', label: 'Purchases', icon: ClipboardList },
+      { href: '/zra/stock', label: 'Stock Sync', icon: RefreshCw }
+    ]
+  },
+  {
     id: 'search',
     label: 'Search',
     items: [
