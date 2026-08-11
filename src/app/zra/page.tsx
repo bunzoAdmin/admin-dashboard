@@ -13,7 +13,6 @@ import {
   Stat,
   formatDate
 } from '@/components/ui';
-import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
@@ -28,7 +27,6 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 }
 
 export default function ZraOverviewPage() {
-  const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
   const { storeId, storeIdParam, storeIdLabel } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
