@@ -292,6 +292,7 @@ export default function OrderDetailPage() {
               <InvoiceOpsPanel
                 orderNumber={order.orderNumber}
                 invoice={order.invoice}
+                items={order.items}
                 compact
                 onUpdated={(invoice) => setOrder(prev => prev ? { ...prev, invoice } : prev)}
               />

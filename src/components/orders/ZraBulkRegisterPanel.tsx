@@ -2,11 +2,11 @@
 
 import { useState } from 'react';
 import {
-  orderAdminApi,
-  OrderAdminApiError,
+  zraApi,
+  ZraApiError,
   type BulkRegisterZraItemsResponse,
   type BulkRegisterZraItemResult
-} from '@/lib/orderAdminApi';
+} from '@/lib/zraApi';
 import { Badge, Card, Spinner, useToast } from '@/components/ui';
 
 function parseSkus(raw: string): string[] | undefined {
@@ -111,7 +111,7 @@ export function ZraBulkRegisterPanel() {
     setRunning(true);
     setResult(null);
     try {
-      const response = await orderAdminApi.registerZraItems({
+      const response = await zraApi.registerItems({
         skus,
         includeFeeItem,
         dryRun
@@ -126,7 +126,7 @@ export function ZraBulkRegisterPanel() {
         toast.push('success', `Registered ${response.registered + response.alreadyExists} item(s) with ZRA.`);
       }
     } catch (err) {
-      toast.push('error', err instanceof OrderAdminApiError ? err.message : 'ZRA registration failed.');
+      toast.push('error', err instanceof ZraApiError ? err.message : 'ZRA registration failed.');
     } finally {
       setRunning(false);
     }

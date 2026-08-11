@@ -32,7 +32,9 @@ import {
   FileText,
   MapPin,
   RefreshCw,
-  Bell
+  Bell,
+  ScrollText,
+  BarChart3
 } from 'lucide-react';
 
 export interface NavItem {
@@ -152,10 +154,13 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'ZRA',
     items: [
       { href: '/zra', label: 'Overview', icon: FileText, exact: true },
+      { href: '/zra/items', label: 'Items', icon: Package },
       { href: '/zra/codes', label: 'Codes', icon: BookOpen },
       { href: '/zra/mapping', label: 'Mapping', icon: Layers },
       { href: '/zra/purchases', label: 'Purchases', icon: ClipboardList },
-      { href: '/zra/stock', label: 'Stock Sync', icon: RefreshCw }
+      { href: '/zra/stock', label: 'Stock Sync', icon: RefreshCw },
+      { href: '/zra/reports', label: 'VAT Report', icon: BarChart3 },
+      { href: '/zra/audit', label: 'Audit', icon: ScrollText }
     ]
   },
   {

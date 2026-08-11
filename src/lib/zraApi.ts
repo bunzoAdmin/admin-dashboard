@@ -214,14 +214,82 @@ export type ZraCreditNote = {
   orderNumber?: string;
   seq?: number;
   invcNo?: number;
+  orgInvcNo?: number;
+  rcptNo?: string;
   status?: string;
   creditReasonCd?: string;
   creditReason?: string;
   creditedAmount?: number;
   creditedTaxAmount?: number;
+  lineItemsJson?: string | null;
   lastError?: string | null;
   issuedBy?: string | null;
   issuedAt?: string | null;
+};
+
+export type ZraAuditLog = {
+  id: number;
+  action?: string;
+  entityType?: string;
+  entityId?: string | null;
+  storeId?: number | null;
+  adminUser?: string;
+  detailJson?: string | null;
+  createdAt?: string | null;
+};
+
+export type ZraAuditPage = {
+  content: ZraAuditLog[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};
+
+export type ZraVatRow = {
+  docType: string;
+  id?: number;
+  orderNumber?: string;
+  invcNo?: number | null;
+  rcptNo?: string;
+  issuedAt?: string | null;
+  storeId?: number | null;
+  customerName?: string;
+  description?: string;
+  taxableAmount?: number;
+  vatAmount?: number;
+  totalInclusive?: number;
+  taxSource?: string;
+};
+
+export type ZraVatReport = {
+  from?: string;
+  to?: string;
+  storeId?: number | null;
+  totalElements: number;
+  truncated?: boolean;
+  recomputedSalesCount?: number;
+  content: ZraVatRow[];
+};
+
+export type BulkRegisterZraItemResult = {
+  itemCd: string;
+  itemNm?: string;
+  taxTyCd?: string;
+  itemClsCd?: string;
+  status: 'REGISTERED' | 'ALREADY_EXISTS' | 'FAILED' | 'WOULD_REGISTER' | 'SKIPPED' | string;
+  message?: string;
+  fromMapping?: boolean;
+};
+
+export type BulkRegisterZraItemsResponse = {
+  dryRun: boolean;
+  total: number;
+  registered: number;
+  alreadyExists: number;
+  failed: number;
+  skipped: number;
+  results: BulkRegisterZraItemResult[];
 };
 
 async function req<T>(
@@ -390,5 +458,92 @@ export const zraApi = {
     ),
 
   listCreditNotes: (orderNumber: string) =>
-    req<ZraCreditNote[]>(`/admin/zra/orders/${encodeURIComponent(orderNumber)}/credit-notes`)
+    req<ZraCreditNote[]>(`/admin/zra/orders/${encodeURIComponent(orderNumber)}/credit-notes`),
+
+  fetchCreditNotePdfBlobUrl: async (id: number): Promise<string> => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res: Response;
+    try {
+      res = await fetch(inventoryApiUrl(`/admin/zra/credit-notes/${id}/pdf`), { headers });
+    } catch {
+      throw new ZraApiError(0, 'Could not reach the order service.');
+    }
+    if (!res.ok) {
+      const data = await parseResponseBody(res);
+      throw new ZraApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'Could not load credit note PDF.')
+      );
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
+
+  registerItems: (body?: { skus?: string[]; includeFeeItem?: boolean; dryRun?: boolean }) =>
+    req<BulkRegisterZraItemsResponse>('/admin/zra/items/register', {
+      method: 'POST',
+      body: body ?? {}
+    }),
+
+  listAudit: (params: {
+    storeId?: number;
+    action?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+  } = {}) => {
+    const q = new URLSearchParams();
+    if (params.storeId != null) q.set('storeId', String(params.storeId));
+    if (params.action) q.set('action', params.action);
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    q.set('page', String(params.page ?? 0));
+    q.set('size', String(params.size ?? 50));
+    return req<ZraAuditPage>(`/admin/zra/audit?${q}`);
+  },
+
+  getVatReport: (params: { storeId?: number; from: string; to: string }) => {
+    const q = new URLSearchParams();
+    if (params.storeId != null) q.set('storeId', String(params.storeId));
+    q.set('from', params.from);
+    q.set('to', params.to);
+    return req<ZraVatReport>(`/admin/zra/reports/vat?${q}`);
+  },
+
+  downloadVatCsv: async (params: { storeId?: number; from: string; to: string }): Promise<void> => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const q = new URLSearchParams();
+    if (params.storeId != null) q.set('storeId', String(params.storeId));
+    q.set('from', params.from);
+    q.set('to', params.to);
+
+    let res: Response;
+    try {
+      res = await fetch(inventoryApiUrl(`/admin/zra/reports/vat.csv?${q}`), { headers });
+    } catch {
+      throw new ZraApiError(0, 'Could not reach the order service.');
+    }
+    if (!res.ok) {
+      const data = await parseResponseBody(res);
+      throw new ZraApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'VAT CSV export failed.')
+      );
+    }
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = `zra-vat-${params.from.slice(0, 10)}-to-${params.to.slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  }
 };
