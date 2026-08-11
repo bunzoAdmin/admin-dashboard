@@ -28,13 +28,20 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 
 export default function ZraOverviewPage() {
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, storeIdLabel } = useZraStore();
+  const { storeIdParam, storeIdLabel, loading: storesLoading, validStore } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creditOrder, setCreditOrder] = useState('');
 
   const load = useCallback(async () => {
+    if (storesLoading) return;
+    if (!validStore || storeIdParam == null) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -44,7 +51,7 @@ export default function ZraOverviewPage() {
     } finally {
       setLoading(false);
     }
-  }, [storeIdParam]);
+  }, [storeIdParam, storesLoading, validStore]);
 
   useEffect(() => {
     load();
@@ -73,8 +80,14 @@ export default function ZraOverviewPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {loading && !data ? (
+      {storesLoading || (loading && !data) ? (
         <Loading label="Loading ZRA overview…" />
+      ) : !validStore ? (
+        <Card>
+          <p className="text-sm text-gray-500">
+            Select a ZRA-enabled store to view device status, codes, and stock sync.
+          </p>
+        </Card>
       ) : data ? (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">

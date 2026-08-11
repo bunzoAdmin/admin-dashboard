@@ -31,7 +31,7 @@ export default function ZraStockPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore } = useZraStore();
+  const { storeId, storeIdParam, validStore, loading: storesLoading } = useZraStore();
   const [preview, setPreview] = useState<ZraStockPreview | null>(null);
   const [status, setStatus] = useState<ZraStockStatus | null>(null);
   const [branch, setBranch] = useState<ZraBranchInfo | null>(null);
@@ -44,7 +44,15 @@ export default function ZraStockPage() {
   const sid = storeIdParam ?? 0;
 
   const load = useCallback(async () => {
-    if (!validStore || storeIdParam == null) return;
+    if (storesLoading) return;
+    if (!validStore || storeIdParam == null) {
+      setPreview(null);
+      setStatus(null);
+      setBranch(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -58,10 +66,13 @@ export default function ZraStockPage() {
       setBranch(b);
     } catch (err) {
       setError(err instanceof ZraApiError ? err.message : 'Failed to load stock sync status.');
+      setPreview(null);
+      setStatus(null);
+      setBranch(null);
     } finally {
       setLoading(false);
     }
-  }, [validStore, storeIdParam]);
+  }, [validStore, storeIdParam, storesLoading]);
 
   useEffect(() => {
     load();

@@ -19,8 +19,7 @@ import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import {
   useZraStore,
-  ZraStoreSelector,
-  ZRA_ALL_STORES_SCOPE
+  ZraStoreSelector
 } from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
@@ -46,6 +45,19 @@ function statusTone(status?: string): 'gray' | 'green' | 'amber' | 'red' | 'blue
   }
 }
 
+/** Format ZRA purchase date from VSDC (`yyyyMMdd` or `yyyyMMddHHmmss`). */
+function formatPurchaseDate(pchsDt?: string | null): string {
+  if (!pchsDt) return '—';
+  const d = pchsDt.trim();
+  if (/^\d{8}$/.test(d)) {
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
+  }
+  if (/^\d{14}$/.test(d)) {
+    return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${d.slice(8, 10)}:${d.slice(10, 12)}`;
+  }
+  return d;
+}
+
 const emptyManualLine = (): ManualPurchaseLine => ({
   itemCd: '',
   itemNm: '',
@@ -57,8 +69,7 @@ export default function ZraPurchasesPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore, setStoreId } = useZraStore();
-  const [filterScope, setFilterScope] = useState<string | null>(null);
+  const { storeId, storeIdParam, validStore, setStoreId, loading: storesLoading } = useZraStore();
   const [tab, setTab] = useState<Tab>('pending');
   const [rows, setRows] = useState<ZraPurchase[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -88,10 +99,16 @@ export default function ZraPurchasesPage() {
   });
   const [manualSaving, setManualSaving] = useState(false);
 
-  const storeFilter =
-    filterScope === ZRA_ALL_STORES_SCOPE ? undefined : storeIdParam;
+  const storeFilter = storeIdParam;
 
   const load = useCallback(async () => {
+    if (storesLoading) return;
+    if (storeFilter == null) {
+      setRows([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -119,7 +136,7 @@ export default function ZraPurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, storeFilter]);
+  }, [tab, page, storeFilter, storesLoading]);
 
   useEffect(() => {
     load();
@@ -346,16 +363,7 @@ export default function ZraPurchasesPage() {
           </div>
         </div>
 
-        <div className="mt-3 flex items-end gap-2">
-          <ZraStoreSelector
-            allowAll
-            scope={filterScope}
-            onScopeChange={(scope) => {
-              setFilterScope(scope);
-              setPage(0);
-            }}
-          />
-        </div>
+        <div className="mt-3" />
 
         {tab === 'manual' && (
           <form onSubmit={handleManual} className="mt-4 space-y-4 border-b border-gray-100 pb-5">
@@ -510,7 +518,8 @@ export default function ZraPurchasesPage() {
                     <th className="px-3 py-2 font-medium">Invoice</th>
                     <th className="px-3 py-2 font-medium">Total</th>
                     <th className="px-3 py-2 font-medium">Status</th>
-                    <th className="px-3 py-2 font-medium">Created</th>
+                    <th className="px-3 py-2 font-medium">Purchase date</th>
+                    <th className="px-3 py-2 font-medium">Fetched</th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
                 </thead>
@@ -530,7 +539,8 @@ export default function ZraPurchasesPage() {
                       <td className="px-3 py-2">
                         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
                       </td>
-                      <td className="px-3 py-2 text-xs text-gray-500">{formatDate(p.createdAt ?? undefined)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-700">{formatPurchaseDate(p.pchsDt)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-400">{formatDate(p.createdAt ?? undefined)}</td>
                       <td className="px-3 py-2 text-right">
                         <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => openDetail(p.id)}>
                           Open
@@ -591,11 +601,18 @@ export default function ZraPurchasesPage() {
             <Loading label="Loading detail…" />
           ) : (
             <div className="space-y-4">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                 <div className="text-sm">
                   <div className="label">Supplier</div>
                   <div className="font-medium">{detail.purchase.spplrNm}</div>
                   <div className="font-mono text-xs text-gray-500">{detail.purchase.spplrTpin}</div>
+                </div>
+                <div className="text-sm">
+                  <div className="label">Purchase date</div>
+                  <div className="font-medium">{formatPurchaseDate(detail.purchase.pchsDt)}</div>
+                  <div className="text-xs text-gray-400">
+                    Fetched {formatDate(detail.purchase.createdAt ?? undefined)}
+                  </div>
                 </div>
                 <div className="text-sm">
                   <div className="label">Status</div>
@@ -613,7 +630,9 @@ export default function ZraPurchasesPage() {
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-3 py-2 font-medium">#</th>
                       <th className="px-3 py-2 font-medium">Item</th>
-                      <th className="px-3 py-2 font-medium">Qty</th>
+                      <th className="px-3 py-2 font-medium text-right">Qty</th>
+                      <th className="px-3 py-2 font-medium text-right">Unit price</th>
+                      <th className="px-3 py-2 font-medium text-right">Line total</th>
                       <th className="px-3 py-2 font-medium">Mapped SKU</th>
                       <th className="px-3 py-2 font-medium">Map</th>
                     </tr>
@@ -626,7 +645,9 @@ export default function ZraPurchasesPage() {
                           <div>{line.itemNm || line.spplrItemNm}</div>
                           <div className="font-mono text-xs text-gray-400">{line.spplrItemCd}</div>
                         </td>
-                        <td className="px-3 py-2">{line.retrievedQty ?? '—'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{line.retrievedQty ?? '—'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{money(line.prc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-medium">{money(line.totAmt)}</td>
                         <td className="px-3 py-2 font-mono text-xs">{line.itemCd || '—'}</td>
                         <td className="px-3 py-2">
                           {(detail.purchase.status === 'PENDING_APPROVAL' ||
