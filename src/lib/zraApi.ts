@@ -408,12 +408,10 @@ export const zraApi = {
       adminUser: adminUser?.trim() || undefined
     }),
 
-  fetchPurchases: (storeId?: number, adminUser?: string) => {
-    const q = new URLSearchParams();
-    if (storeId != null) q.set('storeId', String(storeId));
-    const qs = q.toString();
+  fetchPurchases: (storeId: number, adminUser?: string) => {
+    const q = new URLSearchParams({ storeId: String(storeId) });
     return req<Record<string, unknown>>(
-      `/admin/zra/purchases/fetch${qs ? `?${qs}` : ''}`,
+      `/admin/zra/purchases/fetch?${q}`,
       mutateOpts(adminUser)
     );
   },
