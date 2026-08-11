@@ -64,6 +64,9 @@ export type ZraBranchInfo = {
 };
 
 export type ZraOverview = {
+  zraEnabled?: boolean;
+  storeId?: number | null;
+  message?: string | null;
   codes: ZraCodesStatus;
   pendingPurchases: number;
   stock: ZraStockStatus | Record<string, never>;

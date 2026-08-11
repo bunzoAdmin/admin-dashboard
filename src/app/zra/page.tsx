@@ -15,6 +15,7 @@ import {
 } from '@/components/ui';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { ZraNotEnabledNotice } from '@/components/zra/ZraNotEnabledNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import { zraApi, ZraApiError, type ZraBranchInfo, type ZraOverview } from '@/lib/zraApi';
 import { CreditNotePanel } from '@/components/orders/CreditNotePanel';
@@ -28,14 +29,13 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 
 export default function ZraOverviewPage() {
   const finance = useZraFinanceAccess();
-  const { storeIdParam, storeIdLabel, loading: storesLoading, validStore } = useZraStore();
+  const { storeIdParam, storeIdLabel, validStore } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creditOrder, setCreditOrder] = useState('');
 
   const load = useCallback(async () => {
-    if (storesLoading) return;
     if (!validStore || storeIdParam == null) {
       setData(null);
       setLoading(false);
@@ -47,19 +47,21 @@ export default function ZraOverviewPage() {
     try {
       setData(await zraApi.getOverview(storeIdParam));
     } catch (err) {
+      setData(null);
       setError(err instanceof ZraApiError ? err.message : 'Failed to load ZRA overview.');
     } finally {
       setLoading(false);
     }
-  }, [storeIdParam, storesLoading, validStore]);
+  }, [storeIdParam, validStore]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const stock = data?.stock && 'status' in data.stock ? data.stock : null;
+  const notEnabled = data != null && data.zraEnabled === false;
+  const stock = !notEnabled && data?.stock && 'status' in data.stock ? data.stock : null;
   const branch: ZraBranchInfo | null =
-    data?.branch && typeof data.branch === 'object' ? data.branch : null;
+    !notEnabled && data?.branch && typeof data.branch === 'object' ? data.branch : null;
 
   return (
     <div className="space-y-6">
@@ -72,7 +74,7 @@ export default function ZraOverviewPage() {
         </div>
         <div className="flex items-end gap-2">
           <ZraStoreSelector />
-          <button type="button" className="btn-ghost" onClick={load} disabled={loading}>
+          <button type="button" className="btn-ghost" onClick={load} disabled={loading || !validStore}>
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
         </div>
@@ -80,14 +82,18 @@ export default function ZraOverviewPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {storesLoading || (loading && !data) ? (
-        <Loading label="Loading ZRA overview…" />
-      ) : !validStore ? (
+      {!validStore ? (
         <Card>
-          <p className="text-sm text-gray-500">
-            Select a ZRA-enabled store to view device status, codes, and stock sync.
-          </p>
+          <p className="text-sm text-gray-500">Select a store to view ZRA status for that dark store.</p>
         </Card>
+      ) : loading && !data ? (
+        <Loading label="Loading ZRA overview…" />
+      ) : notEnabled ? (
+        <ZraNotEnabledNotice
+          storeId={storeIdParam}
+          message={data?.message}
+          enabledStoreIds={data?.enabledStoreIds}
+        />
       ) : data ? (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -114,7 +120,7 @@ export default function ZraOverviewPage() {
                   ? `Last sync ${formatDate(stock.lastSyncAt)}`
                   : stock
                     ? 'Never run'
-                    : 'Set store ID'
+                    : '—'
               }
             />
           </div>
@@ -205,7 +211,7 @@ export default function ZraOverviewPage() {
                   )}
                 </dl>
               ) : (
-                <p className="text-sm text-gray-400">Enter a store ID and refresh to load stock status.</p>
+                <p className="text-sm text-gray-400">No stock status for this store.</p>
               )}
             </Card>
           </div>
@@ -225,9 +231,7 @@ export default function ZraOverviewPage() {
             ) : (
               <p className="text-xs text-gray-400">Enter an order number to issue a full or partial credit note.</p>
             )}
-            {!finance.allowed && !finance.loading && (
-              <ZraFinanceNotice access={finance} className="mt-2" />
-            )}
+            <ZraFinanceNotice access={finance} className="mt-2" />
           </Card>
         </>
       ) : null}

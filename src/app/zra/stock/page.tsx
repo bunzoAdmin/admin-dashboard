@@ -16,6 +16,7 @@ import {
 import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { ZraNotEnabledNotice } from '@/components/zra/ZraNotEnabledNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
@@ -31,7 +32,7 @@ export default function ZraStockPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore, loading: storesLoading } = useZraStore();
+  const { storeId, storeIdParam, validStore } = useZraStore();
   const [preview, setPreview] = useState<ZraStockPreview | null>(null);
   const [status, setStatus] = useState<ZraStockStatus | null>(null);
   const [branch, setBranch] = useState<ZraBranchInfo | null>(null);
@@ -39,22 +40,27 @@ export default function ZraStockPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [notEnabled, setNotEnabled] = useState(false);
+  const [notEnabledMessage, setNotEnabledMessage] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sid = storeIdParam ?? 0;
 
   const load = useCallback(async () => {
-    if (storesLoading) return;
     if (!validStore || storeIdParam == null) {
       setPreview(null);
       setStatus(null);
       setBranch(null);
+      setNotEnabled(false);
+      setNotEnabledMessage(null);
       setLoading(false);
       setError(null);
       return;
     }
     setLoading(true);
     setError(null);
+    setNotEnabled(false);
+    setNotEnabledMessage(null);
     try {
       const [p, s, b] = await Promise.all([
         zraApi.getStockPreview(storeIdParam),
@@ -65,14 +71,21 @@ export default function ZraStockPage() {
       setStatus(s);
       setBranch(b);
     } catch (err) {
-      setError(err instanceof ZraApiError ? err.message : 'Failed to load stock sync status.');
       setPreview(null);
       setStatus(null);
       setBranch(null);
+      const msg = err instanceof ZraApiError ? err.message : 'Failed to load stock sync status.';
+      if (err instanceof ZraApiError && /ZRA is not enabled for store/i.test(msg)) {
+        setNotEnabled(true);
+        setNotEnabledMessage(msg);
+        setError(null);
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
-  }, [validStore, storeIdParam, storesLoading]);
+  }, [validStore, storeIdParam]);
 
   useEffect(() => {
     load();
@@ -162,7 +175,13 @@ export default function ZraStockPage() {
 
       {error && <ErrorBox message={error} />}
 
-      {loading && !preview ? (
+      {!validStore ? (
+        <Card>
+          <p className="text-sm text-gray-500">Select a store to view stock sync status.</p>
+        </Card>
+      ) : notEnabled ? (
+        <ZraNotEnabledNotice storeId={storeIdParam} message={notEnabledMessage} />
+      ) : loading && !preview ? (
         <Loading label="Loading stock preview…" />
       ) : (
         <>

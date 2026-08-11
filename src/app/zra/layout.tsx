@@ -1,7 +1,6 @@
 'use client';
 
-import { ZraStoreProvider } from '@/components/zra/ZraStoreSelector';
-
+/** Pass-through — store selection uses shared StoreSelector (all darkstores). */
 export default function ZraLayout({ children }: { children: React.ReactNode }) {
-  return <ZraStoreProvider>{children}</ZraStoreProvider>;
+  return children;
 }

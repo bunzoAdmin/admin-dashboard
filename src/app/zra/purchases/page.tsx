@@ -69,7 +69,7 @@ export default function ZraPurchasesPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore, setStoreId, loading: storesLoading } = useZraStore();
+  const { storeId, storeIdParam, validStore, setStoreId } = useZraStore();
   const [tab, setTab] = useState<Tab>('pending');
   const [rows, setRows] = useState<ZraPurchase[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -102,7 +102,6 @@ export default function ZraPurchasesPage() {
   const storeFilter = storeIdParam;
 
   const load = useCallback(async () => {
-    if (storesLoading) return;
     if (storeFilter == null) {
       setRows([]);
       setTotal(0);
@@ -136,7 +135,7 @@ export default function ZraPurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, storeFilter, storesLoading]);
+  }, [tab, page, storeFilter]);
 
   useEffect(() => {
     load();
