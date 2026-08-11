@@ -14,6 +14,7 @@ import {
 } from '@/components/ui';
 import { addStoreCalendarDays, todayIsoStore } from '@/lib/storeTime';
 import { zraApi, ZraApiError, type ZraVatRow } from '@/lib/zraApi';
+import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 
 function toIsoStart(date: string): string {
   return new Date(`${date}T00:00:00+02:00`).toISOString();
@@ -29,8 +30,8 @@ export default function ZraReportsPage() {
   const toast = useToast();
   const today = todayIsoStore();
   const weekAgo = addStoreCalendarDays(today, -6);
+  const { storeIdParam } = useZraStore();
 
-  const [storeId, setStoreId] = useState('');
   const [dateFrom, setDateFrom] = useState(weekAgo);
   const [dateTo, setDateTo] = useState(today);
   const [rows, setRows] = useState<ZraVatRow[] | null>(null);
@@ -42,10 +43,7 @@ export default function ZraReportsPage() {
 
   function range() {
     return {
-      storeId: (() => {
-        const n = Number(storeId);
-        return Number.isFinite(n) && n > 0 ? n : undefined;
-      })(),
+      storeId: storeIdParam,
       from: toIsoStart(dateFrom),
       to: toIsoEndExclusive(dateTo)
     };
@@ -93,16 +91,7 @@ export default function ZraReportsPage() {
       <form onSubmit={handlePreview}>
         <Card>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Field label="Store ID (optional)">
-              <input
-                className="input"
-                type="number"
-                min={1}
-                value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
-                placeholder="All"
-              />
-            </Field>
+            <ZraStoreSelector />
             <Field label="From (CAT date)">
               <input
                 className="input"

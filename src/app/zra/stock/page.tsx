@@ -14,7 +14,9 @@ import {
   useToast
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
   ZraApiError,
@@ -28,8 +30,8 @@ const RUNNING_STATUSES = new Set(['RUNNING', 'IN_PROGRESS', 'STARTED']);
 export default function ZraStockPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
-  const canFinance = isZraFinanceAdmin(user);
-  const [storeId, setStoreId] = useState('1');
+  const finance = useZraFinanceAccess();
+  const { storeId, storeIdParam, validStore } = useZraStore();
   const [preview, setPreview] = useState<ZraStockPreview | null>(null);
   const [status, setStatus] = useState<ZraStockStatus | null>(null);
   const [branch, setBranch] = useState<ZraBranchInfo | null>(null);
@@ -39,18 +41,17 @@ export default function ZraStockPage() {
   const [opening, setOpening] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const sid = Number(storeId);
-  const validStore = Number.isFinite(sid) && sid > 0;
+  const sid = storeIdParam ?? 0;
 
   const load = useCallback(async () => {
-    if (!validStore) return;
+    if (!validStore || storeIdParam == null) return;
     setLoading(true);
     setError(null);
     try {
       const [p, s, b] = await Promise.all([
-        zraApi.getStockPreview(sid),
-        zraApi.getStockSyncStatus(sid),
-        zraApi.getBranch(sid).catch(() => null)
+        zraApi.getStockPreview(storeIdParam),
+        zraApi.getStockSyncStatus(storeIdParam),
+        zraApi.getBranch(storeIdParam).catch(() => null)
       ]);
       setPreview(p);
       setStatus(s);
@@ -60,7 +61,7 @@ export default function ZraStockPage() {
     } finally {
       setLoading(false);
     }
-  }, [sid, validStore]);
+  }, [validStore, storeIdParam]);
 
   useEffect(() => {
     load();
@@ -141,15 +142,7 @@ export default function ZraStockPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
-          <Field label="Store ID" className="w-28">
-            <input
-              className="input"
-              type="number"
-              min={1}
-              value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
-            />
-          </Field>
+          <ZraStoreSelector />
           <button type="button" className="btn-ghost" onClick={load} disabled={loading || !validStore}>
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
@@ -197,7 +190,7 @@ export default function ZraStockPage() {
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={!canFinance || !validStore || isRunning}
+                  disabled={finance.loading || !finance.allowed || !validStore || isRunning}
                   onClick={handleSync}
                 >
                   {isRunning ? (
@@ -211,13 +204,13 @@ export default function ZraStockPage() {
                 <button
                   type="button"
                   className="btn-ghost"
-                  disabled={!canFinance || !validStore || opening || isRunning}
+                  disabled={finance.loading || !finance.allowed || !validStore || opening || isRunning}
                   onClick={handleOpeningBalance}
                 >
                   {opening ? <Spinner className="h-4 w-4" /> : 'Post opening balance'}
                 </button>
               </div>
-              {!canFinance && <p className="text-xs text-gray-500">Finance admin only</p>}
+              <ZraFinanceNotice access={finance} />
             </div>
           </Card>
 

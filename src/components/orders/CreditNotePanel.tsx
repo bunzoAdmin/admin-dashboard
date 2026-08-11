@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderItemResponse } from '@/lib/orderAdminTypes';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { zraApi, ZraApiError, type ZraCreditNote } from '@/lib/zraApi';
 import { Badge, Field, Spinner, useToast } from '@/components/ui';
 
@@ -66,7 +67,8 @@ function buildLineDrafts(items: OrderItemResponse[], prior: ZraCreditNote[]): Li
 export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false, onIssued }: CreditNotePanelProps) {
   const toast = useToast();
   const user = useAuth((s) => s.user);
-  const canFinance = isZraFinanceAdmin(user);
+  const finance = useZraFinanceAccess();
+  const canFinance = finance.allowed;
 
   const [fullCredit, setFullCredit] = useState(true);
   const [reason, setReason] = useState('');
@@ -197,8 +199,12 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
     }
   }
 
+  if (finance.loading) {
+    return <p className="text-xs text-gray-400">Checking ZRA finance access…</p>;
+  }
+
   if (!canFinance) {
-    return <p className="text-xs text-gray-500">Finance admin only — credit notes are gated.</p>;
+    return <ZraFinanceNotice access={finance} />;
   }
 
   return (

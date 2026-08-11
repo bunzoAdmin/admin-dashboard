@@ -14,7 +14,9 @@ import {
   formatDate
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import { zraApi, ZraApiError, type ZraBranchInfo, type ZraOverview } from '@/lib/zraApi';
 import { CreditNotePanel } from '@/components/orders/CreditNotePanel';
 
@@ -27,8 +29,8 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 
 export default function ZraOverviewPage() {
   const user = useAuth((s) => s.user);
-  const canFinance = isZraFinanceAdmin(user);
-  const [storeId, setStoreId] = useState('1');
+  const finance = useZraFinanceAccess();
+  const { storeId, storeIdParam, storeIdLabel } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -37,15 +39,14 @@ export default function ZraOverviewPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const sid = Number(storeId);
     try {
-      setData(await zraApi.getOverview(Number.isFinite(sid) && sid > 0 ? sid : undefined));
+      setData(await zraApi.getOverview(storeIdParam));
     } catch (err) {
       setError(err instanceof ZraApiError ? err.message : 'Failed to load ZRA overview.');
     } finally {
       setLoading(false);
     }
-  }, [storeId]);
+  }, [storeIdParam]);
 
   useEffect(() => {
     load();
@@ -65,15 +66,7 @@ export default function ZraOverviewPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
-          <Field label="Store ID" className="w-28">
-            <input
-              className="input"
-              type="number"
-              min={1}
-              value={storeId}
-              onChange={(e) => setStoreId(e.target.value)}
-            />
-          </Field>
+          <ZraStoreSelector />
           <button type="button" className="btn-ghost" onClick={load} disabled={loading}>
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
@@ -117,7 +110,7 @@ export default function ZraOverviewPage() {
 
           {branch && (
             <Card>
-              <SectionTitle>ZRA device (store {branch.storeId ?? storeId})</SectionTitle>
+              <SectionTitle>ZRA device (store {branch.storeId ?? storeIdLabel})</SectionTitle>
               <dl className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                 <div className="flex justify-between gap-4">
                   <dt className="text-gray-500">Branch ID (bhfId)</dt>
@@ -168,7 +161,7 @@ export default function ZraOverviewPage() {
 
             <Card>
               <SectionTitle action={<Link href="/zra/stock" className="text-sm text-blue-600 hover:underline">Stock →</Link>}>
-                Stock sync (store {storeId || '—'})
+                Stock sync (store {storeIdLabel})
               </SectionTitle>
               {stock ? (
                 <dl className="space-y-2 text-sm">
@@ -221,8 +214,8 @@ export default function ZraOverviewPage() {
             ) : (
               <p className="text-xs text-gray-400">Enter an order number to issue a full or partial credit note.</p>
             )}
-            {!canFinance && (
-              <p className="mt-2 text-xs text-gray-500">Finance admin only</p>
+            {!finance.allowed && !finance.loading && (
+              <ZraFinanceNotice access={finance} className="mt-2" />
             )}
           </Card>
         </>

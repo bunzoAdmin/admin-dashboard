@@ -292,6 +292,11 @@ export type BulkRegisterZraItemsResponse = {
   results: BulkRegisterZraItemResult[];
 };
 
+export type ZraFinanceAccess = {
+  financeAdmin?: boolean;
+  allowlistRequired?: boolean;
+};
+
 async function req<T>(
   path: string,
   opts: { method?: string; body?: unknown; adminUser?: string } = {}
@@ -482,10 +487,25 @@ export const zraApi = {
     return URL.createObjectURL(blob);
   },
 
-  registerItems: (body?: { skus?: string[]; includeFeeItem?: boolean; dryRun?: boolean }) =>
+  checkFinanceAccess: (adminUser: string) =>
+    req<ZraFinanceAccess>('/admin/zra/access', { adminUser: adminUser.trim() }),
+
+  registerItems: (body?: {
+    storeId?: number;
+    skus?: string[];
+    includeFeeItem?: boolean;
+    dryRun?: boolean;
+    adminUser?: string;
+  }) =>
     req<BulkRegisterZraItemsResponse>('/admin/zra/items/register', {
       method: 'POST',
-      body: body ?? {}
+      body: {
+        storeId: body?.storeId,
+        skus: body?.skus,
+        includeFeeItem: body?.includeFeeItem,
+        dryRun: body?.dryRun
+      },
+      adminUser: body?.adminUser?.trim() || undefined
     }),
 
   listAudit: (params: {

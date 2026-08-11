@@ -12,7 +12,9 @@ import {
   useToast
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
   ZraApiError,
@@ -25,7 +27,8 @@ type Tab = 'standard' | 'classification';
 export default function ZraCodesPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
-  const canFinance = isZraFinanceAdmin(user);
+  const finance = useZraFinanceAccess();
+  const { storeId, storeIdParam, validStore } = useZraStore();
   const [tab, setTab] = useState<Tab>('standard');
   const [q, setQ] = useState('');
   const [cdCls, setCdCls] = useState('');
@@ -35,7 +38,6 @@ export default function ZraCodesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [storeId, setStoreId] = useState('1');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,20 +60,19 @@ export default function ZraCodesPage() {
   }, [load]);
 
   async function handleSync() {
-    const sid = Number(storeId);
-    const storeOk = Number.isFinite(sid) && sid > 0;
     if (
       !window.confirm(
-        storeOk
-          ? `Sync ZRA codes from store ${sid}'s VSDC device?`
-          : 'Sync ZRA codes from the default/first enabled VSDC?'
+        validStore
+          ? `Sync ZRA codes from store ${storeId}'s VSDC device?`
+          : 'Select a store first.'
       )
     ) {
       return;
     }
+    if (!validStore) return;
     setSyncing(true);
     try {
-      await zraApi.syncCodes(storeOk ? sid : undefined, user?.username);
+      await zraApi.syncCodes(storeIdParam, user?.username);
       toast.push('success', 'Code sync started / completed.');
       await load();
     } catch (err) {
@@ -98,25 +99,17 @@ export default function ZraCodesPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-end gap-2">
-            <Field label="Store ID" className="w-28">
-              <input
-                className="input"
-                type="number"
-                min={1}
-                value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
-              />
-            </Field>
+            <ZraStoreSelector />
             <button
               type="button"
               className="btn-primary"
               onClick={handleSync}
-              disabled={!canFinance || syncing}
+              disabled={finance.loading || !finance.allowed || !validStore || syncing}
             >
               {syncing ? <Spinner className="h-4 w-4" /> : 'Sync codes'}
             </button>
           </div>
-          {!canFinance && <p className="text-xs text-gray-500">Finance admin only</p>}
+          <ZraFinanceNotice access={finance} />
         </div>
       </div>
 

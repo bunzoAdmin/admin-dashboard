@@ -7,6 +7,10 @@ import {
   type BulkRegisterZraItemsResponse,
   type BulkRegisterZraItemResult
 } from '@/lib/zraApi';
+import { useAuth } from '@/lib/store';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import { Badge, Card, Spinner, useToast } from '@/components/ui';
 
 function parseSkus(raw: string): string[] | undefined {
@@ -93,6 +97,9 @@ function ResultsTable({ results, filter }: { results: BulkRegisterZraItemResult[
 
 export function ZraBulkRegisterPanel() {
   const toast = useToast();
+  const user = useAuth((s) => s.user);
+  const finance = useZraFinanceAccess();
+  const { storeIdParam, validStore } = useZraStore();
   const [skuText, setSkuText] = useState('');
   const [includeFeeItem, setIncludeFeeItem] = useState(true);
   const [running, setRunning] = useState(false);
@@ -112,9 +119,11 @@ export function ZraBulkRegisterPanel() {
     setResult(null);
     try {
       const response = await zraApi.registerItems({
+        storeId: storeIdParam,
         skus,
         includeFeeItem,
-        dryRun
+        dryRun,
+        adminUser: user?.username
       });
       setResult(response);
       setShowAllResults(false);
@@ -143,6 +152,8 @@ export function ZraBulkRegisterPanel() {
           Per-order lazy registration still runs on delivery.
         </p>
       </div>
+
+      <ZraStoreSelector />
 
       <label className="block space-y-1.5">
         <span className="label">SKUs (optional — one per line or comma-separated)</span>
@@ -173,7 +184,7 @@ export function ZraBulkRegisterPanel() {
         <button
           type="button"
           className="btn-ghost text-sm"
-          disabled={running}
+          disabled={running || !validStore}
           onClick={() => void run(true)}
         >
           {running ? <Spinner className="h-4 w-4" /> : 'Preview mapping'}
@@ -181,12 +192,14 @@ export function ZraBulkRegisterPanel() {
         <button
           type="button"
           className="btn-primary text-sm"
-          disabled={running}
+          disabled={running || finance.loading || !finance.allowed || !validStore}
           onClick={() => void run(false)}
         >
           {running ? <Spinner className="h-4 w-4" /> : hasSkus ? 'Register selected' : 'Register all active'}
         </button>
       </div>
+
+      <ZraFinanceNotice access={finance} />
 
       {result && (
         <div className="space-y-3 border-t border-gray-100 pt-4">

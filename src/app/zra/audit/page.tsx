@@ -10,11 +10,18 @@ import {
   formatDate
 } from '@/components/ui';
 import { zraApi, ZraApiError, type ZraAuditLog } from '@/lib/zraApi';
+import {
+  useZraStore,
+  ZraStoreSelector,
+  ZRA_ALL_STORES_SCOPE
+} from '@/components/zra/ZraStoreSelector';
 
 export default function ZraAuditPage() {
-  const [storeId, setStoreId] = useState('');
+  const { storeId, storeIdParam } = useZraStore();
+  const [filterScope, setFilterScope] = useState<string | null>(null);
   const [action, setAction] = useState('');
   const [appliedStoreId, setAppliedStoreId] = useState('');
+  const [appliedScope, setAppliedScope] = useState<string | null>(null);
   const [appliedAction, setAppliedAction] = useState('');
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<ZraAuditLog[]>([]);
@@ -27,9 +34,15 @@ export default function ZraAuditPage() {
     setLoading(true);
     setError(null);
     const sid = Number(appliedStoreId);
+    const resolvedStoreId =
+      appliedScope === ZRA_ALL_STORES_SCOPE
+        ? undefined
+        : Number.isFinite(sid) && sid > 0
+          ? sid
+          : storeIdParam;
     try {
       const result = await zraApi.listAudit({
-        storeId: Number.isFinite(sid) && sid > 0 ? sid : undefined,
+        storeId: resolvedStoreId,
         action: appliedAction.trim() || undefined,
         page,
         size: 50
@@ -43,7 +56,7 @@ export default function ZraAuditPage() {
     } finally {
       setLoading(false);
     }
-  }, [appliedStoreId, appliedAction, page]);
+  }, [appliedStoreId, appliedScope, appliedAction, page, storeIdParam]);
 
   useEffect(() => {
     void load();
@@ -51,7 +64,8 @@ export default function ZraAuditPage() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setAppliedStoreId(storeId);
+    setAppliedStoreId(storeId != null ? String(storeId) : '');
+    setAppliedScope(filterScope);
     setAppliedAction(action);
     setPage(0);
   }
@@ -68,16 +82,11 @@ export default function ZraAuditPage() {
       <form onSubmit={handleSearch}>
         <Card>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Store ID (optional)">
-              <input
-                className="input"
-                type="number"
-                min={1}
-                value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
-                placeholder="All stores"
-              />
-            </Field>
+            <ZraStoreSelector
+              allowAll
+              scope={filterScope}
+              onScopeChange={setFilterScope}
+            />
             <Field label="Action (optional)">
               <input
                 className="input font-mono"

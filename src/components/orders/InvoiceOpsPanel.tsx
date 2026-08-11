@@ -6,7 +6,7 @@ import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import type { OrderItemResponse, OrderResponse } from '@/lib/orderAdminTypes';
 import { Badge, Spinner, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { CreditNotePanel } from '@/components/orders/CreditNotePanel';
 
 type InvoiceInfo = NonNullable<OrderResponse['invoice']>;
@@ -44,7 +44,8 @@ export function InvoiceOpsPanel({
   const [viewingPdf, setViewingPdf] = useState(false);
   const [showCredit, setShowCredit] = useState(false);
 
-  const canFinance = isZraFinanceAdmin(user);
+  const finance = useZraFinanceAccess();
+  const canFinance = finance.allowed;
   const statusLabel = invoice?.status ?? 'MISSING';
   const canRetry = statusLabel !== 'ISSUED';
   const canViewPdf = invoice?.available === true;

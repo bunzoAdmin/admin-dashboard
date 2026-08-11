@@ -15,7 +15,13 @@ import {
   useToast
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
-import { isZraFinanceAdmin } from '@/lib/zraFinance';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import {
+  useZraStore,
+  ZraStoreSelector,
+  ZRA_ALL_STORES_SCOPE
+} from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
   ZraApiError,
@@ -50,7 +56,9 @@ const emptyManualLine = (): ManualPurchaseLine => ({
 export default function ZraPurchasesPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
-  const canFinance = isZraFinanceAdmin(user);
+  const finance = useZraFinanceAccess();
+  const { storeId, storeIdParam, validStore, setStoreId } = useZraStore();
+  const [filterScope, setFilterScope] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('pending');
   const [rows, setRows] = useState<ZraPurchase[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -62,15 +70,12 @@ export default function ZraPurchasesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<ZraPurchaseDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [storeId, setStoreId] = useState('1');
-  const [filterStoreId, setFilterStoreId] = useState('');
   const [paperReceiptRef, setPaperReceiptRef] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [lineSkuDraft, setLineSkuDraft] = useState<Record<number, string>>({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const [manual, setManual] = useState({
-    storeId: '1',
     spplrNm: '',
     spplrTpin: '',
     spplrBhfId: '',
@@ -83,11 +88,12 @@ export default function ZraPurchasesPage() {
   });
   const [manualSaving, setManualSaving] = useState(false);
 
+  const storeFilter =
+    filterScope === ZRA_ALL_STORES_SCOPE ? undefined : storeIdParam;
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const fsid = Number(filterStoreId);
-    const storeFilter = filterStoreId.trim() && Number.isFinite(fsid) && fsid > 0 ? fsid : undefined;
     try {
       if (tab === 'pending') {
         // Include FAILED so VSDC transmit failures can be retried.
@@ -113,7 +119,7 @@ export default function ZraPurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, filterStoreId]);
+  }, [tab, page, storeFilter]);
 
   useEffect(() => {
     load();
@@ -128,7 +134,7 @@ export default function ZraPurchasesPage() {
     try {
       const d = await zraApi.getPurchase(id);
       setDetail(d);
-      setStoreId(d.purchase.storeId != null ? String(d.purchase.storeId) : '1');
+      if (d.purchase.storeId != null) setStoreId(d.purchase.storeId);
       setPaperReceiptRef(d.purchase.paperReceiptRef ?? '');
       const drafts: Record<number, string> = {};
       for (const line of d.lines) {
@@ -143,15 +149,14 @@ export default function ZraPurchasesPage() {
   }
 
   async function handleFetch() {
-    const sid = Number(storeId);
-    if (!Number.isFinite(sid) || sid <= 0) {
-      toast.push('error', 'Enter a valid store ID to fetch that store’s VSDC purchases.');
+    if (!validStore || storeIdParam == null) {
+      toast.push('error', 'Select a store to fetch purchases from its VSDC.');
       return;
     }
     setFetching(true);
     try {
-      await zraApi.fetchPurchases(sid, user?.username);
-      toast.push('success', `Purchases fetched from store ${sid} VSDC.`);
+      await zraApi.fetchPurchases(storeIdParam, user?.username);
+      toast.push('success', `Purchases fetched from store ${storeIdParam} VSDC.`);
       setPage(0);
       await load();
     } catch (err) {
@@ -162,10 +167,10 @@ export default function ZraPurchasesPage() {
   }
 
   async function handleApprove() {
-    if (!selectedId) return;
-    const sid = Number(storeId);
-    if (!Number.isFinite(sid) || sid <= 0) {
-      toast.push('error', 'Enter a valid store ID.');
+    if (!selectedId || !detail) return;
+    const sid = detail.purchase.storeId ?? storeIdParam;
+    if (sid == null) {
+      toast.push('error', 'Select a store.');
       return;
     }
     if (!window.confirm(`Approve purchase #${selectedId} for store ${sid}?`)) return;
@@ -225,11 +230,11 @@ export default function ZraPurchasesPage() {
 
   async function handleManual(e: React.FormEvent) {
     e.preventDefault();
-    const sid = Number(manual.storeId);
-    if (!Number.isFinite(sid) || sid <= 0) {
-      toast.push('error', 'Enter a valid store ID.');
+    if (!validStore || storeIdParam == null) {
+      toast.push('error', 'Select a store for the manual purchase.');
       return;
     }
+    const sid = storeIdParam;
     const lines = manual.lines.filter((l) => l.itemCd.trim() && l.itemNm.trim() && l.qty > 0);
     if (lines.length === 0) {
       toast.push('error', 'Add at least one line with item code, name, and qty.');
@@ -266,7 +271,6 @@ export default function ZraPurchasesPage() {
       );
       toast.push('success', `Manual purchase #${created.id} created (${created.status}).`);
       setManual({
-        storeId: '1',
         spplrNm: '',
         spplrTpin: '',
         spplrBhfId: '',
@@ -296,25 +300,17 @@ export default function ZraPurchasesPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-end gap-2">
-            <Field label="Fetch store" className="w-28">
-              <input
-                className="input"
-                type="number"
-                min={1}
-                value={storeId}
-                onChange={(e) => setStoreId(e.target.value)}
-              />
-            </Field>
+            <ZraStoreSelector />
             <button
               type="button"
               className="btn-primary"
               onClick={handleFetch}
-              disabled={!canFinance || fetching}
+              disabled={finance.loading || !finance.allowed || !validStore || fetching}
             >
               {fetching ? <Spinner className="h-4 w-4" /> : 'Fetch purchases'}
             </button>
           </div>
-          {!canFinance && <p className="text-xs text-gray-500">Finance admin only</p>}
+          <ZraFinanceNotice access={finance} />
         </div>
       </div>
 
@@ -351,46 +347,24 @@ export default function ZraPurchasesPage() {
         </div>
 
         <div className="mt-3 flex items-end gap-2">
-          <Field label="Filter by store" className="w-32">
-            <input
-              className="input"
-              type="number"
-              min={1}
-              placeholder="All stores"
-              value={filterStoreId}
-              onChange={(e) => {
-                setFilterStoreId(e.target.value);
-                setPage(0);
-              }}
-            />
-          </Field>
-          {filterStoreId.trim() && (
-            <button
-              type="button"
-              className="btn-ghost px-2 py-1 text-xs"
-              onClick={() => {
-                setFilterStoreId('');
-                setPage(0);
-              }}
-            >
-              Clear
-            </button>
-          )}
+          <ZraStoreSelector
+            allowAll
+            scope={filterScope}
+            onScopeChange={(scope) => {
+              setFilterScope(scope);
+              setPage(0);
+            }}
+          />
         </div>
 
         {tab === 'manual' && (
           <form onSubmit={handleManual} className="mt-4 space-y-4 border-b border-gray-100 pb-5">
             <SectionTitle>Create manual purchase</SectionTitle>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Store ID">
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  value={manual.storeId}
-                  onChange={(e) => setManual((m) => ({ ...m, storeId: e.target.value }))}
-                  required
-                />
+              <Field label="Store">
+                <p className="input cursor-default bg-gray-50 text-gray-700">
+                  {validStore && storeId != null ? `#${storeId} (from selector above)` : 'Select a store above'}
+                </p>
               </Field>
               <Field label="Supplier name">
                 <input
@@ -513,10 +487,10 @@ export default function ZraPurchasesPage() {
             </div>
 
             <div className="flex flex-col gap-1">
-              <button type="submit" className="btn-primary" disabled={!canFinance || manualSaving}>
+              <button type="submit" className="btn-primary" disabled={finance.loading || !finance.allowed || manualSaving}>
                 {manualSaving ? <Spinner className="h-4 w-4" /> : 'Create manual purchase'}
               </button>
-              {!canFinance && <p className="text-xs text-gray-500">Finance admin only</p>}
+              {!finance.allowed && !finance.loading && <ZraFinanceNotice access={finance} />}
             </div>
           </form>
         )}
@@ -669,8 +643,8 @@ export default function ZraPurchasesPage() {
                               <button
                                 type="button"
                                 className="btn-ghost px-2 py-1 text-xs"
-                                disabled={!canFinance || busyAction === `map-${line.id}`}
-                                title={!canFinance ? 'Finance admin only' : undefined}
+                                disabled={finance.loading || !finance.allowed || busyAction === `map-${line.id}`}
+                                title={!finance.allowed ? 'Finance admin only' : undefined}
                                 onClick={() => handleMapLine(line.id)}
                               >
                                 {busyAction === `map-${line.id}` ? <Spinner className="h-3.5 w-3.5" /> : 'Map'}
@@ -685,15 +659,11 @@ export default function ZraPurchasesPage() {
               </div>
 
               {(detail.purchase.status === 'PENDING_APPROVAL' || detail.purchase.status === 'FAILED') && (
-                <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Store ID">
-                    <input
-                      className="input"
-                      type="number"
-                      min={1}
-                      value={storeId}
-                      onChange={(e) => setStoreId(e.target.value)}
-                    />
+                <div className="grid grid-cols-1 gap-3 border-t border-gray-100 pt-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <Field label="Store">
+                    <p className="input cursor-default bg-gray-50 text-gray-700">
+                      #{detail.purchase.storeId ?? storeId ?? '—'}
+                    </p>
                   </Field>
                   <Field label="Paper receipt ref">
                     <input
@@ -714,7 +684,7 @@ export default function ZraPurchasesPage() {
                       <button
                         type="button"
                         className="btn-primary flex-1"
-                        disabled={!canFinance || busyAction != null}
+                        disabled={finance.loading || !finance.allowed || busyAction != null}
                         onClick={handleApprove}
                       >
                         {busyAction === 'approve' ? <Spinner className="h-4 w-4" /> : 'Approve'}
@@ -722,13 +692,13 @@ export default function ZraPurchasesPage() {
                       <button
                         type="button"
                         className="btn-ghost flex-1 text-red-600 hover:bg-red-50"
-                        disabled={!canFinance || busyAction != null}
+                        disabled={finance.loading || !finance.allowed || busyAction != null}
                         onClick={handleReject}
                       >
                         {busyAction === 'reject' ? <Spinner className="h-4 w-4" /> : 'Reject'}
                       </button>
                     </div>
-                    {!canFinance && <p className="text-xs text-gray-500">Finance admin only</p>}
+                    {!finance.allowed && !finance.loading && <ZraFinanceNotice access={finance} />}
                   </div>
                 </div>
               )}
