@@ -490,8 +490,20 @@ export const zraApi = {
   syncStock: (storeId: number, adminUser?: string) =>
     req<ZraStockStatus>('/admin/zra/stock/sync', mutateOpts(adminUser, { storeId })),
 
+  /**
+   * Starts opening balance in the background and returns immediately with the job's RUNNING
+   * status (same shape as {@link getStockSyncStatus}) — poll status to track progress.
+   */
   postOpeningBalance: (storeId: number, adminUser?: string) =>
-    req<Record<string, unknown>>('/admin/zra/stock/opening-balance', mutateOpts(adminUser, { storeId })),
+    req<ZraStockStatus>('/admin/zra/stock/opening-balance', mutateOpts(adminUser, { storeId })),
+
+  /**
+   * "Save Stock Master" (saveStockMaster) on demand for every SKU currently in stock — same
+   * underlying VSDC call opening balance makes, exposed as its own re-runnable, demoable action.
+   * Also starts in the background — poll status to track progress.
+   */
+  pushStockMaster: (storeId: number, adminUser?: string) =>
+    req<ZraStockStatus>('/admin/zra/stock/master', mutateOpts(adminUser, { storeId })),
 
   issueCreditNote: (orderNumber: string, body: CreditNoteBody, adminUser?: string) =>
     req<ZraCreditNote>(

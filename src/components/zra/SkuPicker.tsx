@@ -86,11 +86,12 @@ function Suggestions({
 export function SkuPicker({
   value,
   onChange,
-  label = 'SKU',
+  label,
   placeholder = 'Search by name or SKU…'
 }: {
   value: string;
   onChange: (sku: string, product?: ProductResponse) => void;
+  /** Omit or pass empty string to hide the label (e.g. inside a table cell). */
   label?: string;
   placeholder?: string;
 }) {

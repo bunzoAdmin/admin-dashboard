@@ -25,14 +25,14 @@ export function Field({
   hint,
   className
 }: {
-  label: string;
+  label?: string;
   children: ReactNode;
   hint?: string;
   className?: string;
 }) {
   return (
     <label className={clsx('block space-y-1.5', className)}>
-      <span className="label">{label}</span>
+      {label ? <span className="label">{label}</span> : null}
       {children}
       {hint && <span className="block text-xs text-gray-400">{hint}</span>}
     </label>

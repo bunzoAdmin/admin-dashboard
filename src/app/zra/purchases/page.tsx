@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
+import { SkuPicker } from '@/components/zra/SkuPicker';
 import {
   useZraStore,
   ZraStoreSelector
@@ -25,6 +26,7 @@ import {
   zraApi,
   ZraApiError,
   type ManualPurchaseLine,
+  type ZraItemRegistrationStatus,
   type ZraPurchase,
   type ZraPurchaseDetail
 } from '@/lib/zraApi';
@@ -84,6 +86,9 @@ export default function ZraPurchasesPage() {
   const [paperReceiptRef, setPaperReceiptRef] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [lineSkuDraft, setLineSkuDraft] = useState<Record<number, string>>({});
+  const [lineRegStatus, setLineRegStatus] = useState<
+    Record<number, ZraItemRegistrationStatus | 'loading' | 'error'>
+  >({});
   const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const [manual, setManual] = useState({
@@ -229,7 +234,7 @@ export default function ZraPurchasesPage() {
     if (!selectedId) return;
     const sku = (lineSkuDraft[lineId] ?? '').trim();
     if (!sku) {
-      toast.push('error', 'Enter a SKU to map.');
+      toast.push('error', 'Select a SKU to map.');
       return;
     }
     setBusyAction(`map-${lineId}`);
@@ -241,6 +246,19 @@ export default function ZraPurchasesPage() {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Map line failed.');
     } finally {
       setBusyAction(null);
+    }
+  }
+
+  /** Best-effort check of whether a mapped SKU is already registered with ZRA — informational only,
+   *  approval doesn't require registration up front (registration can also happen lazily on delivery). */
+  async function checkLineRegistration(lineId: number, sku: string) {
+    if (!validStore || storeIdParam == null || !sku) return;
+    setLineRegStatus((s) => ({ ...s, [lineId]: 'loading' }));
+    try {
+      const status = await zraApi.getItemRegistrationStatus(sku, storeIdParam);
+      setLineRegStatus((s) => ({ ...s, [lineId]: status }));
+    } catch {
+      setLineRegStatus((s) => ({ ...s, [lineId]: 'error' }));
     }
   }
 
@@ -651,24 +669,71 @@ export default function ZraPurchasesPage() {
                         <td className="px-3 py-2">
                           {(detail.purchase.status === 'PENDING_APPROVAL' ||
                             detail.purchase.status === 'FAILED') && (
-                            <div className="flex items-center gap-1">
-                              <input
-                                className="input w-32 font-mono text-xs"
-                                value={lineSkuDraft[line.id] ?? ''}
-                                onChange={(e) =>
-                                  setLineSkuDraft((d) => ({ ...d, [line.id]: e.target.value }))
-                                }
-                                placeholder="SKU"
-                              />
-                              <button
-                                type="button"
-                                className="btn-ghost px-2 py-1 text-xs"
-                                disabled={finance.loading || !finance.allowed || busyAction === `map-${line.id}`}
-                                title={!finance.allowed ? 'Finance admin only' : undefined}
-                                onClick={() => handleMapLine(line.id)}
-                              >
-                                {busyAction === `map-${line.id}` ? <Spinner className="h-3.5 w-3.5" /> : 'Map'}
-                              </button>
+                            <div className="w-56 space-y-1">
+                              <div className="flex items-center gap-1">
+                                <div className="w-40">
+                                  <SkuPicker
+                                    value={lineSkuDraft[line.id] ?? ''}
+                                    onChange={(sku) => {
+                                      setLineSkuDraft((d) => ({ ...d, [line.id]: sku }));
+                                      setLineRegStatus((s) => {
+                                        const next = { ...s };
+                                        delete next[line.id];
+                                        return next;
+                                      });
+                                    }}
+                                    placeholder="Search SKU…"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className="btn-ghost px-2 py-1 text-xs"
+                                  disabled={
+                                    finance.loading || !finance.allowed || busyAction === `map-${line.id}`
+                                  }
+                                  title={!finance.allowed ? 'Finance admin only' : undefined}
+                                  onClick={() => handleMapLine(line.id)}
+                                >
+                                  {busyAction === `map-${line.id}` ? (
+                                    <Spinner className="h-3.5 w-3.5" />
+                                  ) : (
+                                    'Map'
+                                  )}
+                                </button>
+                              </div>
+                              {(lineSkuDraft[line.id] ?? '').trim() && (
+                                <div className="flex items-center gap-1">
+                                  {lineRegStatus[line.id] ? (
+                                    lineRegStatus[line.id] === 'loading' ? (
+                                      <Spinner className="h-3 w-3" />
+                                    ) : lineRegStatus[line.id] === 'error' ? (
+                                      <Badge tone="gray">Unknown</Badge>
+                                    ) : (
+                                      <Badge
+                                        tone={
+                                          (lineRegStatus[line.id] as ZraItemRegistrationStatus).registered
+                                            ? 'green'
+                                            : 'amber'
+                                        }
+                                      >
+                                        {(lineRegStatus[line.id] as ZraItemRegistrationStatus).registered
+                                          ? 'Registered'
+                                          : 'Not registered'}
+                                      </Badge>
+                                    )
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      className="text-xs text-gray-400 underline hover:text-gray-600"
+                                      onClick={() =>
+                                        checkLineRegistration(line.id, (lineSkuDraft[line.id] ?? '').trim())
+                                      }
+                                    >
+                                      Check ZRA registration
+                                    </button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                         </td>

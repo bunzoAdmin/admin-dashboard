@@ -41,6 +41,7 @@ export default function ZraStockPage() {
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [opening, setOpening] = useState(false);
+  const [pushingMaster, setPushingMaster] = useState(false);
   const [notEnabled, setNotEnabled] = useState(false);
   const [notEnabledMessage, setNotEnabledMessage] = useState<string | null>(null);
   const [zraStockItems, setZraStockItems] = useState<ZraStockItemsResult | null>(null);
@@ -152,7 +153,7 @@ export default function ZraStockPage() {
     if (!validStore) return;
     if (
       !window.confirm(
-        `Post opening balance for store ${sid}? This registers current stock as opening balance with ZRA.`
+        `Post opening balance for store ${sid}?\n\nThis saves stock master (current on-hand for every SKU) AND unlocks daily Sync stock. With a large catalog this can take several minutes — it now runs in the background, so it's safe to navigate away and check back.`
       )
     ) {
       return;
@@ -160,12 +161,35 @@ export default function ZraStockPage() {
     setOpening(true);
     try {
       const result = await zraApi.postOpeningBalance(sid, user?.username);
-      toast.push('success', `Opening balance posted (job ${String(result.jobId ?? 'n/a')}).`);
-      await load();
+      setStatus(result);
+      toast.push('success', `Opening balance started (job ${String(result.jobId ?? 'n/a')}). Running in the background…`);
+      startPolling();
     } catch (err) {
-      toast.push('error', err instanceof ZraApiError ? err.message : 'Opening balance failed.');
+      toast.push('error', err instanceof ZraApiError ? err.message : 'Opening balance failed to start.');
     } finally {
       setOpening(false);
+    }
+  }
+
+  async function handlePushStockMaster() {
+    if (!validStore) return;
+    if (
+      !window.confirm(
+        `Save stock master for store ${sid}?\n\nThis re-pushes current on-hand quantities to ZRA (saveStockMaster only) in the background — it does NOT change the opening-balance flag or unlock sync.`
+      )
+    ) {
+      return;
+    }
+    setPushingMaster(true);
+    try {
+      const result = await zraApi.pushStockMaster(sid, user?.username);
+      setStatus(result);
+      toast.push('success', `Stock master push started (job ${String(result.jobId ?? 'n/a')}). Running in the background…`);
+      startPolling();
+    } catch (err) {
+      toast.push('error', err instanceof ZraApiError ? err.message : 'Save stock master failed to start.');
+    } finally {
+      setPushingMaster(false);
     }
   }
 
@@ -178,7 +202,8 @@ export default function ZraStockPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">ZRA Stock Sync</h1>
           <p className="text-sm text-gray-500">
-            Post opening balance once, then sync stock daily. Sync is blocked until opening balance succeeds.
+            Post opening balance once (saves stock master), then sync stock daily. Use Save stock
+            master any time to re-push current on-hand quantities.
           </p>
         </div>
         <div className="flex items-end gap-2">
@@ -252,10 +277,29 @@ export default function ZraStockPage() {
                   className="btn-ghost"
                   disabled={finance.loading || !finance.allowed || !validStore || opening || isRunning}
                   onClick={handleOpeningBalance}
+                  title="saveStockMaster for every SKU, then unlock Sync stock (once)"
                 >
-                  {opening ? <Spinner className="h-4 w-4" /> : 'Post opening balance'}
+                  {opening ? <Spinner className="h-4 w-4" /> : 'Post opening balance (stock master + unlock)'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  disabled={finance.loading || !finance.allowed || !validStore || pushingMaster || isRunning}
+                  onClick={handlePushStockMaster}
+                  title="saveStockMaster only — re-run anytime, doesn't unlock sync"
+                >
+                  {pushingMaster ? <Spinner className="h-4 w-4" /> : 'Save stock master only'}
                 </button>
               </div>
+              <p className="text-xs text-gray-500">
+                Both call the same VSDC endpoint (<span className="font-mono">saveStockMaster</span>
+                ) for every SKU — this can take several minutes on a large catalog and now runs in
+                the background.{' '}
+                <span className="font-medium text-gray-700">Opening balance</span> = stock master +
+                unlocks Sync stock (run once first).{' '}
+                <span className="font-medium text-gray-700">Stock master only</span> = re-push
+                quantities anytime (demo / correction) without touching that unlock flag.
+              </p>
               <ZraFinanceNotice access={finance} />
             </div>
           </Card>
