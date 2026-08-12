@@ -22,6 +22,7 @@ import {
   zraApi,
   ZraApiError,
   type ZraBranchInfo,
+  type ZraStockItemsResult,
   type ZraStockPreview,
   type ZraStockStatus
 } from '@/lib/zraApi';
@@ -32,7 +33,7 @@ export default function ZraStockPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore } = useZraStore();
+  const { storeId, setStoreId, storeIdParam, validStore } = useZraStore();
   const [preview, setPreview] = useState<ZraStockPreview | null>(null);
   const [status, setStatus] = useState<ZraStockStatus | null>(null);
   const [branch, setBranch] = useState<ZraBranchInfo | null>(null);
@@ -42,6 +43,8 @@ export default function ZraStockPage() {
   const [opening, setOpening] = useState(false);
   const [notEnabled, setNotEnabled] = useState(false);
   const [notEnabledMessage, setNotEnabledMessage] = useState<string | null>(null);
+  const [zraStockItems, setZraStockItems] = useState<ZraStockItemsResult | null>(null);
+  const [zraStockItemsLoading, setZraStockItemsLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sid = storeIdParam ?? 0;
@@ -53,6 +56,7 @@ export default function ZraStockPage() {
       setBranch(null);
       setNotEnabled(false);
       setNotEnabledMessage(null);
+      setZraStockItems(null);
       setLoading(false);
       setError(null);
       return;
@@ -132,6 +136,18 @@ export default function ZraStockPage() {
     }
   }
 
+  async function checkStockOnZra() {
+    if (!validStore || storeIdParam == null) return;
+    setZraStockItemsLoading(true);
+    try {
+      setZraStockItems(await zraApi.getStockItemsFromZra(storeIdParam));
+    } catch (err) {
+      toast.push('error', err instanceof ZraApiError ? err.message : 'Failed to fetch stock items from ZRA.');
+    } finally {
+      setZraStockItemsLoading(false);
+    }
+  }
+
   async function handleOpeningBalance() {
     if (!validStore) return;
     if (
@@ -166,7 +182,7 @@ export default function ZraStockPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
-          <ZraStoreSelector />
+          <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
           <button type="button" className="btn-ghost" onClick={load} disabled={loading || !validStore}>
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
@@ -292,6 +308,38 @@ export default function ZraStockPage() {
               </dl>
             ) : (
               <p className="text-sm text-gray-400">No status loaded.</p>
+            )}
+          </Card>
+
+          <Card>
+            <SectionTitle
+              action={
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={zraStockItemsLoading}
+                  onClick={() => void checkStockOnZra()}
+                >
+                  {zraStockItemsLoading ? <Spinner className="h-3.5 w-3.5" /> : 'Fetch from ZRA'}
+                </button>
+              }
+            >
+              Stock items on ZRA record
+            </SectionTitle>
+            <p className="mb-2 text-xs text-gray-500">
+              Read-only reconciliation: what VSDC says it has on record for this store's device
+              (stock/selectStockItems), independent of our own sync outbox status above.
+            </p>
+            {zraStockItems == null ? (
+              <p className="text-sm text-gray-400">Not fetched yet.</p>
+            ) : zraStockItems.data ? (
+              <pre className="max-h-64 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                {JSON.stringify(zraStockItems.data, null, 2)}
+              </pre>
+            ) : (
+              <p className="text-sm text-gray-500">
+                {zraStockItems.message || 'No stock items on record.'}
+              </p>
             )}
           </Card>
         </>

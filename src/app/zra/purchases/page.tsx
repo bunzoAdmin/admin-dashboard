@@ -316,7 +316,7 @@ export default function ZraPurchasesPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-end gap-2">
-            <ZraStoreSelector />
+            <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
             <button
               type="button"
               className="btn-primary"

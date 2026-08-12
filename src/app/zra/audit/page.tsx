@@ -17,7 +17,7 @@ import {
 } from '@/components/zra/ZraStoreSelector';
 
 export default function ZraAuditPage() {
-  const { storeId, storeIdParam } = useZraStore();
+  const { storeId, setStoreId, storeIdParam } = useZraStore();
   const [filterScope, setFilterScope] = useState<string | null>(null);
   const [action, setAction] = useState('');
   const [appliedStoreId, setAppliedStoreId] = useState('');
@@ -83,6 +83,8 @@ export default function ZraAuditPage() {
         <Card>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <ZraStoreSelector
+              storeId={storeId}
+              onStoreChange={setStoreId}
               allowAll
               scope={filterScope}
               onScopeChange={setFilterScope}

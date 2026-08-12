@@ -30,7 +30,7 @@ export default function ZraReportsPage() {
   const toast = useToast();
   const today = todayIsoStore();
   const weekAgo = addStoreCalendarDays(today, -6);
-  const { storeIdParam } = useZraStore();
+  const { storeId, setStoreId, storeIdParam } = useZraStore();
   const [filterScope, setFilterScope] = useState<string | null>(null);
 
   const [dateFrom, setDateFrom] = useState(weekAgo);
@@ -93,6 +93,8 @@ export default function ZraReportsPage() {
         <Card>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ZraStoreSelector
+              storeId={storeId}
+              onStoreChange={setStoreId}
               allowAll
               scope={filterScope}
               onScopeChange={setFilterScope}

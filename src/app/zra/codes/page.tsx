@@ -14,7 +14,6 @@ import {
 import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
-import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import {
   zraApi,
   ZraApiError,
@@ -28,7 +27,6 @@ export default function ZraCodesPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeId, storeIdParam, validStore } = useZraStore();
   const [tab, setTab] = useState<Tab>('standard');
   const [q, setQ] = useState('');
   const [cdCls, setCdCls] = useState('');
@@ -62,17 +60,18 @@ export default function ZraCodesPage() {
   async function handleSync() {
     if (
       !window.confirm(
-        validStore
-          ? `Sync ZRA codes from store ${storeId}'s VSDC device?`
-          : 'Select a store first.'
+        'Sync ZRA standard / classification codes? Codes are national reference data shared by ' +
+          'every store — this refreshes them from every enabled VSDC device.'
       )
     ) {
       return;
     }
-    if (!validStore) return;
     setSyncing(true);
     try {
-      await zraApi.syncCodes(storeIdParam, user?.username);
+      // No storeId: the backend fans out across every enabled store's VSDC device.
+      // The codes themselves are identical everywhere, so there's nothing to
+      // "select a store" for here.
+      await zraApi.syncCodes(undefined, user?.username);
       toast.push('success', 'Code sync started / completed.');
       await load();
     } catch (err) {
@@ -95,16 +94,18 @@ export default function ZraCodesPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900">ZRA Codes</h1>
-          <p className="text-sm text-gray-500">Sync and browse standard / classification codes from VSDC.</p>
+          <p className="text-sm text-gray-500">
+            National reference data (same for every store) — sync and browse standard / classification
+            codes from VSDC.
+          </p>
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-end gap-2">
-            <ZraStoreSelector />
             <button
               type="button"
               className="btn-primary"
               onClick={handleSync}
-              disabled={finance.loading || !finance.allowed || !validStore || syncing}
+              disabled={finance.loading || !finance.allowed || syncing}
             >
               {syncing ? <Spinner className="h-4 w-4" /> : 'Sync codes'}
             </button>

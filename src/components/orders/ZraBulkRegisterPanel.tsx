@@ -5,21 +5,16 @@ import {
   zraApi,
   ZraApiError,
   type BulkRegisterZraItemsResponse,
-  type BulkRegisterZraItemResult
+  type BulkRegisterZraItemResult,
+  type ZraItemRegistrationStatus,
+  type ZraItemsListResult
 } from '@/lib/zraApi';
 import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
+import { SkuMultiPicker } from '@/components/zra/SkuPicker';
 import { Badge, Card, Spinner, useToast } from '@/components/ui';
-
-function parseSkus(raw: string): string[] | undefined {
-  const skus = raw
-    .split(/[\n,]+/)
-    .map(s => s.trim())
-    .filter(Boolean);
-  return skus.length > 0 ? skus : undefined;
-}
 
 function statusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -99,16 +94,50 @@ export function ZraBulkRegisterPanel() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
-  const { storeIdParam, validStore } = useZraStore();
-  const [skuText, setSkuText] = useState('');
+  const { storeId, setStoreId, storeIdParam, validStore } = useZraStore();
+  const [skus, setSkus] = useState<string[]>([]);
   const [includeFeeItem, setIncludeFeeItem] = useState(true);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BulkRegisterZraItemsResponse | null>(null);
   const [showAllResults, setShowAllResults] = useState(false);
+  const [regStatus, setRegStatus] = useState<Record<string, ZraItemRegistrationStatus | 'loading' | 'error'>>({});
+  const [itemsList, setItemsList] = useState<ZraItemsListResult | null>(null);
+  const [itemsListLoading, setItemsListLoading] = useState(false);
+
+  async function fetchItemsFromZra() {
+    if (!validStore || storeIdParam == null) return;
+    setItemsListLoading(true);
+    try {
+      const res = await zraApi.getItemsFromZra(storeIdParam);
+      setItemsList(res);
+    } catch (err) {
+      toast.push('error', err instanceof ZraApiError ? err.message : 'Failed to fetch item list from ZRA.');
+    } finally {
+      setItemsListLoading(false);
+    }
+  }
+
+  async function checkRegistration() {
+    if (!validStore || storeIdParam == null || skus.length === 0) return;
+    setRegStatus((s) => {
+      const next = { ...s };
+      for (const sku of skus) next[sku] = 'loading';
+      return next;
+    });
+    await Promise.all(
+      skus.map(async (sku) => {
+        try {
+          const status = await zraApi.getItemRegistrationStatus(sku, storeIdParam);
+          setRegStatus((s) => ({ ...s, [sku]: status }));
+        } catch {
+          setRegStatus((s) => ({ ...s, [sku]: 'error' }));
+        }
+      })
+    );
+  }
 
   async function run(dryRun: boolean) {
-    const skus = parseSkus(skuText);
-    if (!dryRun && skus == null) {
+    if (!dryRun && skus.length === 0) {
       const ok = confirm(
         'Register ALL active catalog products with ZRA?\n\nThis calls saveItem for every active SKU. Prefer Preview mapping first.'
       );
@@ -120,7 +149,7 @@ export function ZraBulkRegisterPanel() {
     try {
       const response = await zraApi.registerItems({
         storeId: storeIdParam,
-        skus,
+        skus: skus.length > 0 ? skus : undefined,
         includeFeeItem,
         dryRun,
         adminUser: user?.username
@@ -141,7 +170,7 @@ export function ZraBulkRegisterPanel() {
     }
   }
 
-  const hasSkus = parseSkus(skuText) != null;
+  const hasSkus = skus.length > 0;
 
   return (
     <Card className="space-y-4">
@@ -153,21 +182,43 @@ export function ZraBulkRegisterPanel() {
         </p>
       </div>
 
-      <ZraStoreSelector />
+      <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
 
-      <label className="block space-y-1.5">
-        <span className="label">SKUs (optional — one per line or comma-separated)</span>
-        <textarea
-          className="input w-full min-h-[88px] font-mono text-xs"
-          placeholder={'ALERT-BREAD-500G\nALERT-OIL-1L\n\nLeave empty to register all active products'}
-          value={skuText}
-          onChange={e => setSkuText(e.target.value)}
-          disabled={running}
-        />
-        <p className="text-xs text-gray-500">
-          {hasSkus ? 'Selected SKUs only' : 'All active catalog products will be used'}
-        </p>
-      </label>
+      <SkuMultiPicker
+        skus={skus}
+        onChange={setSkus}
+        label="SKUs (optional — search to add, leave empty for the full catalog)"
+        hint={hasSkus ? 'Selected SKUs only' : 'All active catalog products will be used'}
+        renderBadge={(sku) => {
+          const s = regStatus[sku];
+          if (!s) return null;
+          if (s === 'loading') return <Spinner className="h-3 w-3" />;
+          if (s === 'error') return <Badge tone="gray">Unknown</Badge>;
+          return (
+            <span title={s.message ?? undefined}>
+              <Badge tone={s.registered ? 'green' : 'amber'}>
+                {s.registered ? 'Registered' : 'Not registered'}
+              </Badge>
+            </span>
+          );
+        }}
+      />
+
+      {hasSkus && (
+        <button
+          type="button"
+          className="btn-ghost text-xs"
+          disabled={!validStore}
+          onClick={() => void checkRegistration()}
+          title={
+            !validStore
+              ? 'Select a store first'
+              : "Best-effort check via VSDC's items/selectItem — one call per SKU."
+          }
+        >
+          Check ZRA registration status
+        </button>
+      )}
 
       <label className="flex items-center gap-2 text-sm text-gray-700">
         <input
@@ -200,6 +251,39 @@ export function ZraBulkRegisterPanel() {
       </div>
 
       <ZraFinanceNotice access={finance} />
+
+      <div className="border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Item list on ZRA record</h3>
+            <p className="text-xs text-gray-500">
+              "Get Item List" (items/selectItems) — read-only reconciliation of everything VSDC has
+              on file for this store, independent of our local registration status above.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-ghost text-xs shrink-0"
+            disabled={itemsListLoading || !validStore}
+            onClick={() => void fetchItemsFromZra()}
+          >
+            {itemsListLoading ? <Spinner className="h-3 w-3" /> : 'Fetch from ZRA'}
+          </button>
+        </div>
+        {itemsList && (
+          <div className="mt-2 rounded-lg border border-gray-100 bg-gray-50 p-3 text-xs">
+            <p className="text-gray-700">
+              {itemsList.resultCd ? `[${itemsList.resultCd}] ` : ''}
+              {itemsList.message ?? 'No message returned.'}
+            </p>
+            {itemsList.data != null && (
+              <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-all text-[11px] text-gray-600">
+                {JSON.stringify(itemsList.data, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
+      </div>
 
       {result && (
         <div className="space-y-3 border-t border-gray-100 pt-4">

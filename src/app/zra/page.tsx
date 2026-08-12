@@ -29,11 +29,40 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 
 export default function ZraOverviewPage() {
   const finance = useZraFinanceAccess();
-  const { storeIdParam, storeIdLabel, validStore } = useZraStore();
+  const { storeId, setStoreId, storeIdParam, storeIdLabel, validStore } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creditOrder, setCreditOrder] = useState('');
+  const [zraRecord, setZraRecord] = useState<{ resultCd?: string | null; message?: string | null; data?: unknown } | null>(null);
+  const [zraRecordLoading, setZraRecordLoading] = useState(false);
+  const [userSaving, setUserSaving] = useState(false);
+
+  async function verifyBranchWithZra() {
+    if (storeIdParam == null) return;
+    setZraRecordLoading(true);
+    try {
+      const res = await zraApi.getBranchFromZra(storeIdParam);
+      setZraRecord(res);
+    } catch (err) {
+      setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Failed to fetch branch record from ZRA.' });
+    } finally {
+      setZraRecordLoading(false);
+    }
+  }
+
+  async function registerBranchUser() {
+    if (storeIdParam == null) return;
+    setUserSaving(true);
+    try {
+      const res = await zraApi.saveBranchUser(storeIdParam, finance.username ?? undefined);
+      setZraRecord({ resultCd: res.resultCd, message: res.message ?? (res.registered ? 'System user registered.' : undefined) });
+    } catch (err) {
+      setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Failed to register branch user.' });
+    } finally {
+      setUserSaving(false);
+    }
+  }
 
   const load = useCallback(async () => {
     if (!validStore || storeIdParam == null) {
@@ -73,7 +102,7 @@ export default function ZraOverviewPage() {
           </p>
         </div>
         <div className="flex items-end gap-2">
-          <ZraStoreSelector />
+          <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
           <button type="button" className="btn-ghost" onClick={load} disabled={loading || !validStore}>
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
@@ -152,6 +181,32 @@ export default function ZraOverviewPage() {
                   <dd className="text-right text-gray-900">{branch.legalName || '—'}</dd>
                 </div>
               </dl>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={zraRecordLoading}
+                  onClick={() => void verifyBranchWithZra()}
+                >
+                  {zraRecordLoading ? <Spinner className="h-3 w-3" /> : 'Verify with ZRA'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={userSaving || !finance.allowed}
+                  title={!finance.allowed ? 'Finance admin only' : 'Register the CIS system user with this branch on VSDC'}
+                  onClick={() => void registerBranchUser()}
+                >
+                  {userSaving ? <Spinner className="h-3 w-3" /> : 'Register system user'}
+                </button>
+                {zraRecord && (
+                  <span className="text-xs text-gray-600">
+                    {zraRecord.resultCd ? `[${zraRecord.resultCd}] ` : ''}
+                    {zraRecord.message || (zraRecord.data ? 'ZRA returned branch data — see network tab / audit for full payload.' : '')}
+                  </span>
+                )}
+              </div>
             </Card>
           )}
 

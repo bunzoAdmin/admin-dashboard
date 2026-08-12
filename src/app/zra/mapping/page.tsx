@@ -13,6 +13,7 @@ import {
   useToast
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
+import { SkuPicker } from '@/components/zra/SkuPicker';
 import {
   zraApi,
   ZraApiError,
@@ -148,14 +149,10 @@ export default function ZraMappingPage() {
       <Card>
         <SectionTitle>SKU mapping</SectionTitle>
         <form onSubmit={saveSku} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="SKU">
-            <input
-              className="input font-mono"
-              value={skuForm.sku}
-              onChange={(e) => setSkuForm((f) => ({ ...f, sku: e.target.value }))}
-              required
-            />
-          </Field>
+          <SkuPicker
+            value={skuForm.sku}
+            onChange={(sku) => setSkuForm((f) => ({ ...f, sku }))}
+          />
           <Field label="taxTyCd">
             <input
               className="input font-mono"

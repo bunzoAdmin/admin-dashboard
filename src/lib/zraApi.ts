@@ -300,6 +300,42 @@ export type ZraFinanceAccess = {
   allowlistRequired?: boolean;
 };
 
+export type ZraItemRegistrationStatus = {
+  sku: string;
+  storeId: number;
+  registered: boolean;
+  resultCd?: string | null;
+  message?: string | null;
+};
+
+export type ZraStockItemsResult = {
+  storeId: number;
+  resultCd?: string | null;
+  message?: string | null;
+  data?: Record<string, unknown> | null;
+};
+
+export type ZraItemsListResult = {
+  storeId: number;
+  resultCd?: string | null;
+  message?: string | null;
+  data?: Record<string, unknown> | null;
+};
+
+export type ZraBranchRecordResult = {
+  storeId: number;
+  resultCd?: string | null;
+  message?: string | null;
+  data?: Record<string, unknown> | null;
+};
+
+export type ZraBranchUserResult = {
+  storeId: number;
+  resultCd?: string | null;
+  message?: string | null;
+  registered?: boolean;
+};
+
 async function req<T>(
   path: string,
   opts: { method?: string; body?: unknown; adminUser?: string } = {}
@@ -508,6 +544,48 @@ export const zraApi = {
       },
       adminUser: body?.adminUser?.trim() || undefined
     }),
+
+  /**
+   * Best-effort "is this SKU already registered with ZRA" check via VSDC's
+   * items/selectItem verify call. There's no bulk list API, so this is checked
+   * one SKU at a time.
+   */
+  getItemRegistrationStatus: (sku: string, storeId: number) =>
+    req<ZraItemRegistrationStatus>(
+      `/admin/zra/items/${encodeURIComponent(sku)}/status?storeId=${storeId}`
+    ),
+
+  /**
+   * "Get Stock Item List" — read-only reconciliation view of stock movements VSDC has
+   * on record for this store's device, via stock/selectStockItems.
+   */
+  getStockItemsFromZra: (storeId: number, lastReqDt?: string) => {
+    const q = new URLSearchParams({ storeId: String(storeId) });
+    if (lastReqDt) q.set('lastReqDt', lastReqDt);
+    return req<ZraStockItemsResult>(`/admin/zra/stock/items?${q}`);
+  },
+
+  /**
+   * "Get Item List" — bulk/incremental retrieval of items VSDC has on record for this store.
+   */
+  getItemsFromZra: (storeId: number, lastReqDt?: string) => {
+    const q = new URLSearchParams({ storeId: String(storeId) });
+    if (lastReqDt) q.set('lastReqDt', lastReqDt);
+    return req<ZraItemsListResult>(`/admin/zra/items?${q}`);
+  },
+
+  /**
+   * "Get Branch Information" — ZRA's own record of this branch's registration, for
+   * cross-checking against our local TPIN/bhfId config.
+   */
+  getBranchFromZra: (storeId: number) =>
+    req<ZraBranchRecordResult>(`/admin/zra/branches/${storeId}/zra-record`),
+
+  /**
+   * "Save Branch User" — registers the CIS/API system user against this branch on VSDC.
+   */
+  saveBranchUser: (storeId: number, adminUser?: string) =>
+    req<ZraBranchUserResult>(`/admin/zra/branches/${storeId}/user`, mutateOpts(adminUser)),
 
   listAudit: (params: {
     storeId?: number;
