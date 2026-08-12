@@ -313,6 +313,24 @@ export type ZraStockItemsResult = {
   resultCd?: string | null;
   message?: string | null;
   data?: Record<string, unknown> | null;
+  endpoint?: string | null;
+  description?: string | null;
+  note?: string | null;
+  stockList?: unknown[] | null;
+  movementCount?: number | null;
+};
+
+export type ZraStockSyncedSummary = {
+  storeId: number;
+  bhfId?: string | null;
+  note?: string | null;
+  master?: {
+    succeeded?: number;
+    failed?: number;
+    sampleLimit?: number;
+    sample?: { sku?: string; qty?: number | string; syncedAt?: string | null }[];
+  };
+  movements?: Record<string, { succeeded?: number; failed?: number }>;
 };
 
 export type ZraItemsListResult = {
@@ -487,6 +505,15 @@ export const zraApi = {
   getStockPreview: (storeId: number) =>
     req<ZraStockPreview>(`/admin/zra/stock/preview?storeId=${storeId}`),
 
+  /**
+   * Stock master + movement counts from our sync outbox — what we successfully pushed to VSDC.
+   * VSDC has no selectStockMaster read API, so this is the reconciliation view for on-hand qty.
+   */
+  getStockSyncedSummary: (storeId: number, masterSampleLimit = 50) =>
+    req<ZraStockSyncedSummary>(
+      `/admin/zra/stock/synced?storeId=${storeId}&masterSampleLimit=${masterSampleLimit}`
+    ),
+
   syncStock: (storeId: number, adminUser?: string) =>
     req<ZraStockStatus>('/admin/zra/stock/sync', mutateOpts(adminUser, { storeId })),
 
@@ -539,9 +566,9 @@ export const zraApi = {
   checkFinanceAccess: (adminUser: string) =>
     req<ZraFinanceAccess>('/admin/zra/access', { adminUser: adminUser.trim() }),
 
-  registerItems: (body?: {
+  registerItems: (body: {
     storeId?: number;
-    skus?: string[];
+    skus: string[];
     includeFeeItem?: boolean;
     dryRun?: boolean;
     adminUser?: string;
@@ -549,12 +576,12 @@ export const zraApi = {
     req<BulkRegisterZraItemsResponse>('/admin/zra/items/register', {
       method: 'POST',
       body: {
-        storeId: body?.storeId,
-        skus: body?.skus,
-        includeFeeItem: body?.includeFeeItem,
-        dryRun: body?.dryRun
+        storeId: body.storeId,
+        skus: body.skus,
+        includeFeeItem: body.includeFeeItem ?? false,
+        dryRun: body.dryRun
       },
-      adminUser: body?.adminUser?.trim() || undefined
+      adminUser: body.adminUser?.trim() || undefined
     }),
 
   /**
@@ -568,8 +595,8 @@ export const zraApi = {
     ),
 
   /**
-   * "Get Stock Item List" — read-only reconciliation view of stock movements VSDC has
-   * on record for this store's device, via stock/selectStockItems.
+   * VSDC stock/selectStockItems — saveStockItems movement history (SAR documents), NOT stock
+   * master on-hand quantities. Use getStockSyncedSummary for master reconciliation.
    */
   getStockItemsFromZra: (storeId: number, lastReqDt?: string) => {
     const q = new URLSearchParams({ storeId: String(storeId) });

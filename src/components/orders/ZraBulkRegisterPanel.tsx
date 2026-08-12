@@ -13,7 +13,7 @@ import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
-import { SkuMultiPicker } from '@/components/zra/SkuPicker';
+import { SkuPicker } from '@/components/zra/SkuPicker';
 import { Badge, Card, Spinner, useToast } from '@/components/ui';
 
 function statusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -32,38 +32,15 @@ function statusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue'
   }
 }
 
-function SummaryStat({ label, value, tone }: { label: string; value: number; tone?: 'green' | 'red' | 'amber' | 'blue' | 'gray' }) {
-  const color =
-    tone === 'green' ? 'text-green-700' :
-    tone === 'red' ? 'text-red-700' :
-    tone === 'amber' ? 'text-amber-700' :
-    tone === 'blue' ? 'text-blue-700' :
-    'text-gray-700';
-  return (
-    <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-      <p className="text-xs text-gray-500">{label}</p>
-      <p className={`text-lg font-semibold ${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function ResultsTable({ results, filter }: { results: BulkRegisterZraItemResult[]; filter: 'all' | 'issues' }) {
-  const rows = filter === 'issues'
-    ? results.filter(r => r.status === 'FAILED' || r.status === 'SKIPPED')
-    : results;
-
-  if (rows.length === 0) {
-    return (
-      <p className="text-sm text-gray-500">
-        {filter === 'issues' ? 'No failures or skipped items.' : 'No results.'}
-      </p>
-    );
+function ResultsTable({ results }: { results: BulkRegisterZraItemResult[] }) {
+  if (results.length === 0) {
+    return <p className="text-sm text-gray-500">No results.</p>;
   }
 
   return (
-    <div className="max-h-64 overflow-auto rounded-lg border border-gray-100">
+    <div className="overflow-auto rounded-lg border border-gray-100">
       <table className="w-full text-xs">
-        <thead className="sticky top-0 bg-gray-50 text-left text-gray-500">
+        <thead className="bg-gray-50 text-left text-gray-500">
           <tr>
             <th className="px-3 py-2 font-medium">SKU</th>
             <th className="px-3 py-2 font-medium">Status</th>
@@ -73,7 +50,7 @@ function ResultsTable({ results, filter }: { results: BulkRegisterZraItemResult[
           </tr>
         </thead>
         <tbody>
-          {rows.map(row => (
+          {results.map((row) => (
             <tr key={row.itemCd} className="border-t border-gray-50 align-top">
               <td className="px-3 py-2 font-mono">{row.itemCd}</td>
               <td className="px-3 py-2">
@@ -81,7 +58,9 @@ function ResultsTable({ results, filter }: { results: BulkRegisterZraItemResult[
               </td>
               <td className="px-3 py-2">{row.taxTyCd ?? '—'}</td>
               <td className="px-3 py-2 font-mono">{row.itemClsCd ?? '—'}</td>
-              <td className="px-3 py-2 text-gray-600 break-words max-w-xs">{row.message ?? row.itemNm ?? '—'}</td>
+              <td className="px-3 py-2 text-gray-600 break-words max-w-xs">
+                {row.message ?? row.itemNm ?? '—'}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -95,14 +74,17 @@ export function ZraBulkRegisterPanel() {
   const user = useAuth((s) => s.user);
   const finance = useZraFinanceAccess();
   const { storeId, setStoreId, storeIdParam, validStore } = useZraStore();
-  const [skus, setSkus] = useState<string[]>([]);
-  const [includeFeeItem, setIncludeFeeItem] = useState(true);
+  const [sku, setSku] = useState('');
+  const [includeFeeItem, setIncludeFeeItem] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<BulkRegisterZraItemsResponse | null>(null);
-  const [showAllResults, setShowAllResults] = useState(false);
-  const [regStatus, setRegStatus] = useState<Record<string, ZraItemRegistrationStatus | 'loading' | 'error'>>({});
+  const [regStatus, setRegStatus] = useState<ZraItemRegistrationStatus | 'loading' | 'error' | null>(
+    null
+  );
   const [itemsList, setItemsList] = useState<ZraItemsListResult | null>(null);
   const [itemsListLoading, setItemsListLoading] = useState(false);
+
+  const selectedSku = sku.trim();
 
   async function fetchItemsFromZra() {
     if (!validStore || storeIdParam == null) return;
@@ -118,30 +100,19 @@ export function ZraBulkRegisterPanel() {
   }
 
   async function checkRegistration() {
-    if (!validStore || storeIdParam == null || skus.length === 0) return;
-    setRegStatus((s) => {
-      const next = { ...s };
-      for (const sku of skus) next[sku] = 'loading';
-      return next;
-    });
-    await Promise.all(
-      skus.map(async (sku) => {
-        try {
-          const status = await zraApi.getItemRegistrationStatus(sku, storeIdParam);
-          setRegStatus((s) => ({ ...s, [sku]: status }));
-        } catch {
-          setRegStatus((s) => ({ ...s, [sku]: 'error' }));
-        }
-      })
-    );
+    if (!validStore || storeIdParam == null || !selectedSku) return;
+    setRegStatus('loading');
+    try {
+      setRegStatus(await zraApi.getItemRegistrationStatus(selectedSku, storeIdParam));
+    } catch {
+      setRegStatus('error');
+    }
   }
 
   async function run(dryRun: boolean) {
-    if (!dryRun && skus.length === 0) {
-      const ok = confirm(
-        'Register ALL active catalog products with ZRA?\n\nThis calls saveItem for every active SKU. Prefer Preview mapping first.'
-      );
-      if (!ok) return;
+    if (!selectedSku) {
+      toast.push('error', 'Select one SKU to register.');
+      return;
     }
 
     setRunning(true);
@@ -149,19 +120,18 @@ export function ZraBulkRegisterPanel() {
     try {
       const response = await zraApi.registerItems({
         storeId: storeIdParam,
-        skus: skus.length > 0 ? skus : undefined,
+        skus: [selectedSku],
         includeFeeItem,
         dryRun,
         adminUser: user?.username
       });
       setResult(response);
-      setShowAllResults(false);
       if (dryRun) {
-        toast.push('success', `Preview ready — ${response.total} item(s) would be registered.`);
+        toast.push('success', `Preview ready for ${selectedSku}.`);
       } else if (response.failed > 0) {
-        toast.push('error', `Registration finished with ${response.failed} failure(s).`);
+        toast.push('error', `Registration failed for ${selectedSku}.`);
       } else {
-        toast.push('success', `Registered ${response.registered + response.alreadyExists} item(s) with ZRA.`);
+        toast.push('success', `Registered ${selectedSku} with ZRA.`);
       }
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'ZRA registration failed.');
@@ -170,54 +140,49 @@ export function ZraBulkRegisterPanel() {
     }
   }
 
-  const hasSkus = skus.length > 0;
-
   return (
     <Card className="space-y-4">
       <div>
-        <h2 className="text-sm font-semibold text-gray-900">ZRA catalog registration</h2>
+        <h2 className="text-sm font-semibold text-gray-900">ZRA item registration</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Bulk-register active products with ZRA via saveItem. Leave SKUs empty to register the full catalog.
-          Per-order lazy registration still runs on delivery.
+          Register one catalog SKU at a time via VSDC saveItem. Full-catalog register is not
+          supported — VSDC has no bulk saveItem API. Unregistered SKUs are still registered lazily
+          on delivery.
         </p>
       </div>
 
       <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
 
-      <SkuMultiPicker
-        skus={skus}
-        onChange={setSkus}
-        label="SKUs (optional — search to add, leave empty for the full catalog)"
-        hint={hasSkus ? 'Selected SKUs only' : 'All active catalog products will be used'}
-        renderBadge={(sku) => {
-          const s = regStatus[sku];
-          if (!s) return null;
-          if (s === 'loading') return <Spinner className="h-3 w-3" />;
-          if (s === 'error') return <Badge tone="gray">Unknown</Badge>;
-          return (
-            <span title={s.message ?? undefined}>
-              <Badge tone={s.registered ? 'green' : 'amber'}>
-                {s.registered ? 'Registered' : 'Not registered'}
-              </Badge>
-            </span>
-          );
+      <SkuPicker
+        value={sku}
+        onChange={(next) => {
+          setSku(next);
+          setRegStatus(null);
         }}
+        label="SKU"
+        placeholder="Search by name or SKU…"
       />
 
-      {hasSkus && (
-        <button
-          type="button"
-          className="btn-ghost text-xs"
-          disabled={!validStore}
-          onClick={() => void checkRegistration()}
-          title={
-            !validStore
-              ? 'Select a store first'
-              : "Best-effort check via VSDC's items/selectItem — one call per SKU."
-          }
-        >
-          Check ZRA registration status
-        </button>
+      {selectedSku && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="btn-ghost text-xs"
+            disabled={!validStore || regStatus === 'loading'}
+            onClick={() => void checkRegistration()}
+          >
+            {regStatus === 'loading' ? <Spinner className="h-3 w-3" /> : 'Check ZRA registration'}
+          </button>
+          {regStatus && regStatus !== 'loading' && (
+            regStatus === 'error' ? (
+              <Badge tone="gray">Unknown</Badge>
+            ) : (
+              <Badge tone={regStatus.registered ? 'green' : 'amber'}>
+                {regStatus.registered ? 'Registered' : 'Not registered'}
+              </Badge>
+            )
+          )}
+        </div>
       )}
 
       <label className="flex items-center gap-2 text-sm text-gray-700">
@@ -225,7 +190,7 @@ export function ZraBulkRegisterPanel() {
           type="checkbox"
           className="rounded border-gray-300"
           checked={includeFeeItem}
-          onChange={e => setIncludeFeeItem(e.target.checked)}
+          onChange={(e) => setIncludeFeeItem(e.target.checked)}
           disabled={running}
         />
         Also register delivery fee line (SVC-FEES)
@@ -235,7 +200,7 @@ export function ZraBulkRegisterPanel() {
         <button
           type="button"
           className="btn-ghost text-sm"
-          disabled={running || !validStore}
+          disabled={running || !validStore || !selectedSku}
           onClick={() => void run(true)}
         >
           {running ? <Spinner className="h-4 w-4" /> : 'Preview mapping'}
@@ -243,10 +208,10 @@ export function ZraBulkRegisterPanel() {
         <button
           type="button"
           className="btn-primary text-sm"
-          disabled={running || finance.loading || !finance.allowed || !validStore}
+          disabled={running || finance.loading || !finance.allowed || !validStore || !selectedSku}
           onClick={() => void run(false)}
         >
-          {running ? <Spinner className="h-4 w-4" /> : hasSkus ? 'Register selected' : 'Register all active'}
+          {running ? <Spinner className="h-4 w-4" /> : 'Register SKU'}
         </button>
       </div>
 
@@ -257,8 +222,8 @@ export function ZraBulkRegisterPanel() {
           <div>
             <h3 className="text-sm font-semibold text-gray-900">Item list on ZRA record</h3>
             <p className="text-xs text-gray-500">
-              "Get Item List" (items/selectItems) — read-only reconciliation of everything VSDC has
-              on file for this store, independent of our local registration status above.
+              &quot;Get Item List&quot; (items/selectItems) — read-only list of items VSDC has on file
+              for this store.
             </p>
           </div>
           <button
@@ -289,32 +254,11 @@ export function ZraBulkRegisterPanel() {
         <div className="space-y-3 border-t border-gray-100 pt-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-gray-900">
-              {result.dryRun ? 'Preview results' : 'Registration results'}
+              {result.dryRun ? 'Preview result' : 'Registration result'}
             </span>
             {result.dryRun && <Badge tone="amber">DRY RUN</Badge>}
           </div>
-
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            <SummaryStat label="Total" value={result.total} />
-            <SummaryStat label={result.dryRun ? 'Would register' : 'Registered'} value={result.registered} tone="green" />
-            <SummaryStat label="Already exists" value={result.alreadyExists} tone="blue" />
-            <SummaryStat label="Failed" value={result.failed} tone="red" />
-            <SummaryStat label="Skipped" value={result.skipped} tone="gray" />
-          </div>
-
-          <ResultsTable results={result.results} filter="issues" />
-
-          {result.results.length > 0 && (
-            <button
-              type="button"
-              className="btn-ghost text-xs"
-              onClick={() => setShowAllResults(v => !v)}
-            >
-              {showAllResults ? 'Hide full results' : `Show all ${result.results.length} items`}
-            </button>
-          )}
-
-          {showAllResults && <ResultsTable results={result.results} filter="all" />}
+          <ResultsTable results={result.results} />
         </div>
       )}
     </Card>

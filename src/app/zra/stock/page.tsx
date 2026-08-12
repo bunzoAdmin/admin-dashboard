@@ -24,7 +24,8 @@ import {
   type ZraBranchInfo,
   type ZraStockItemsResult,
   type ZraStockPreview,
-  type ZraStockStatus
+  type ZraStockStatus,
+  type ZraStockSyncedSummary
 } from '@/lib/zraApi';
 
 const RUNNING_STATUSES = new Set(['RUNNING', 'IN_PROGRESS', 'STARTED']);
@@ -46,6 +47,7 @@ export default function ZraStockPage() {
   const [notEnabledMessage, setNotEnabledMessage] = useState<string | null>(null);
   const [zraStockItems, setZraStockItems] = useState<ZraStockItemsResult | null>(null);
   const [zraStockItemsLoading, setZraStockItemsLoading] = useState(false);
+  const [syncedSummary, setSyncedSummary] = useState<ZraStockSyncedSummary | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const sid = storeIdParam ?? 0;
@@ -58,6 +60,7 @@ export default function ZraStockPage() {
       setNotEnabled(false);
       setNotEnabledMessage(null);
       setZraStockItems(null);
+      setSyncedSummary(null);
       setLoading(false);
       setError(null);
       return;
@@ -67,14 +70,16 @@ export default function ZraStockPage() {
     setNotEnabled(false);
     setNotEnabledMessage(null);
     try {
-      const [p, s, b] = await Promise.all([
+      const [p, s, b, synced] = await Promise.all([
         zraApi.getStockPreview(storeIdParam),
         zraApi.getStockSyncStatus(storeIdParam),
-        zraApi.getBranch(storeIdParam).catch(() => null)
+        zraApi.getBranch(storeIdParam).catch(() => null),
+        zraApi.getStockSyncedSummary(storeIdParam, 50).catch(() => null)
       ]);
       setPreview(p);
       setStatus(s);
       setBranch(b);
+      setSyncedSummary(synced);
     } catch (err) {
       setPreview(null);
       setStatus(null);
@@ -115,6 +120,8 @@ export default function ZraStockPage() {
           setSyncing(false);
           const p = await zraApi.getStockPreview(sid);
           setPreview(p);
+          const synced = await zraApi.getStockSyncedSummary(sid, 50).catch(() => null);
+          setSyncedSummary(synced);
         }
       } catch {
         /* keep polling */
@@ -356,6 +363,64 @@ export default function ZraStockPage() {
           </Card>
 
           <Card>
+            <SectionTitle>Stock master synced to ZRA</SectionTitle>
+            <p className="mb-2 text-xs text-gray-500">
+              On-hand quantities we successfully pushed via <code className="text-[11px]">saveStockMaster</code>.
+              VSDC has no read-back API for stock master — this outbox is the reconciliation source.
+            </p>
+            {syncedSummary?.master ? (
+              <>
+                <dl className="mb-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                  <Stat label="Master OK" value={String(syncedSummary.master.succeeded ?? 0)} />
+                  <Stat label="Master failed" value={String(syncedSummary.master.failed ?? 0)} />
+                  <Stat
+                    label="Sales pushed"
+                    value={String(syncedSummary.movements?.SALE?.succeeded ?? 0)}
+                  />
+                  <Stat
+                    label="Purchases pushed"
+                    value={String(syncedSummary.movements?.PURCHASE?.succeeded ?? 0)}
+                  />
+                </dl>
+                {(syncedSummary.master.sample?.length ?? 0) > 0 ? (
+                  <div className="max-h-64 overflow-auto rounded-lg border border-gray-100">
+                    <table className="min-w-full text-xs">
+                      <thead className="sticky top-0 bg-gray-50 text-left text-gray-500">
+                        <tr>
+                          <th className="px-3 py-2 font-medium">SKU</th>
+                          <th className="px-3 py-2 font-medium">Qty (rsdQty)</th>
+                          <th className="px-3 py-2 font-medium">Synced at</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {syncedSummary.master.sample!.map((row) => (
+                          <tr key={row.sku} className="border-t border-gray-100">
+                            <td className="px-3 py-1.5 font-mono text-gray-800">{row.sku}</td>
+                            <td className="px-3 py-1.5 text-gray-700">{row.qty ?? '—'}</td>
+                            <td className="px-3 py-1.5 text-gray-500">
+                              {row.syncedAt ? formatDate(row.syncedAt) : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-400">No stock master rows synced yet.</p>
+                )}
+                {(syncedSummary.master.succeeded ?? 0) > (syncedSummary.master.sample?.length ?? 0) && (
+                  <p className="mt-2 text-xs text-gray-400">
+                    Showing first {syncedSummary.master.sample?.length ?? 0} of{' '}
+                    {syncedSummary.master.succeeded} SKUs.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-400">No synced stock master data yet.</p>
+            )}
+          </Card>
+
+          <Card>
             <SectionTitle
               action={
                 <button
@@ -364,26 +429,44 @@ export default function ZraStockPage() {
                   disabled={zraStockItemsLoading}
                   onClick={() => void checkStockOnZra()}
                 >
-                  {zraStockItemsLoading ? <Spinner className="h-3.5 w-3.5" /> : 'Fetch from ZRA'}
+                  {zraStockItemsLoading ? <Spinner className="h-3.5 w-3.5" /> : 'Fetch from VSDC'}
                 </button>
               }
             >
-              Stock items on ZRA record
+              Stock movements on VSDC (selectStockItems)
             </SectionTitle>
             <p className="mb-2 text-xs text-gray-500">
-              Read-only reconciliation: what VSDC says it has on record for this store's device
-              (stock/selectStockItems), independent of our own sync outbox status above.
+              Optional VSDC read of <code className="text-[11px]">saveStockItems</code> movement history
+              (SAR documents — sales, purchases, credits). This is <em>not</em> stock master on-hand qty.
+              VSDC may return &quot;no search result&quot; even after a successful sync.
             </p>
             {zraStockItems == null ? (
-              <p className="text-sm text-gray-400">Not fetched yet.</p>
-            ) : zraStockItems.data ? (
-              <pre className="max-h-64 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
-                {JSON.stringify(zraStockItems.data, null, 2)}
-              </pre>
+              <p className="text-sm text-gray-400">Not fetched yet — click Fetch from VSDC.</p>
             ) : (
-              <p className="text-sm text-gray-500">
-                {zraStockItems.message || 'No stock items on record.'}
-              </p>
+              <>
+                <p className="mb-2 text-xs text-gray-600">
+                  VSDC result: <Badge>{zraStockItems.resultCd ?? '—'}</Badge>{' '}
+                  {zraStockItems.message ?? ''}
+                  {zraStockItems.movementCount != null && zraStockItems.movementCount > 0
+                    ? ` · ${zraStockItems.movementCount} movement(s)`
+                    : ''}
+                </p>
+                {zraStockItems.stockList && zraStockItems.stockList.length > 0 ? (
+                  <pre className="max-h-64 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                    {JSON.stringify(zraStockItems.stockList, null, 2)}
+                  </pre>
+                ) : zraStockItems.data ? (
+                  <pre className="max-h-64 overflow-auto rounded-lg bg-gray-50 p-3 text-xs text-gray-700">
+                    {JSON.stringify(zraStockItems.data, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    {zraStockItems.resultCd === '001'
+                      ? 'VSDC returned no movement history for this branch (result 001). Use the stock master table above to confirm what we pushed.'
+                      : zraStockItems.message || 'No movement records returned.'}
+                  </p>
+                )}
+              </>
             )}
           </Card>
         </>

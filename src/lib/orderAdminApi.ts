@@ -208,17 +208,20 @@ export const orderAdminApi = {
   },
 
   /**
-   * Bulk-register catalog SKUs with ZRA via VSDC saveItem.
-   * Omit skus (or pass []) to register all active products.
+   * Register exactly one catalog SKU with ZRA via VSDC saveItem.
    */
-  registerZraItems: (body?: {
-    skus?: string[];
+  registerZraItems: (body: {
+    skus: string[];
     includeFeeItem?: boolean;
     dryRun?: boolean;
   }) =>
     req<BulkRegisterZraItemsResponse>('/admin/zra/items/register', {
       method: 'POST',
-      body: body ?? {}
+      body: {
+        skus: body.skus,
+        includeFeeItem: body.includeFeeItem ?? false,
+        dryRun: body.dryRun
+      }
     })
 };
 
