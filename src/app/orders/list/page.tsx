@@ -246,7 +246,7 @@ export default function OrdersListPage() {
                       });
                       const waitingTone = ageUrgencyTone(ageMinutes, { terminal });
                       const mapsUrl = order.delivery ? googleMapsUrl(order.delivery) : null;
-                      const locationLabel = order.delivery?.address?.trim() || (mapsUrl ? 'Open in Maps' : null);
+                      const locationName = order.delivery?.recipientName?.trim() || (mapsUrl ? 'Open in Maps' : null);
                       return (
                       <tr
                         key={order.orderNumber}
@@ -286,28 +286,19 @@ export default function OrdersListPage() {
                           {order.pickerName ?? (order.pickerId != null ? `#${order.pickerId}` : '—')}
                         </td>
                         <td className="px-4 py-3">
-                          {order.delivery?.recipientName || locationLabel ? (
-                            <div className="max-w-[220px]">
-                              {order.delivery?.recipientName && (
-                                <div className="text-sm text-gray-700">{order.delivery.recipientName}</div>
-                              )}
-                              {mapsUrl && locationLabel ? (
-                                <a
-                                  href={mapsUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline"
-                                  title={locationLabel}
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  {locationLabel}
-                                </a>
-                              ) : locationLabel ? (
-                                <div className="text-xs text-gray-500" title={locationLabel}>
-                                  {locationLabel}
-                                </div>
-                              ) : null}
-                            </div>
+                          {mapsUrl && locationName ? (
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-sm text-blue-600 hover:underline"
+                              title={order.delivery?.address ?? locationName}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              {locationName}
+                            </a>
+                          ) : locationName ? (
+                            <span className="text-sm text-gray-700">{locationName}</span>
                           ) : (
                             <span className="text-xs text-gray-400">—</span>
                           )}
