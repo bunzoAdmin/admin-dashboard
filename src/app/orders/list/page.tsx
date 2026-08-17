@@ -8,6 +8,7 @@ import {
   ORDER_STATUS_OPTIONS,
   PAYMENT_STATUS_OPTIONS,
   type AdminOrderListItem,
+  type DeliveryInfo,
   type PagedAdminOrderResponse
 } from '@/lib/orderAdminTypes';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Spinner, money } from '@/components/ui';
@@ -37,6 +38,19 @@ function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | '
     case 'CANCELLED': return 'red';
     default: return 'gray';
   }
+}
+
+function googleMapsUrl(delivery: DeliveryInfo): string | null {
+  const lat = delivery.latitude;
+  const lng = delivery.longitude;
+  if (lat != null && lng != null && Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+  const address = delivery.address?.trim();
+  if (address) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  }
+  return null;
 }
 
 function pickStatusTone(status?: string | null): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
@@ -214,6 +228,7 @@ export default function OrdersListPage() {
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Pick</th>
                       <th className="px-4 py-3 font-medium">Picker</th>
+                      <th className="px-4 py-3 font-medium">Location</th>
                       <th className="px-4 py-3 font-medium">Payment</th>
                       <th className="px-4 py-3 font-medium">Total</th>
                       <th className="px-4 py-3 font-medium" />
@@ -230,6 +245,8 @@ export default function OrdersListPage() {
                         ageMinutes: order.ageMinutes
                       });
                       const waitingTone = ageUrgencyTone(ageMinutes, { terminal });
+                      const mapsUrl = order.delivery ? googleMapsUrl(order.delivery) : null;
+                      const locationLabel = order.delivery?.address?.trim() || (mapsUrl ? 'Open in Maps' : null);
                       return (
                       <tr
                         key={order.orderNumber}
@@ -267,6 +284,33 @@ export default function OrdersListPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-600">
                           {order.pickerName ?? (order.pickerId != null ? `#${order.pickerId}` : '—')}
+                        </td>
+                        <td className="px-4 py-3">
+                          {order.delivery?.recipientName || locationLabel ? (
+                            <div className="max-w-[220px]">
+                              {order.delivery?.recipientName && (
+                                <div className="text-sm text-gray-700">{order.delivery.recipientName}</div>
+                              )}
+                              {mapsUrl && locationLabel ? (
+                                <a
+                                  href={mapsUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline"
+                                  title={locationLabel}
+                                  onClick={e => e.stopPropagation()}
+                                >
+                                  {locationLabel}
+                                </a>
+                              ) : locationLabel ? (
+                                <div className="text-xs text-gray-500" title={locationLabel}>
+                                  {locationLabel}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">
                           {order.paymentMethod} &middot; {order.paymentStatus.replace(/_/g, ' ')}
