@@ -22,7 +22,8 @@ import type {
   ReassignCandidate,
   ReferralScreen,
   Rule,
-  StoreQR
+  StoreQR,
+  TripReachedConfig
 } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.bunzodelivery.com';
@@ -282,6 +283,11 @@ export const api = {
   createRule: (rule: Rule) => request<Rule>(`/admin/rules`, { method: 'POST', body: rule }),
   updateRule: (id: string, rule: Rule) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'PUT', body: rule }),
   deleteRule: (id: string) => request<Rule>(`/admin/rules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  // --- Drop-reached rollout ---
+  getDropReachedConfig: () => request<TripReachedConfig>('/admin/config/drop-reached'),
+  patchDropReachedConfig: (body: TripReachedConfig) =>
+    request<TripReachedConfig>('/admin/config/drop-reached', { method: 'PATCH', body }),
 
   // --- Disputes ---
   listDisputes: (status: DisputeStatus, cursor?: string, storeId?: string) =>
