@@ -51,7 +51,12 @@ export type TripStatus =
   | 'cancelled';
 
 export type TaskType = 'pickup' | 'drop';
-export type TaskStatus = 'created' | 'completed';
+export type TaskStatus = 'created' | 'reached' | 'completed';
+
+export interface TripReachedConfig {
+  radius_meters: number;
+  require_reached_before_complete: boolean;
+}
 
 export interface TripTask {
   task_id: string;

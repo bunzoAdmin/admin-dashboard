@@ -81,7 +81,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/riders', label: 'All Riders', icon: Users, exact: true },
       { href: '/riders/onboard', label: 'Onboard Rider', icon: UserPlus },
-      { href: '/riders/payout-rules', label: 'Payout Rules', icon: SlidersHorizontal }
+      { href: '/riders/payout-rules', label: 'Payout Rules', icon: SlidersHorizontal },
+      { href: '/riders/settings', label: 'Rider Settings', icon: Settings2 }
     ]
   },
   {
