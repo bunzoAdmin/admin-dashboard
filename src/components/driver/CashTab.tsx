@@ -3,16 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api, ApiClientError } from '@/lib/api';
-import type { CashCollectionsResponse, CashLedger } from '@/lib/types';
+import type { CashCollectionsResponse, CashDeposit, CashLedger } from '@/lib/types';
 import { Card, EmptyState, ErrorBox, Loading, Stat, formatDate, money } from '@/components/ui';
 import { addStoreCalendarDays, todayIsoStore } from '@/lib/storeTime';
 
 const MAX_CUSTOM_RANGE_DAYS = 31;
 
-type CashCollectionsPreset = 'today' | 'last7' | 'custom';
+type CashRangePreset = 'today' | 'last7' | 'custom';
 
-function resolveCollectionsRange(
-  preset: CashCollectionsPreset,
+function resolveCashRange(
+  preset: CashRangePreset,
   customFrom: string,
   customTo: string
 ): { from: string; to: string } | null {
@@ -23,25 +23,75 @@ function resolveCollectionsRange(
   return { from: customFrom, to: customTo };
 }
 
-function CashCollectedSection({ phone }: { phone: string }) {
-  const [preset, setPreset] = useState<CashCollectionsPreset>('today');
-  const [customFrom, setCustomFrom] = useState('');
-  const [customTo, setCustomTo] = useState('');
+function depositsInStoreRange(deposits: CashDeposit[], from: string, to: string): CashDeposit[] {
+  const start = new Date(`${from}T00:00:00+02:00`).getTime();
+  const end = new Date(`${addStoreCalendarDays(to, 1)}T00:00:00+02:00`).getTime();
+  return deposits
+    .filter((d) => {
+      const t = new Date(d.created_at).getTime();
+      return Number.isFinite(t) && t >= start && t < end;
+    })
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+function CashRangeControls({
+  preset,
+  customFrom,
+  customTo,
+  onPreset,
+  onCustomFrom,
+  onCustomTo
+}: {
+  preset: CashRangePreset;
+  customFrom: string;
+  customTo: string;
+  onPreset: (preset: CashRangePreset) => void;
+  onCustomFrom: (value: string) => void;
+  onCustomTo: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <select className="input w-auto" value={preset} onChange={(e) => onPreset(e.target.value as CashRangePreset)}>
+        <option value="today">Today</option>
+        <option value="last7">Last 7 days</option>
+        <option value="custom">Custom</option>
+      </select>
+      {preset === 'custom' && (
+        <>
+          <input
+            type="date"
+            className="input w-auto"
+            value={customFrom}
+            max={todayIsoStore()}
+            onChange={(e) => onCustomFrom(e.target.value)}
+          />
+          <span className="text-xs text-gray-400">to</span>
+          <input
+            type="date"
+            className="input w-auto"
+            value={customTo}
+            max={todayIsoStore()}
+            onChange={(e) => onCustomTo(e.target.value)}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+function CashCollectedSection({
+  phone,
+  range,
+  rangeError
+}: {
+  phone: string;
+  range: { from: string; to: string } | null;
+  rangeError: string | null;
+}) {
   const [data, setData] = useState<CashCollectionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const range = useMemo(() => resolveCollectionsRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
-
-  const rangeError = useMemo(() => {
-    if (preset !== 'custom') return null;
-    if (!customFrom || !customTo) return 'Pick a from and to date.';
-    if (customTo < customFrom) return '"To" date must be on or after "from" date.';
-    const spanDays = Math.round((new Date(`${customTo}T00:00:00Z`).getTime() - new Date(`${customFrom}T00:00:00Z`).getTime()) / 86_400_000) + 1;
-    if (spanDays > MAX_CUSTOM_RANGE_DAYS) return `Custom range can span at most ${MAX_CUSTOM_RANGE_DAYS} days.`;
-    return null;
-  }, [preset, customFrom, customTo]);
 
   const load = useCallback(async () => {
     if (!range || rangeError) {
@@ -86,36 +136,6 @@ function CashCollectedSection({ phone }: { phone: string }) {
             <p className="mt-0.5 text-xs text-gray-400">
               {data.order_count} {data.order_count === 1 ? 'order' : 'orders'} · {money(data.total_zmw)}
             </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <select
-            className="input w-auto"
-            value={preset}
-            onChange={(e) => setPreset(e.target.value as CashCollectionsPreset)}
-          >
-            <option value="today">Today</option>
-            <option value="last7">Last 7 days</option>
-            <option value="custom">Custom</option>
-          </select>
-          {preset === 'custom' && (
-            <>
-              <input
-                type="date"
-                className="input w-auto"
-                value={customFrom}
-                max={todayIsoStore()}
-                onChange={(e) => setCustomFrom(e.target.value)}
-              />
-              <span className="text-xs text-gray-400">to</span>
-              <input
-                type="date"
-                className="input w-auto"
-                value={customTo}
-                max={todayIsoStore()}
-                onChange={(e) => setCustomTo(e.target.value)}
-              />
-            </>
           )}
         </div>
       </div>
@@ -180,6 +200,22 @@ export function CashTab({ phone, refreshKey }: { phone: string; refreshKey: numb
   const [data, setData] = useState<CashLedger | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [preset, setPreset] = useState<CashRangePreset>('today');
+  const [customFrom, setCustomFrom] = useState('');
+  const [customTo, setCustomTo] = useState('');
+
+  const range = useMemo(() => resolveCashRange(preset, customFrom, customTo), [preset, customFrom, customTo]);
+
+  const rangeError = useMemo(() => {
+    if (preset !== 'custom') return null;
+    if (!customFrom || !customTo) return 'Pick a from and to date.';
+    if (customTo < customFrom) return '"To" date must be on or after "from" date.';
+    const spanDays =
+      Math.round((new Date(`${customTo}T00:00:00Z`).getTime() - new Date(`${customFrom}T00:00:00Z`).getTime()) /
+        86_400_000) + 1;
+    if (spanDays > MAX_CUSTOM_RANGE_DAYS) return `Custom range can span at most ${MAX_CUSTOM_RANGE_DAYS} days.`;
+    return null;
+  }, [preset, customFrom, customTo]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -197,25 +233,65 @@ export function CashTab({ phone, refreshKey }: { phone: string; refreshKey: numb
     load();
   }, [load, refreshKey]);
 
+  const rangedDeposits = useMemo(() => {
+    if (!data || !range || rangeError) return [];
+    return depositsInStoreRange(data.deposits, range.from, range.to);
+  }, [data, range, rangeError]);
+
+  const depositedTotal = rangedDeposits.reduce((sum, d) => sum + d.applied_amount_zmw, 0);
+
   return (
     <div className="space-y-4">
-      <div className="max-w-xs">
-        {loading ? (
-          <Loading label="Loading cash ledger…" />
-        ) : error ? (
-          <ErrorBox message={error} />
-        ) : data ? (
-          <Stat label="Cash in hand" value={money(data.in_hand_cash_zmw)} sub="Uncollected COD" />
-        ) : null}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="grid max-w-xl grid-cols-2 gap-3">
+          {loading ? (
+            <Loading label="Loading cash ledger…" />
+          ) : error ? (
+            <ErrorBox message={error} />
+          ) : data ? (
+            <>
+              <Stat label="Cash in hand" value={money(data.in_hand_cash_zmw)} sub="Uncollected COD" />
+              <Stat
+                label="Cash deposited"
+                value={money(depositedTotal)}
+                sub={
+                  range && !rangeError
+                    ? `${rangedDeposits.length} ${rangedDeposits.length === 1 ? 'deposit' : 'deposits'} in range`
+                    : 'Pick a date range'
+                }
+              />
+            </>
+          ) : null}
+        </div>
+        <CashRangeControls
+          preset={preset}
+          customFrom={customFrom}
+          customTo={customTo}
+          onPreset={setPreset}
+          onCustomFrom={setCustomFrom}
+          onCustomTo={setCustomTo}
+        />
       </div>
 
-      <CashCollectedSection phone={phone} />
+      <CashCollectedSection phone={phone} range={range} rangeError={rangeError} />
 
       {!loading && !error && data && (
         <Card className="p-0">
-          {data.deposits.length === 0 ? (
+          <div className="flex flex-wrap items-end justify-between gap-3 border-b border-gray-100 p-5">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Cash deposited</h3>
+              <p className="mt-0.5 text-xs text-gray-400">
+                {rangedDeposits.length} {rangedDeposits.length === 1 ? 'deposit' : 'deposits'} · {money(depositedTotal)}
+              </p>
+            </div>
+          </div>
+          {rangeError ? (
             <div className="p-5">
-              <EmptyState>No cash deposits recorded yet.</EmptyState>
+              <ErrorBox message={rangeError} />
+            </div>
+          ) : rangedDeposits.length === 0 ? (
+            <div className="p-5">
+              <EmptyState>No cash deposits recorded in this date range.</EmptyState>
             </div>
           ) : (
             <table className="w-full text-sm">
@@ -228,7 +304,7 @@ export function CashTab({ phone, refreshKey }: { phone: string; refreshKey: numb
                 </tr>
               </thead>
               <tbody>
-                {data.deposits.map((d) => (
+                {rangedDeposits.map((d) => (
                   <tr key={d.deposit_id} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 text-gray-700">{formatDate(d.created_at)}</td>
                     <td className="px-5 py-3 font-mono text-xs text-gray-400">{d.deposit_id}</td>
