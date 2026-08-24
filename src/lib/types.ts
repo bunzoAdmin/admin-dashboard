@@ -124,6 +124,30 @@ export interface ReassignCandidate {
   previously_held: boolean;
 }
 
+export type AdminDropMode = 'java_only' | 'pick_rider' | 'force_progress' | 'already_done' | 'blocked';
+
+export interface AdminDropRider {
+  phone: string;
+  name: string;
+  status: string;
+}
+
+export interface AdminDropCandidate {
+  phone: string;
+  name: string;
+  status: string;
+  in_hand_cash_zmw: number;
+}
+
+export interface AdminDropPreview {
+  mode: AdminDropMode;
+  reason?: string;
+  trip_id?: string;
+  java_status?: string;
+  rider?: AdminDropRider;
+  candidates?: AdminDropCandidate[];
+}
+
 // Must stay in sync with models.reassignReasonCodes in the qcom backend —
 // the server rejects anything outside this set with 400 INVALID_REASON_CODE.
 export const REASSIGN_REASONS: { value: string; label: string }[] = [

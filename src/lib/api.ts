@@ -4,6 +4,7 @@ import { getStoredToken, useAuth, type AdminUser } from './store';
 import type {
   AdminDispute,
   AdminDisputeDetail,
+  AdminDropPreview,
   CashCollectionsResponse,
   CashLedger,
   Darkstore,
@@ -177,9 +178,12 @@ export const api = {
       method: 'POST',
       body: {}
     }),
-  adminCompleteOrderDrop: (orderNumber: string) =>
+  getAdminDropPreview: (orderNumber: string) =>
+    request<AdminDropPreview>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/preview`),
+  adminCompleteOrderDrop: (orderNumber: string, driverPhone?: string) =>
     request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/complete`, {
-      method: 'POST'
+      method: 'POST',
+      body: driverPhone ? { driver_phone: driverPhone } : {}
     }),
   getReassignCandidates: (tripId: string) =>
     request<{ candidates: ReassignCandidate[] }>(

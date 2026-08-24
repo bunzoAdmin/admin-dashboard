@@ -6,11 +6,13 @@ import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import { api, ApiClientError } from '@/lib/api';
 import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/orderAdminTypes';
 import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
-import { Badge, Card, ErrorBox, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
+import { Badge, Card, ErrorBox, Field, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
+import type { AdminDropPreview } from '@/lib/types';
+import { adminDropConfirmLabel, canConfirmAdminDrop } from '@/lib/adminDropPreview';
 import {
   ageToneClass,
   ageUrgencyTone,
@@ -19,6 +21,19 @@ import {
   isTerminalOrderStatus,
   orderOpsAgeMinutes
 } from '@/lib/storeTime';
+
+function blockedDropMessage(reason?: string): string {
+  switch (reason) {
+    case 'java_cancelled':
+      return 'This order is cancelled.';
+    case 'java_not_ready':
+      return 'Order is not ready for delivery yet.';
+    case 'rider_busy_elsewhere':
+      return 'Assigned rider is on another trip. Reassign this order first.';
+    default:
+      return reason ? `Cannot mark delivered (${reason}).` : 'This order cannot be marked delivered.';
+  }
+}
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -46,6 +61,10 @@ export default function OrderDetailPage() {
   const [statusTarget, setStatusTarget] = useState<OrderStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [dropPreview, setDropPreview] = useState<AdminDropPreview | null>(null);
+  const [dropPreviewLoading, setDropPreviewLoading] = useState(false);
+  const [dropPreviewError, setDropPreviewError] = useState<string | null>(null);
+  const [selectedPhone, setSelectedPhone] = useState('');
 
   const loadOrder = useCallback(async () => {
     setLoadingOrder(true);
@@ -74,6 +93,39 @@ export default function OrderDetailPage() {
     loadOrder();
     loadEvents();
   }, [loadOrder, loadEvents]);
+
+  useEffect(() => {
+    if (statusTarget !== 'DELIVERED') {
+      setDropPreview(null);
+      setDropPreviewError(null);
+      setDropPreviewLoading(false);
+      setSelectedPhone('');
+      return;
+    }
+    let cancelled = false;
+    setDropPreview(null);
+    setDropPreviewError(null);
+    setSelectedPhone('');
+    setDropPreviewLoading(true);
+    api
+      .getAdminDropPreview(orderNumber)
+      .then((preview) => {
+        if (!cancelled) setDropPreview(preview);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDropPreviewError(
+            err instanceof ApiClientError ? err.message : 'Failed to load delivery preview.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDropPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [statusTarget, orderNumber]);
 
   const nextStatuses = useMemo(
     () => (order ? ORDER_NEXT_STATUSES[order.status] ?? [] : []),
@@ -107,7 +159,8 @@ export default function OrderDetailPage() {
       if (statusTarget === 'DELIVERED') {
         // DELIVERED is driven by qcom drop completion (closes the trip, frees the
         // rider, and syncs the order), not a direct Java status write.
-        await api.adminCompleteOrderDrop(orderNumber);
+        if (!dropPreview || !canConfirmAdminDrop(dropPreview.mode, selectedPhone)) return;
+        await api.adminCompleteOrderDrop(orderNumber, selectedPhone || undefined);
         await loadOrder();
       } else {
         const updated = await orderAdminApi.updateStatus(orderNumber, {
@@ -345,10 +398,17 @@ export default function OrderDetailPage() {
       >
         <div className="space-y-4">
           {statusTarget === 'DELIVERED' ? (
-            <p className="text-sm text-gray-600">
-              Mark this order delivered? This completes the rider&apos;s drop, closes the trip, and marks the
-              order delivered — the same as completing the drop from the driver page.
-            </p>
+            dropPreviewLoading ? (
+              <Loading label="Loading delivery preview…" />
+            ) : dropPreviewError ? (
+              <ErrorBox message={dropPreviewError} />
+            ) : dropPreview ? (
+              <AdminDropPreviewBody
+                preview={dropPreview}
+                selectedPhone={selectedPhone}
+                onSelectPhone={setSelectedPhone}
+              />
+            ) : null
           ) : (
             <p className="text-sm text-gray-600">
               Move order from <strong>{order.status.replace(/_/g, ' ')}</strong> to{' '}
@@ -371,12 +431,80 @@ export default function OrderDetailPage() {
             <button type="button" className="btn-ghost" onClick={() => setStatusTarget(null)}>
               Back
             </button>
-            <button type="button" className="btn-primary" disabled={updatingStatus} onClick={handleStatusAdvance}>
-              {updatingStatus ? <Spinner className="h-4 w-4" /> : 'Confirm'}
-            </button>
+            {statusTarget !== 'DELIVERED' && (
+              <button type="button" className="btn-primary" disabled={updatingStatus} onClick={handleStatusAdvance}>
+                {updatingStatus ? <Spinner className="h-4 w-4" /> : 'Confirm'}
+              </button>
+            )}
+            {statusTarget === 'DELIVERED' &&
+              dropPreview &&
+              dropPreview.mode !== 'blocked' &&
+              dropPreview.mode !== 'already_done' && (
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={updatingStatus || !canConfirmAdminDrop(dropPreview.mode, selectedPhone)}
+                  onClick={handleStatusAdvance}
+                >
+                  {updatingStatus ? <Spinner className="h-4 w-4" /> : adminDropConfirmLabel(dropPreview.mode)}
+                </button>
+              )}
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function AdminDropPreviewBody({
+  preview,
+  selectedPhone,
+  onSelectPhone
+}: {
+  preview: AdminDropPreview;
+  selectedPhone: string;
+  onSelectPhone: (phone: string) => void;
+}) {
+  if (preview.mode === 'blocked') {
+    return <ErrorBox message={blockedDropMessage(preview.reason)} />;
+  }
+  if (preview.mode === 'already_done') {
+    return <p className="text-sm text-gray-600">Already delivered.</p>;
+  }
+  if (preview.mode === 'java_only') {
+    return (
+      <p className="text-sm text-gray-600">
+        No delivery trip exists. This will mark the order delivered in order-service only (no rider COD/payout).
+      </p>
+    );
+  }
+  if (preview.mode === 'force_progress') {
+    const name = preview.rider?.name ?? 'the assigned rider';
+    const phone = preview.rider?.phone ?? '';
+    return (
+      <p className="text-sm text-gray-600">
+        Mark delivered for {name}{phone ? ` (${phone})` : ''}? This will complete pickup if needed, then the drop.
+      </p>
+    );
+  }
+  const candidates = preview.candidates ?? [];
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-gray-600">Select a rider to assign, then mark this order delivered.</p>
+      {candidates.length === 0 ? (
+        <p className="text-sm text-gray-500">No eligible riders at this store.</p>
+      ) : (
+        <Field label="Rider">
+          <select className="input" value={selectedPhone} onChange={(e) => onSelectPhone(e.target.value)}>
+            <option value="">Select rider…</option>
+            {candidates.map((c) => (
+              <option key={c.phone} value={c.phone}>
+                {c.name} — {c.phone} — {c.status} — K{c.in_hand_cash_zmw}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
     </div>
   );
 }
