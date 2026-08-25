@@ -15,6 +15,7 @@ import type {
   DriverDetail,
   DriverListResponse,
   DriverTripResponse,
+  DriverTripsResponse,
   EarningsSummary,
   InKindDisbursementsResponse,
   LoginResponse,
@@ -204,6 +205,15 @@ export const api = {
     request<CashLedger>(`/admin/drivers/${encodePhone(phone)}/cash-ledger`),
   getDriverCashCollections: (phone: string, params: { from: string; to: string; cursor?: string; limit?: number }) =>
     request<CashCollectionsResponse>(`/admin/drivers/${encodePhone(phone)}/cash-collections`, {
+      query: {
+        from: params.from,
+        to: params.to,
+        cursor: params.cursor,
+        limit: params.limit ? String(params.limit) : undefined
+      }
+    }),
+  getDriverTrips: (phone: string, params: { from: string; to: string; cursor?: string; limit?: number }) =>
+    request<DriverTripsResponse>(`/admin/drivers/${encodePhone(phone)}/trips`, {
       query: {
         from: params.from,
         to: params.to,
