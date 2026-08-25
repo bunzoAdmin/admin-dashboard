@@ -299,6 +299,19 @@ export interface CashCollectionsResponse {
   next_cursor: string;
 }
 
+export interface DriverTripItem {
+  completed_at: string;
+  order_id: string;
+  distance_km: number;
+}
+
+export interface DriverTripsResponse {
+  trip_count: number;
+  total_distance_km: number;
+  items: DriverTripItem[];
+  next_cursor: string;
+}
+
 export type RuleFamily = 'rate_modifier' | 'accumulator' | 'ranking';
 
 export interface Reward {

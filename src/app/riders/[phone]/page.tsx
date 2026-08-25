@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, Banknote, Wallet, ExternalLink } from 'lucide-react';
@@ -13,13 +13,15 @@ import { CashTab } from '@/components/driver/CashTab';
 import { ReferralsTab } from '@/components/driver/ReferralsTab';
 import { PresenceTab } from '@/components/driver/PresenceTab';
 import { InKindTab } from '@/components/driver/InKindTab';
+import { TripsTab } from '@/components/driver/TripsTab';
 import { CashDepositModal } from '@/components/driver/CashDepositModal';
 import { DisbursementModal } from '@/components/driver/DisbursementModal';
 import { CurrentTripCard } from '@/components/driver/CurrentTripCard';
 
-type Tab = 'overview' | 'presence' | 'earnings' | 'disbursements' | 'cash' | 'referrals' | 'in-kind';
+type Tab = 'overview' | 'trips' | 'presence' | 'earnings' | 'disbursements' | 'cash' | 'referrals' | 'in-kind';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
+  { id: 'trips', label: 'Trips' },
   { id: 'presence', label: 'Presence' },
   { id: 'earnings', label: 'Earnings' },
   { id: 'disbursements', label: 'Disbursements' },
@@ -27,6 +29,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'referrals', label: 'Referrals' },
   { id: 'in-kind', label: 'In-Kind Rewards' }
 ];
+
+function parseTab(value: string | null): Tab {
+  if (value && TABS.some((t) => t.id === value)) return value as Tab;
+  return 'overview';
+}
 
 function DocCard({ label, viewUrl }: { label: string; viewUrl: string }) {
   return (
@@ -54,12 +61,14 @@ function DocCard({ label, viewUrl }: { label: string; viewUrl: string }) {
 export default function DriverDetailPage() {
   const params = useParams<{ phone: string }>();
   const phone = decodeURIComponent(params.phone);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = parseTab(searchParams.get('tab'));
 
   const [driver, setDriver] = useState<DriverDetail | null>(null);
   const [stores, setStores] = useState<Darkstore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>('overview');
   const [cashModal, setCashModal] = useState(false);
   const [disbModal, setDisbModal] = useState(false);
   const [cashRefresh, setCashRefresh] = useState(0);
@@ -150,7 +159,14 @@ export default function DriverDetailPage() {
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="Today's earnings" value={money(driver.today_earnings_zmw)} />
-            <Stat label="Trips today" value={driver.trips_today} />
+            <Stat
+              label="Trips today"
+              value={
+                <Link href="?tab=trips" className="hover:underline">
+                  {driver.trips_today}
+                </Link>
+              }
+            />
             <Stat label="Total trips" value={driver.total_trips_completed} />
             <Stat
               label="Cash in hand"
@@ -164,7 +180,7 @@ export default function DriverDetailPage() {
               {TABS.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => router.replace(`?tab=${t.id}`)}
                   className={`-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition ${
                     tab === t.id ? 'border-brand-green text-brand-green-dark' : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
@@ -211,6 +227,7 @@ export default function DriverDetailPage() {
             </div>
           )}
 
+          {tab === 'trips' && <TripsTab phone={phone} />}
           {tab === 'presence' && <PresenceTab phone={phone} />}
           {tab === 'earnings' && <EarningsTab phone={phone} />}
           {tab === 'disbursements' && <DisbursementsTab phone={phone} />}
