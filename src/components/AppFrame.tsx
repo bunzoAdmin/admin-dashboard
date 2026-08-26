@@ -12,6 +12,7 @@ import { filterNavSections, isNavItemActive, isSectionActive, NAV_SECTIONS, type
 import { ToastProvider, Spinner } from './ui';
 import { DisputeWatcher } from './DisputeWatcher';
 import { OpsWatcher } from './OpsWatcher';
+import { PickNotStartedBanner } from './PickNotStartedBanner';
 import { Breadcrumbs } from './Breadcrumbs';
 
 const SIDEBAR_WIDTH_KEY = 'bunzo-sidebar-width';
@@ -534,6 +535,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 
           <main className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 md:px-8 md:py-8">
+              <PickNotStartedBanner />
               <Breadcrumbs />
               {children}
             </div>

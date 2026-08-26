@@ -19,6 +19,7 @@ import { refundAdminApi } from '@/lib/refundAdminApi';
 import { inventoryHealthApi, InventoryHealthApiError } from '@/lib/inventoryHealthApi';
 import { resolveLocalMetricsRange, todayIsoLocal } from '@/lib/pickerMetricsRange';
 import { formatAgeMinutes } from '@/lib/storeTime';
+import { useOpsAlerts } from '@/lib/opsAlerts';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
 
@@ -45,6 +46,7 @@ const CONFIRMED_STUCK_MINUTES = 30;
 
 export default function HomePage() {
   const { storeId, setStoreId } = useStoreContext();
+  const unstartedPickCount = useOpsAlerts((s) => s.unstartedPickCount);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -205,6 +207,13 @@ export default function HomePage() {
   const attentionTiles = useMemo((): Tile[] => {
     const tiles: Tile[] = [
       {
+        href: '/pickers/attention',
+        label: 'Picks not started',
+        value: unstartedPickCount ?? '—',
+        sub: 'Confirmed >60s with no pick started',
+        tone: unstartedPickCount != null && unstartedPickCount > 0 ? 'alert' : undefined
+      },
+      {
         href: '/finance/refunds',
         label: 'Stuck refunds',
         value: stuckRefunds ?? '—',
@@ -218,7 +227,7 @@ export default function HomePage() {
       }
     ];
     return tiles.filter((t) => typeof t.value === 'number' && t.value > 0);
-  }, [stuckRefunds, openDisputes]);
+  }, [unstartedPickCount, stuckRefunds, openDisputes]);
 
   function renderTileGrid(tiles: Tile[]) {
     return (

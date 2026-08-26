@@ -19,9 +19,9 @@ const KIND_TONE: Record<string, 'gray' | 'green' | 'amber' | 'red' | 'blue'> = {
 };
 
 const KIND_LABEL: Record<string, string> = {
-  PENDING_TASK: 'Pending task',
-  ORPHAN_ORDER: 'Orphan order',
-  ACCEPTANCE_TIMEOUT: 'Acceptance timeout',
+  PENDING_TASK: 'Pick not started',
+  ORPHAN_ORDER: 'No pick task',
+  ACCEPTANCE_TIMEOUT: 'Picker did not accept',
   IN_PROGRESS_STALE: 'Slow pick'
 };
 
@@ -82,7 +82,7 @@ export default function PickerAttentionPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Needs attention</h1>
           <p className="text-sm text-gray-500">
-            Stuck picks, orphan orders, and acceptance timeouts — refreshes every 30s.
+            Orders whose pick never started, plus slow picks — refreshes every 30s.
           </p>
         </div>
         <button type="button" className="btn-ghost text-sm" onClick={load} disabled={loading}>

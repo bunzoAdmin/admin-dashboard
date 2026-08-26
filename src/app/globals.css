@@ -43,3 +43,75 @@ a {
     @apply btn bg-red-600 text-white hover:bg-red-700;
   }
 }
+
+@keyframes pick-alarm-bar-flash {
+  0%,
+  100% {
+    background-color: rgb(220 38 38);
+    box-shadow: 0 0 0 0 rgb(254 202 202 / 0.85);
+  }
+  50% {
+    background-color: rgb(153 27 27);
+    box-shadow: 0 0 28px 6px rgb(254 202 202 / 0.55);
+  }
+}
+
+@keyframes pick-alarm-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px);
+  }
+  40% {
+    transform: translateX(3px);
+  }
+  60% {
+    transform: translateX(-2px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+@keyframes pick-alarm-ring {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+}
+
+.pick-alarm-bar {
+  animation: pick-alarm-bar-flash 0.85s ease-in-out infinite;
+}
+
+.pick-alarm-shake {
+  animation: pick-alarm-shake 0.55s ease-in-out infinite;
+}
+
+.pick-alarm-shake-fast {
+  animation: pick-alarm-shake 0.45s ease-in-out infinite;
+}
+
+.pick-alarm-ring {
+  animation: pick-alarm-ring 1.1s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pick-alarm-bar,
+  .pick-alarm-shake,
+  .pick-alarm-shake-fast,
+  .pick-alarm-ring {
+    animation: none;
+  }
+
+  .pick-alarm-bar {
+    background-color: rgb(185 28 28);
+    box-shadow: none;
+  }
+}
