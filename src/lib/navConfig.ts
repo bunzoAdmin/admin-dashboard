@@ -68,6 +68,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Orders',
     items: [
       { href: '/orders/list', label: 'All Orders', icon: List },
+      { href: '/orders/legs', label: 'Day legs', icon: Timer },
       { href: '/orders/invoices', label: 'Missing Invoices', icon: FileText },
       { href: '/orders/pipeline', label: 'Pipeline', icon: BarChart2 },
       { href: '/orders/metrics', label: 'Metrics', icon: BarChart2 },

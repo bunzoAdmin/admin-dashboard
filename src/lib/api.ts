@@ -25,6 +25,7 @@ import type {
   ReferralScreen,
   Rule,
   StoreQR,
+  TripByOrder,
   TripReachedConfig
 } from './types';
 
@@ -311,7 +312,14 @@ export const api = {
   getDispute: (id: string) =>
     request<{ dispute: AdminDisputeDetail }>(`/admin/disputes/${encodeURIComponent(id)}`),
   updateDispute: (id: string, body: { status: DisputeStatus; resolution_note?: string }) =>
-    request<{ dispute: AdminDispute }>(`/admin/disputes/${encodeURIComponent(id)}`, { method: 'PATCH', body })
+    request<{ dispute: AdminDispute }>(`/admin/disputes/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
+
+  getTripsByOrders: (ids: string[]): Promise<{ trips: TripByOrder[] }> => {
+    if (ids.length === 0) return Promise.resolve({ trips: [] });
+    return request<{ trips: TripByOrder[] }>('/admin/trips/by-orders', {
+      query: { ids: ids.join(',') }
+    });
+  }
 };
 
 // Uploads a file directly to S3 using a presigned PUT URL.

@@ -374,6 +374,13 @@ export interface PresenceResponse {
   segments: PresenceSegment[];
 }
 
+export interface TripByOrder {
+  order_id: string;
+  distance_km: number;
+  reached_at?: string;
+  trip_status: string;
+}
+
 export interface ApiError {
   code: string;
   message: string;
