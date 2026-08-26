@@ -107,13 +107,17 @@ async function loadPick(order: AdminOrderListItem, deps: DayLegClients): Promise
 }
 
 async function loadTrips(ids: string[], getTripsByOrders: DayLegClients['getTripsByOrders']): Promise<Map<string, TripByOrder>> {
-  const trips: TripByOrder[] = [];
-  for (let i = 0; i < ids.length; i += TRIP_CHUNK) {
-    const chunk = ids.slice(i, i + TRIP_CHUNK);
-    const res = await getTripsByOrders(chunk);
-    trips.push(...res.trips);
+  try {
+    const trips: TripByOrder[] = [];
+    for (let i = 0; i < ids.length; i += TRIP_CHUNK) {
+      const chunk = ids.slice(i, i + TRIP_CHUNK);
+      const res = await getTripsByOrders(chunk);
+      trips.push(...res.trips);
+    }
+    return new Map(trips.map((trip) => [trip.order_id, trip]));
+  } catch {
+    return new Map();
   }
-  return new Map(trips.map((trip) => [trip.order_id, trip]));
 }
 
 export async function loadDayLegRows(

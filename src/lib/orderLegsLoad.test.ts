@@ -330,6 +330,30 @@ describe('loadDayLegRows', () => {
     );
   });
 
+  it('keeps rows when getTripsByOrders rejects', async () => {
+    const orders = [
+      stubOrder({ orderNumber: 'ORD-1', status: 'CANCELLED' }),
+      stubOrder({ orderNumber: 'ORD-2', status: 'CANCELLED' })
+    ];
+    const clients = makeClients({
+      list: async () => paged(orders, 2, 0, true),
+      getTripsByOrders: async () => {
+        throw new Error('qcom down');
+      }
+    });
+
+    const result = await loadDayLegRows(1, DATE_FROM, DATE_TO, NOW_MS, clients);
+
+    assert.equal(result.rows.length, 2);
+    assert.equal(result.truncated, false);
+    assert.equal(result.total, 2);
+    for (const row of result.rows) {
+      assert.equal(row.distanceKm, null);
+      assert.equal(row.lastMilePredictedMinutes, null);
+      assert.equal(row.legs.find((leg) => leg.id === 'ofd_to_reached')?.actualSeconds, null);
+    }
+  });
+
   it('chunks getTripsByOrders into groups of 100', async () => {
     const orders = manyOrders(101);
     const clients = makeClients({

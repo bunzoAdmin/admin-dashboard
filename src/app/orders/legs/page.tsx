@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
@@ -74,9 +74,11 @@ export default function DayLegsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
   const load = useCallback(async () => {
     if (storeId == null) return;
+    const seq = ++loadSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -87,22 +89,28 @@ export default function DayLegsPage() {
         customTo: ''
       });
       const result = await loadDayLegRows(storeId, range.from, range.toExclusive, Date.now());
+      if (seq !== loadSeq.current) return;
       setRows(result.rows);
       setTruncated(result.truncated);
       setTotal(result.total);
     } catch (err) {
+      if (seq !== loadSeq.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load day legs.');
       setRows([]);
       setTruncated(false);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === loadSeq.current) setLoading(false);
     }
   }, [storeId, anchorDate]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [storeId, anchorDate]);
 
   const filtered = useMemo(() => filterLegRows(rows, chip), [rows, chip]);
   const paged = useMemo(() => pageLegRows(filtered, page), [filtered, page]);
@@ -114,6 +122,11 @@ export default function DayLegsPage() {
 
   function changeChip(next: LegChip) {
     setChip(next);
+    setPage(0);
+  }
+
+  function changeStore(next: number | null) {
+    setStoreId(next);
     setPage(0);
   }
 
@@ -133,7 +146,7 @@ export default function DayLegsPage() {
       </div>
 
       <Card className="space-y-4">
-        <StoreSelector storeId={storeId} onStoreChange={setStoreId} />
+        <StoreSelector storeId={storeId} onStoreChange={changeStore} />
 
         <div className="flex flex-wrap items-center gap-2">
           <button
