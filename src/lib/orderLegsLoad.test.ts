@@ -13,7 +13,6 @@ const DATE_TO = '2026-08-26T22:00:00.000Z';
 
 function stubOrder(overrides: Partial<AdminOrderListItem> & { orderNumber: string }): AdminOrderListItem {
   return {
-    orderNumber: overrides.orderNumber,
     customerId: 'c1',
     storeId: 1,
     status: 'CANCELLED',
