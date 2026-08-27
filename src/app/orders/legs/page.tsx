@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { Calendar, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
-import { Badge, Card, EmptyState, ErrorBox, Loading } from '@/components/ui';
+import { Badge, Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
 import { LEG_IDS, formatDurationMmSs, type OrderLegRow, type Tone } from '@/lib/orderLegs';
 import { loadDayLegRows } from '@/lib/orderLegsLoad';
-import { filterLegRows, pageLegRows, type LegChip } from '@/lib/orderLegsView';
+import { computeLegAverages, filterLegRows, legAverageHint, pageLegRows, type LegChip } from '@/lib/orderLegsView';
 import { nudgeAnchorDate, resolveLocalMetricsRange } from '@/lib/pickerMetricsRange';
 import { formatStoreDateTime, todayIsoStore } from '@/lib/storeTime';
 
@@ -114,6 +114,14 @@ export default function DayLegsPage() {
 
   const filtered = useMemo(() => filterLegRows(rows, chip), [rows, chip]);
   const paged = useMemo(() => pageLegRows(filtered, page), [filtered, page]);
+  const averages = useMemo(() => computeLegAverages(rows), [rows]);
+
+  const averagesCaption =
+    averages.orderCount === 0
+      ? 'No delivered orders for this day.'
+      : truncated
+        ? `Based on ${averages.orderCount} delivered order${averages.orderCount === 1 ? '' : 's'} from the first ${rows.length} of ${total} orders loaded for this day.`
+        : `Based on ${averages.orderCount} delivered order${averages.orderCount === 1 ? '' : 's'} for this day.`;
 
   function changeDate(next: string) {
     setAnchorDate(next);
@@ -204,7 +212,9 @@ export default function DayLegsPage() {
 
       {truncated && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Showing the first {rows.length} of {total} orders for this day.
+          Order list is capped at {rows.length} of {total} for this day. Delivered averages below use only
+          delivered orders in that loaded set ({averages.orderCount} delivered
+          {averages.orderCount === 1 ? '' : 's'}).
         </div>
       )}
 
@@ -212,32 +222,61 @@ export default function DayLegsPage() {
         <EmptyState>Select a store to view day legs.</EmptyState>
       ) : loading && rows.length === 0 && !error ? (
         <Loading label="Loading day legs…" />
-      ) : filtered.length === 0 ? (
-        <EmptyState>No orders for this day and filter.</EmptyState>
       ) : (
-        <Card className="overflow-hidden p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs uppercase tracking-wide text-gray-500">
-                  <th className="px-4 py-2.5 font-medium">Order</th>
-                  <th className="px-4 py-2.5 font-medium">Status</th>
-                  <th className="px-4 py-2.5 font-medium">Created</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Units</th>
-                  <th className="px-4 py-2.5 font-medium text-right">km</th>
-                  {LEG_IDS.map((id) => (
-                    <th key={id} className="px-4 py-2.5 font-medium text-right">
-                      {LEG_HEADERS[id]}
-                    </th>
-                  ))}
-                  <th className="px-4 py-2.5 font-medium text-right">Item pred</th>
-                  <th className="px-4 py-2.5 font-medium text-right">LM pred</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Pred e2e</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Actual e2e</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paged.map((row) => {
+        <>
+          <Card className="space-y-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-900">Delivered averages · {anchorDate}</h2>
+              <p className="mt-1 text-xs text-gray-500">{averagesCaption}</p>
+            </div>
+            {averages.orderCount > 0 ? (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {LEG_IDS.map((id) => {
+                  const avg = averages.byLeg[id];
+                  return (
+                    <Stat
+                      key={id}
+                      label={LEG_HEADERS[id]}
+                      value={formatDurationMmSs(avg.avgSeconds)}
+                      sub={legAverageHint(avg, averages.orderCount)}
+                    />
+                  );
+                })}
+                <Stat
+                  label="Actual e2e"
+                  value={formatDurationMmSs(averages.actualE2e.avgSeconds)}
+                  sub={legAverageHint(averages.actualE2e, averages.orderCount)}
+                />
+              </div>
+            ) : null}
+          </Card>
+
+          {filtered.length === 0 ? (
+            <EmptyState>No orders for this day and filter.</EmptyState>
+          ) : (
+            <Card className="overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs uppercase tracking-wide text-gray-500">
+                      <th className="px-4 py-2.5 font-medium">Order</th>
+                      <th className="px-4 py-2.5 font-medium">Status</th>
+                      <th className="px-4 py-2.5 font-medium">Created</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Units</th>
+                      <th className="px-4 py-2.5 font-medium text-right">km</th>
+                      {LEG_IDS.map((id) => (
+                        <th key={id} className="px-4 py-2.5 font-medium text-right">
+                          {LEG_HEADERS[id]}
+                        </th>
+                      ))}
+                      <th className="px-4 py-2.5 font-medium text-right">Item pred</th>
+                      <th className="px-4 py-2.5 font-medium text-right">LM pred</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Pred e2e</th>
+                      <th className="px-4 py-2.5 font-medium text-right">Actual e2e</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paged.map((row) => {
                   const href = `/orders/${encodeURIComponent(row.orderNumber)}`;
                   return (
                     <tr
@@ -284,37 +323,39 @@ export default function DayLegsPage() {
                         {formatDurationMmSs(row.actualE2eSeconds)}
                       </td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {filtered.length > 50 && (
-            <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
-              <span className="text-xs text-gray-500">
-                {page * 50 + 1}–{Math.min((page + 1) * 50, filtered.length)} of {filtered.length}
-              </span>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  className="btn-ghost px-3 py-1 text-xs"
-                  disabled={page === 0}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost px-3 py-1 text-xs"
-                  disabled={(page + 1) * 50 >= filtered.length}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next
-                </button>
+                    );
+                  })}
+                  </tbody>
+                </table>
               </div>
-            </div>
+              {filtered.length > 50 && (
+                <div className="flex items-center justify-between border-t border-gray-100 px-4 py-3">
+                  <span className="text-xs text-gray-500">
+                    {page * 50 + 1}–{Math.min((page + 1) * 50, filtered.length)} of {filtered.length}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost px-3 py-1 text-xs"
+                      disabled={page === 0}
+                      onClick={() => setPage((p) => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost px-3 py-1 text-xs"
+                      disabled={(page + 1) * 50 >= filtered.length}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
+            </Card>
           )}
-        </Card>
+        </>
       )}
     </div>
   );

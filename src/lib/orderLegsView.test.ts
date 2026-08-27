@@ -1,7 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { filterLegRows, pageLegRows } from './orderLegsView';
-import type { OrderLegRow } from './orderLegs';
+import { computeLegAverages, filterLegRows, legAverageHint, pageLegRows } from './orderLegsView';
+import type { LegId, OrderLegRow } from './orderLegs';
+import { LEG_IDS } from './orderLegs';
 
 function row(overrides: Partial<OrderLegRow> = {}): OrderLegRow {
   return {
@@ -62,6 +63,95 @@ describe('filterLegRows', () => {
       filterLegRows(rows, 'has_red').map((r) => r.orderNumber),
       ['R', 'DR']
     );
+  });
+});
+
+function legs(durations: Partial<Record<LegId, number | null>>): OrderLegRow['legs'] {
+  return LEG_IDS.map((id) => ({
+    id,
+    actualSeconds: durations[id] ?? null,
+    tone: null
+  }));
+}
+
+describe('computeLegAverages', () => {
+  it('averages each leg over non-null samples in the row set', () => {
+    const result = computeLegAverages([
+      row({
+        orderNumber: 'A',
+        legs: legs({
+          created_to_confirmed: 60,
+          confirmed_to_pick_start: 120,
+          pick_start_to_pick_end: 180
+        }),
+        actualE2eSeconds: 600
+      }),
+      row({
+        orderNumber: 'B',
+        legs: legs({
+          created_to_confirmed: 120,
+          confirmed_to_pick_start: null,
+          pick_start_to_pick_end: 240
+        }),
+        actualE2eSeconds: 900
+      })
+    ]);
+
+    assert.equal(result.orderCount, 2);
+    assert.equal(result.byLeg.created_to_confirmed.avgSeconds, 90);
+    assert.equal(result.byLeg.created_to_confirmed.sampleCount, 2);
+    assert.equal(result.byLeg.confirmed_to_pick_start.avgSeconds, 120);
+    assert.equal(result.byLeg.confirmed_to_pick_start.sampleCount, 1);
+    assert.equal(result.byLeg.pick_start_to_pick_end.avgSeconds, 210);
+    assert.equal(result.byLeg.ofd_to_reached.avgSeconds, null);
+    assert.equal(result.byLeg.ofd_to_reached.sampleCount, 0);
+    assert.equal(result.actualE2e.avgSeconds, 750);
+    assert.equal(result.actualE2e.sampleCount, 2);
+  });
+
+  it('returns null averages for an empty row set', () => {
+    const result = computeLegAverages([]);
+    assert.equal(result.orderCount, 0);
+    for (const id of LEG_IDS) {
+      assert.equal(result.byLeg[id].avgSeconds, null);
+      assert.equal(result.byLeg[id].sampleCount, 0);
+    }
+    assert.equal(result.actualE2e.avgSeconds, null);
+  });
+
+  it('ignores non-delivered orders', () => {
+    const result = computeLegAverages([
+      row({
+        orderNumber: 'D',
+        status: 'DELIVERED',
+        legs: legs({ created_to_confirmed: 100 }),
+        actualE2eSeconds: 500
+      }),
+      row({
+        orderNumber: 'P',
+        status: 'PACKING',
+        legs: legs({ created_to_confirmed: 10 }),
+        actualE2eSeconds: 50
+      }),
+      row({
+        orderNumber: 'C',
+        status: 'CANCELLED',
+        legs: legs({ created_to_confirmed: 20 }),
+        actualE2eSeconds: 80
+      })
+    ]);
+
+    assert.equal(result.orderCount, 1);
+    assert.equal(result.byLeg.created_to_confirmed.avgSeconds, 100);
+    assert.equal(result.actualE2e.avgSeconds, 500);
+  });
+});
+
+describe('legAverageHint', () => {
+  it('explains partial leg samples', () => {
+    assert.equal(legAverageHint({ avgSeconds: 90, sampleCount: 38 }, 42), '38 of 42 delivered orders have this leg');
+    assert.equal(legAverageHint({ avgSeconds: 90, sampleCount: 42 }, 42), '42 delivered orders');
+    assert.equal(legAverageHint({ avgSeconds: null, sampleCount: 0 }, 42), undefined);
   });
 });
 
