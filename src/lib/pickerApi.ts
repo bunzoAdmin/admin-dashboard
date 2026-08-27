@@ -17,6 +17,7 @@ import type {
   ReassignTaskRequest,
   ReconciliationOutboxResponse,
   RegisterPickerRequest,
+  ResolvePickTaskRequest,
   ShiftCoverageListResponse,
   ShiftResponse,
   ShortPickDetailResponse,
@@ -128,6 +129,12 @@ export const pickerApi = {
   assignPicker: (orderNumber: string, body: AssignPickerRequest) =>
     pickerRequest<TaskListResponse>(
       `/admin/picker/orders/${encodeURIComponent(orderNumber)}/assign-picker`,
+      { method: 'POST', body }
+    ),
+
+  resolvePickTask: (orderNumber: string, body: ResolvePickTaskRequest) =>
+    pickerRequest<TaskListResponse>(
+      `/admin/picker/orders/${encodeURIComponent(orderNumber)}/pick-task/resolve`,
       { method: 'POST', body }
     ),
 

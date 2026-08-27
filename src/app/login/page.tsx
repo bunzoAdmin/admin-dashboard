@@ -6,6 +6,7 @@ import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/lib/store';
 import { api, ApiClientError } from '@/lib/api';
 import { Field, Spinner, ErrorBox } from '@/components/ui';
+import { unlockPickAlarmAudio } from '@/lib/pickNotStartedAlarm';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +25,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const res = await api.login(username.trim(), password);
+      unlockPickAlarmAudio();
       login(res.token, res.user);
       router.replace('/');
     } catch (err) {

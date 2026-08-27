@@ -4,24 +4,10 @@ import Link from 'next/link';
 import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useOpsAlerts } from '@/lib/opsAlerts';
-import {
-  disposePickNotStartedAlarm,
-  syncPickNotStartedAlarm,
-  unlockPickAlarmAudio
-} from '@/lib/pickNotStartedAlarm';
+import { disposePickNotStartedAlarm, syncPickNotStartedAlarm } from '@/lib/pickNotStartedAlarm';
 
 export function PickNotStartedBanner() {
   const count = useOpsAlerts((s) => s.unstartedPickCount);
-
-  useEffect(() => {
-    const unlock = () => unlockPickAlarmAudio();
-    window.addEventListener('pointerdown', unlock);
-    window.addEventListener('keydown', unlock);
-    return () => {
-      window.removeEventListener('pointerdown', unlock);
-      window.removeEventListener('keydown', unlock);
-    };
-  }, []);
 
   useEffect(() => {
     syncPickNotStartedAlarm(count);

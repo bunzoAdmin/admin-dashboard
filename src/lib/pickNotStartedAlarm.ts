@@ -1,13 +1,22 @@
-/** Web Audio emergency siren + tab flash for unstarted pick tasks. */
+/** Web Audio emergency siren + tab flash + background notifications for unstarted pick tasks. */
 
 const SIREN_ON_MS = 2_200;
 const SIREN_GAP_MS = 600;
+const BG_NOTIFY_MIN_MS = 25_000;
+/** Minimal silent WAV — keeps the tab in Chrome's "audible" state so siren can loop in background. */
+const SILENT_WAV =
+  'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==';
 
 let audioCtx: AudioContext | null = null;
+let keepaliveEl: HTMLAudioElement | null = null;
 let alarmTimer: ReturnType<typeof setInterval> | null = null;
 let titleTimer: ReturnType<typeof setInterval> | null = null;
 let savedTitle: string | null = null;
 let activeCount = 0;
+let sessionActive = false;
+let lastBgNotifyMs = 0;
+let lastNotification: Notification | null = null;
+let autoUnlockInstalled = false;
 
 function getAudioContext(): AudioContext | null {
   if (typeof window === 'undefined') return null;
@@ -19,15 +28,95 @@ function getAudioContext(): AudioContext | null {
   return audioCtx;
 }
 
-export function unlockPickAlarmAudio(): void {
+async function requestNotificationPermission(): Promise<boolean> {
+  if (typeof Notification === 'undefined') return false;
+  if (Notification.permission === 'granted') return true;
+  if (Notification.permission === 'denied') return false;
+  return (await Notification.requestPermission()) === 'granted';
+}
+
+function startKeepaliveAudio(): void {
+  if (keepaliveEl || typeof Audio === 'undefined') return;
+  keepaliveEl = new Audio(SILENT_WAV);
+  keepaliveEl.loop = true;
+  keepaliveEl.volume = 0.02;
+  void keepaliveEl.play().catch(() => {});
+}
+
+function stopKeepaliveAudio(): void {
+  if (!keepaliveEl) return;
+  keepaliveEl.pause();
+  keepaliveEl.src = '';
+  keepaliveEl = null;
+}
+
+async function ensureAudioRunning(): Promise<boolean> {
+  if (!sessionActive) return false;
   const ctx = getAudioContext();
-  if (ctx?.state === 'suspended') void ctx.resume();
+  if (!ctx) return false;
+  if (ctx.state === 'suspended') {
+    try {
+      await ctx.resume();
+    } catch {
+      return false;
+    }
+  }
+  if (ctx.state !== 'running') return false;
+  if (keepaliveEl?.paused) void keepaliveEl.play().catch(() => {});
+  return true;
+}
+
+async function activatePickAlarmSession(): Promise<boolean> {
+  const ctx = getAudioContext();
+  if (!ctx) return false;
+
+  if (sessionActive && ctx.state === 'running') {
+    if (keepaliveEl?.paused) void keepaliveEl.play().catch(() => {});
+    return true;
+  }
+
+  try {
+    await ctx.resume();
+    startKeepaliveAudio();
+    sessionActive = true;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      void requestNotificationPermission();
+    }
+    return ctx.state === 'running';
+  } catch {
+    sessionActive = false;
+    return false;
+  }
+}
+
+/** Browser autoplay policy requires a user gesture — arm audio on any normal interaction. */
+export function unlockPickAlarmAudio(): void {
+  void activatePickAlarmSession();
+}
+
+/**
+ * Wire global unlock once for the authenticated shell. First click/keypress anywhere
+ * (nav, login button, order row, etc.) arms audio — no separate enable step.
+ */
+export function installPickAlarmAutoUnlock(): () => void {
+  if (typeof window === 'undefined' || autoUnlockInstalled) return () => {};
+  autoUnlockInstalled = true;
+
+  const unlock = () => unlockPickAlarmAudio();
+  window.addEventListener('pointerdown', unlock, { passive: true });
+  window.addEventListener('keydown', unlock, { passive: true });
+
+  return () => {
+    window.removeEventListener('pointerdown', unlock);
+    window.removeEventListener('keydown', unlock);
+    autoUnlockInstalled = false;
+  };
 }
 
 /** Harsh two-tone siren — sawtooth + square layered, ~1.4s burst. */
 export function playPickAlarmSiren(): void {
   const ctx = getAudioContext();
-  if (!ctx || ctx.state === 'suspended') return;
+  if (!ctx || ctx.state !== 'running') return;
 
   const now = ctx.currentTime;
   const master = ctx.createGain();
@@ -75,9 +164,35 @@ export function playPickAlarmSiren(): void {
     chirp.stop(t + 0.1);
   }
 
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator && !document.hidden) {
     navigator.vibrate([180, 80, 180, 80, 220]);
   }
+}
+
+function clearBackgroundNotification(): void {
+  lastNotification?.close();
+  lastNotification = null;
+}
+
+function maybeShowBackgroundNotification(): void {
+  if (typeof document === 'undefined' || !document.hidden || activeCount <= 0) return;
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+
+  const now = Date.now();
+  if (now - lastBgNotifyMs < BG_NOTIFY_MIN_MS) return;
+  lastBgNotifyMs = now;
+
+  const body = `${activeCount} confirmed order${activeCount === 1 ? '' : 's'} waiting — no picker activity`;
+  lastNotification?.close();
+  lastNotification = new Notification('Pick not started', {
+    body,
+    tag: 'bunzo-pick-not-started',
+    requireInteraction: true
+  });
+  lastNotification.onclick = () => {
+    window.focus();
+    lastNotification?.close();
+  };
 }
 
 function alarmTitle(): string {
@@ -107,9 +222,11 @@ function stopTitleFlash(): void {
   }
 }
 
-function tickAlarm(): void {
-  playPickAlarmSiren();
+async function tickAlarm(): Promise<void> {
+  const ready = await ensureAudioRunning();
+  if (ready) playPickAlarmSiren();
   startTitleFlash();
+  maybeShowBackgroundNotification();
 }
 
 function stopAlarmLoop(): void {
@@ -118,6 +235,7 @@ function stopAlarmLoop(): void {
     alarmTimer = null;
   }
   stopTitleFlash();
+  clearBackgroundNotification();
 }
 
 /** Start/stop looping siren based on unstarted pick count. */
@@ -130,19 +248,30 @@ export function syncPickNotStartedAlarm(count: number | null): void {
   }
 
   activeCount = n;
-  unlockPickAlarmAudio();
+  void ensureAudioRunning();
 
   if (alarmTimer) return;
 
-  tickAlarm();
-  alarmTimer = setInterval(tickAlarm, SIREN_ON_MS + SIREN_GAP_MS);
+  void tickAlarm();
+  alarmTimer = setInterval(() => void tickAlarm(), SIREN_ON_MS + SIREN_GAP_MS);
 }
 
 export function disposePickNotStartedAlarm(): void {
   stopAlarmLoop();
   activeCount = 0;
+  stopKeepaliveAudio();
+  sessionActive = false;
   if (audioCtx) {
     void audioCtx.close();
     audioCtx = null;
   }
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (activeCount <= 0 || !sessionActive) return;
+    void ensureAudioRunning().then((ready) => {
+      if (ready && document.hidden) void tickAlarm();
+    });
+  });
 }

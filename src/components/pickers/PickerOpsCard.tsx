@@ -6,6 +6,8 @@ import type { TaskListResponse } from '@/lib/pickerTypes';
 import { Badge, Card, ErrorBox, Loading, SectionTitle, formatDate } from '@/components/ui';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
+import { PickTaskResolveModal } from '@/components/pickers/PickTaskResolveModal';
+import type { OrderLineForResolve } from '@/components/pickers/PickTaskResolveModal';
 
 import { formatDurationSeconds } from '@/lib/pickerUtils';
 
@@ -27,7 +29,11 @@ interface PickerOpsCardProps {
   orderNumber: string;
   orderStatus: string;
   storeId: number;
+  orderItems?: OrderLineForResolve[];
   onTaskChanged?: () => void;
+  /** When set, resolve modal open state is controlled by the parent (e.g. order header RFD button). */
+  resolveOpen?: boolean;
+  onResolveOpenChange?: (open: boolean) => void;
 }
 
 /** Order hasn't been confirmed yet — no pick task can exist, nothing to show. */
@@ -39,12 +45,27 @@ const NOT_YET_RELEVANT: string[] = ['PENDING_PAYMENT'];
  * IN_PROGRESS), which in practice only overlaps CONFIRMED/PACKING orders — for later order
  * statuses this renders a read-only summary of who picked the order, no actions.
  */
-export function PickerOpsCard({ orderNumber, orderStatus, storeId, onTaskChanged }: PickerOpsCardProps) {
+export function PickerOpsCard({
+  orderNumber,
+  orderStatus,
+  storeId,
+  orderItems = [],
+  onTaskChanged,
+  resolveOpen: resolveOpenProp,
+  onResolveOpenChange
+}: PickerOpsCardProps) {
   const [task, setTask] = useState<TaskListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<'assign' | 'reassign' | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [resolveOpenInternal, setResolveOpenInternal] = useState(false);
+
+  const resolveOpen = resolveOpenProp ?? resolveOpenInternal;
+  const setResolveOpen = (open: boolean) => {
+    onResolveOpenChange?.(open);
+    if (resolveOpenProp === undefined) setResolveOpenInternal(open);
+  };
 
   const relevant = !NOT_YET_RELEVANT.includes(orderStatus);
 
@@ -76,6 +97,14 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId, onTaskChanged
   if (!relevant) return null;
 
   const canCancel = task != null && !['PICKED', 'CANCELLED'].includes(task.status);
+  const openTask = task == null || !['PICKED', 'CANCELLED'].includes(task.status);
+  const canResolve =
+    (orderStatus === 'CONFIRMED' || orderStatus === 'PACKING') && openTask;
+  const emphasizeResolve =
+    canResolve &&
+    (task == null ||
+      task.status === 'PENDING' ||
+      (task.status === 'IN_PROGRESS' && (task.elapsedSeconds ?? 0) >= PICKING_ALERT_SECONDS));
 
   return (
     <Card>
@@ -88,9 +117,11 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId, onTaskChanged
         <PickerOpsBody
           task={task}
           orderStatus={orderStatus}
+          emphasizeResolve={emphasizeResolve}
           onAssign={() => setModalMode('assign')}
           onReassign={() => setModalMode('reassign')}
           onCancel={canCancel ? () => setCancelOpen(true) : undefined}
+          onResolve={canResolve ? () => setResolveOpen(true) : undefined}
         />
       )}
       <TaskReassignModal
@@ -108,28 +139,60 @@ export function PickerOpsCard({ orderNumber, orderStatus, storeId, onTaskChanged
         onClose={() => setCancelOpen(false)}
         onDone={afterAction}
       />
+      <PickTaskResolveModal
+        open={resolveOpen}
+        orderNumber={orderNumber}
+        orderStatus={orderStatus}
+        task={task}
+        orderItems={orderItems}
+        onClose={() => setResolveOpen(false)}
+        onDone={afterAction}
+      />
     </Card>
+  );
+}
+
+function ResolveButton({
+  emphasize,
+  onResolve
+}: {
+  emphasize: boolean;
+  onResolve?: () => void;
+}) {
+  if (!onResolve) return null;
+  return (
+    <button
+      type="button"
+      className={emphasize ? 'btn-primary text-sm' : 'btn-ghost text-sm'}
+      onClick={onResolve}
+    >
+      Resolve pick task
+    </button>
   );
 }
 
 function PickerOpsBody({
   task,
   orderStatus,
+  emphasizeResolve,
   onAssign,
   onReassign,
-  onCancel
+  onCancel,
+  onResolve
 }: {
   task: TaskListResponse | null;
   orderStatus: string;
+  emphasizeResolve: boolean;
   onAssign: () => void;
   onReassign: () => void;
   onCancel?: () => void;
+  onResolve?: () => void;
 }) {
   if (!task) {
     // A CONFIRMED order with no task yet is the normal "auto-assignment hasn't run" window —
     // actionable. Any other status with no task is either a pre-picker-feature order or a
     // data anomaly; show a neutral note with no action rather than a misleading "assign" CTA.
-    if (orderStatus !== 'CONFIRMED') {
+    if (orderStatus !== 'CONFIRMED' && orderStatus !== 'PACKING') {
       return (
         <p className="text-sm text-gray-400">No pick task recorded for this order.</p>
       );
@@ -137,11 +200,18 @@ function PickerOpsBody({
     return (
       <div className="space-y-3">
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          No picker assigned yet — auto-assignment runs within ~60 seconds of confirmation.
+          {orderStatus === 'PACKING'
+            ? 'No pick task recorded — resolving will create one and complete packing.'
+            : 'No picker assigned yet — auto-assignment runs within ~60 seconds of confirmation.'}
         </div>
-        <button type="button" className="btn-primary text-sm" onClick={onAssign}>
-          Assign Picker
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {orderStatus === 'CONFIRMED' && (
+            <button type="button" className="btn-primary text-sm" onClick={onAssign}>
+              Assign Picker
+            </button>
+          )}
+          <ResolveButton emphasize={emphasizeResolve} onResolve={onResolve} />
+        </div>
       </div>
     );
   }
@@ -156,6 +226,7 @@ function PickerOpsBody({
           <button type="button" className="btn-primary text-sm" onClick={onAssign}>
             Assign Picker
           </button>
+          <ResolveButton emphasize={emphasizeResolve} onResolve={onResolve} />
           {onCancel && (
             <button type="button" className="btn-danger text-sm" onClick={onCancel}>
               Cancel task
@@ -178,6 +249,7 @@ function PickerOpsBody({
           <button type="button" className="btn-primary text-sm" onClick={onReassign}>
             Reassign
           </button>
+          <ResolveButton emphasize={emphasizeResolve} onResolve={onResolve} />
           {onCancel && (
             <button type="button" className="btn-danger text-sm" onClick={onCancel}>
               Cancel task
@@ -211,6 +283,7 @@ function PickerOpsBody({
           <button type="button" className="btn-primary text-sm" onClick={onReassign}>
             Reassign
           </button>
+          <ResolveButton emphasize={emphasizeResolve} onResolve={onResolve} />
           {onCancel && (
             <button type="button" className="btn-danger text-sm" onClick={onCancel}>
               Cancel task
@@ -232,9 +305,12 @@ function PickerOpsBody({
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
           Previous assignment was cancelled — the order still needs a picker.
         </div>
-        <button type="button" className="btn-primary text-sm" onClick={onAssign}>
-          Assign Picker
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="btn-primary text-sm" onClick={onAssign}>
+            Assign Picker
+          </button>
+          <ResolveButton emphasize={emphasizeResolve} onResolve={onResolve} />
+        </div>
       </div>
     );
   }

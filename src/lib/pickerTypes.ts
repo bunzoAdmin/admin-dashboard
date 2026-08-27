@@ -12,6 +12,7 @@ export interface PickerResponse {
   updatedAt?: string;
   initialPin?: string;
   offboardedAt?: string | null;
+  isSystem?: boolean | null;
 }
 
 export interface RegisterPickerRequest {
@@ -62,6 +63,17 @@ export interface AssignPickerRequest {
 
 export interface AdminCancelTaskRequest {
   reason: string;
+}
+
+export interface ResolvePickTaskItemRequest {
+  itemId?: number;
+  sku?: string;
+  action: 'PICKED' | 'UNAVAILABLE';
+  pickedQuantity?: number;
+}
+
+export interface ResolvePickTaskRequest {
+  items: ResolvePickTaskItemRequest[];
 }
 
 export interface ShiftResponse {

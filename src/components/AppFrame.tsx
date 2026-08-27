@@ -13,6 +13,7 @@ import { ToastProvider, Spinner } from './ui';
 import { DisputeWatcher } from './DisputeWatcher';
 import { OpsWatcher } from './OpsWatcher';
 import { PickNotStartedBanner } from './PickNotStartedBanner';
+import { installPickAlarmAutoUnlock } from '@/lib/pickNotStartedAlarm';
 import { Breadcrumbs } from './Breadcrumbs';
 
 const SIDEBAR_WIDTH_KEY = 'bunzo-sidebar-width';
@@ -410,6 +411,10 @@ export function AppFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     hydrate();
   }, [hydrate]);
+
+  useEffect(() => {
+    return installPickAlarmAutoUnlock();
+  }, []);
 
   useEffect(() => {
     setSectionExpanded((prev) => {

@@ -9,6 +9,7 @@ import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdmi
 import { Badge, Card, ErrorBox, Field, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
+import { pickerApi } from '@/lib/pickerApi';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
 import type { AdminDropPreview } from '@/lib/types';
@@ -65,6 +66,7 @@ export default function OrderDetailPage() {
   const [dropPreviewLoading, setDropPreviewLoading] = useState(false);
   const [dropPreviewError, setDropPreviewError] = useState<string | null>(null);
   const [selectedPhone, setSelectedPhone] = useState('');
+  const [resolvePickOpen, setResolvePickOpen] = useState(false);
 
   const loadOrder = useCallback(async () => {
     setLoadingOrder(true);
@@ -131,6 +133,39 @@ export default function OrderDetailPage() {
     () => (order ? ORDER_NEXT_STATUSES[order.status] ?? [] : []),
     [order]
   );
+
+  const orderItemsForResolve = useMemo(
+    () =>
+      order?.items.map((item) => ({
+        sku: item.sku,
+        productName: item.productName,
+        orderedQuantity: item.orderedQuantity
+      })) ?? [],
+    [order?.items]
+  );
+
+  async function handleAdvanceClick(target: OrderStatus) {
+    if (
+      target === 'READY_FOR_DELIVERY' &&
+      order &&
+      (order.status === 'PACKING' || order.status === 'CONFIRMED')
+    ) {
+      try {
+        const task = await pickerApi.getTaskForOrder(order.orderNumber);
+        if (task?.status === 'PICKED') {
+          setStatusTarget(target);
+          setStatusNotes('');
+          return;
+        }
+      } catch {
+        // No task or fetch failed — resolve path creates/completes as needed.
+      }
+      setResolvePickOpen(true);
+      return;
+    }
+    setStatusTarget(target);
+    setStatusNotes('');
+  }
 
   async function handleCancel() {
     if (!cancelReason.trim()) {
@@ -235,10 +270,7 @@ export default function OrderDetailPage() {
               key={s}
               type="button"
               className="btn-primary text-sm"
-              onClick={() => {
-                setStatusTarget(s);
-                setStatusNotes('');
-              }}
+              onClick={() => handleAdvanceClick(s)}
             >
               Advance to {s.replace(/_/g, ' ')}
             </button>
@@ -358,6 +390,9 @@ export default function OrderDetailPage() {
             orderNumber={order.orderNumber}
             orderStatus={order.status}
             storeId={order.storeId}
+            orderItems={orderItemsForResolve}
+            resolveOpen={resolvePickOpen}
+            onResolveOpenChange={setResolvePickOpen}
             onTaskChanged={() => {
               loadOrder();
               loadEvents();
