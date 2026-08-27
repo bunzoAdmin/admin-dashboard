@@ -110,8 +110,36 @@ async function catalogArray<T>(path: string): Promise<T[]> {
   return Array.isArray(data) ? data : data != null ? [data as T] : [];
 }
 
+/** Admin tree — includes inactive categories (consumer /tree endpoint is active-only). */
+function buildCategoryTree(categories: CategoryResponse[]): CategoryTreeNode[] {
+  const byParent = new Map<number | null, CategoryResponse[]>();
+  for (const category of categories) {
+    const parentId = category.parentId ?? null;
+    const siblings = byParent.get(parentId);
+    if (siblings) siblings.push(category);
+    else byParent.set(parentId, [category]);
+  }
+
+  const byDisplayOrder = (a: CategoryResponse, b: CategoryResponse) =>
+    (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.id - b.id;
+
+  function toNodes(parentId: number | null): CategoryTreeNode[] {
+    return (byParent.get(parentId) ?? [])
+      .sort(byDisplayOrder)
+      .map((category) => ({
+        ...category,
+        children: toNodes(category.id)
+      }));
+  }
+
+  return toNodes(null);
+}
+
 export const catalogApi = {
-  getCategoryTree: () => catalogArray<CategoryTreeNode>('/catalog/categories/tree'),
+  getCategoryTree: async () => {
+    const all = await catalogArray<CategoryResponse>('/catalog/categories/all');
+    return buildCategoryTree(all);
+  },
 
   createCategory: (body: CreateCategoryRequest) =>
     catalogRequest<CategoryResponse>('/catalog/categories', { method: 'POST', body }),
