@@ -29,6 +29,7 @@ import {
 } from '@/lib/zraApi';
 
 const RUNNING_STATUSES = new Set(['RUNNING', 'IN_PROGRESS', 'STARTED']);
+const MASTER_PAGE_SIZE = 50;
 
 export default function ZraStockPage() {
   const toast = useToast();
@@ -48,9 +49,23 @@ export default function ZraStockPage() {
   const [zraStockItems, setZraStockItems] = useState<ZraStockItemsResult | null>(null);
   const [zraStockItemsLoading, setZraStockItemsLoading] = useState(false);
   const [syncedSummary, setSyncedSummary] = useState<ZraStockSyncedSummary | null>(null);
+  const [masterQInput, setMasterQInput] = useState('');
+  const [masterQ, setMasterQ] = useState('');
+  const [masterPage, setMasterPage] = useState(0);
+  const [masterLoading, setMasterLoading] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const masterPageRef = useRef(0);
+  const masterQRef = useRef('');
+  const fetchGenRef = useRef(0);
 
   const sid = storeIdParam ?? 0;
+
+  useEffect(() => {
+    masterPageRef.current = masterPage;
+  }, [masterPage]);
+  useEffect(() => {
+    masterQRef.current = masterQ;
+  }, [masterQ]);
 
   const load = useCallback(async () => {
     if (!validStore || storeIdParam == null) {
@@ -70,16 +85,14 @@ export default function ZraStockPage() {
     setNotEnabled(false);
     setNotEnabledMessage(null);
     try {
-      const [p, s, b, synced] = await Promise.all([
+      const [p, s, b] = await Promise.all([
         zraApi.getStockPreview(storeIdParam),
         zraApi.getStockSyncStatus(storeIdParam),
-        zraApi.getBranch(storeIdParam).catch(() => null),
-        zraApi.getStockSyncedSummary(storeIdParam, 50).catch(() => null)
+        zraApi.getBranch(storeIdParam).catch(() => null)
       ]);
       setPreview(p);
       setStatus(s);
       setBranch(b);
-      setSyncedSummary(synced);
     } catch (err) {
       setPreview(null);
       setStatus(null);
@@ -97,9 +110,45 @@ export default function ZraStockPage() {
     }
   }, [validStore, storeIdParam]);
 
+  const fetchSynced = useCallback(async (store: number, page: number, q: string) => {
+    const gen = ++fetchGenRef.current;
+    setMasterLoading(true);
+    try {
+      const synced = await zraApi.getStockSyncedSummary(store, {
+        page,
+        size: MASTER_PAGE_SIZE,
+        q
+      });
+      if (gen !== fetchGenRef.current) return;
+      setSyncedSummary(synced);
+    } catch {
+      if (gen !== fetchGenRef.current) return;
+      setSyncedSummary(null);
+    } finally {
+      if (gen === fetchGenRef.current) setMasterLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    fetchGenRef.current += 1;
+    setMasterQInput('');
+    setMasterQ('');
+    setMasterPage(0);
+    setSyncedSummary(null);
+    setZraStockItems(null);
+  }, [storeIdParam]);
+
+  useEffect(() => {
+    if (!validStore || storeIdParam == null || notEnabled) {
+      setSyncedSummary(null);
+      return;
+    }
+    void fetchSynced(storeIdParam, masterPage, masterQ);
+  }, [validStore, storeIdParam, masterPage, masterQ, fetchSynced, notEnabled]);
 
   useEffect(() => {
     return () => {
@@ -120,8 +169,7 @@ export default function ZraStockPage() {
           setSyncing(false);
           const p = await zraApi.getStockPreview(sid);
           setPreview(p);
-          const synced = await zraApi.getStockSyncedSummary(sid, 50).catch(() => null);
-          setSyncedSummary(synced);
+          await fetchSynced(sid, masterPageRef.current, masterQRef.current);
         }
       } catch {
         /* keep polling */
@@ -202,6 +250,15 @@ export default function ZraStockPage() {
 
   const statusLabel = status?.status ?? '—';
   const isRunning = RUNNING_STATUSES.has(String(statusLabel).toUpperCase()) || syncing;
+  const masterRows = syncedSummary?.master?.rows ?? syncedSummary?.master?.sample ?? [];
+  const masterMatched = syncedSummary?.master?.matched ?? syncedSummary?.master?.succeeded ?? 0;
+  const masterPageCount = Math.max(1, Math.ceil(masterMatched / MASTER_PAGE_SIZE));
+
+  function searchMaster(e: React.FormEvent) {
+    e.preventDefault();
+    setMasterPage(0);
+    setMasterQ(masterQInput.trim());
+  }
 
   return (
     <div className="space-y-6">
@@ -215,7 +272,15 @@ export default function ZraStockPage() {
         </div>
         <div className="flex items-end gap-2">
           <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
-          <button type="button" className="btn-ghost" onClick={load} disabled={loading || !validStore}>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => {
+              void load();
+              if (storeIdParam != null) void fetchSynced(storeIdParam, masterPage, masterQ);
+            }}
+            disabled={loading || masterLoading || !validStore}
+          >
             {loading ? <Spinner className="h-4 w-4" /> : 'Refresh'}
           </button>
         </div>
@@ -363,7 +428,13 @@ export default function ZraStockPage() {
           </Card>
 
           <Card>
-            <SectionTitle>Stock master synced to ZRA</SectionTitle>
+            <SectionTitle
+              action={
+                masterLoading ? <Spinner className="h-4 w-4" /> : undefined
+              }
+            >
+              Stock master synced to ZRA
+            </SectionTitle>
             <p className="mb-2 text-xs text-gray-500">
               On-hand quantities we successfully pushed via <code className="text-[11px]">saveStockMaster</code>.
               VSDC has no read-back API for stock master — this outbox is the reconciliation source.
@@ -382,8 +453,35 @@ export default function ZraStockPage() {
                     value={String(syncedSummary.movements?.PURCHASE?.succeeded ?? 0)}
                   />
                 </dl>
-                {(syncedSummary.master.sample?.length ?? 0) > 0 ? (
-                  <div className="max-h-64 overflow-auto rounded-lg border border-gray-100">
+                <form onSubmit={searchMaster} className="mb-3 flex flex-wrap items-end gap-3">
+                  <Field label="Search SKU" className="min-w-[220px] flex-1">
+                    <input
+                      className="input font-mono"
+                      value={masterQInput}
+                      onChange={(e) => setMasterQInput(e.target.value)}
+                      placeholder="e.g. BANJA or SPAGHETTI"
+                    />
+                  </Field>
+                  <button type="submit" className="btn-ghost" disabled={masterLoading}>
+                    Search
+                  </button>
+                  {masterQ ? (
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      disabled={masterLoading}
+                      onClick={() => {
+                        setMasterQInput('');
+                        setMasterQ('');
+                        setMasterPage(0);
+                      }}
+                    >
+                      Clear
+                    </button>
+                  ) : null}
+                </form>
+                {masterRows.length > 0 ? (
+                  <div className="max-h-96 overflow-auto rounded-lg border border-gray-100">
                     <table className="min-w-full text-xs">
                       <thead className="sticky top-0 bg-gray-50 text-left text-gray-500">
                         <tr>
@@ -393,8 +491,8 @@ export default function ZraStockPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {syncedSummary.master.sample!.map((row) => (
-                          <tr key={row.sku} className="border-t border-gray-100">
+                        {masterRows.map((row) => (
+                          <tr key={row.id ?? row.sku} className="border-t border-gray-100">
                             <td className="px-3 py-1.5 font-mono text-gray-800">{row.sku}</td>
                             <td className="px-3 py-1.5 text-gray-700">{row.qty ?? '—'}</td>
                             <td className="px-3 py-1.5 text-gray-500">
@@ -406,15 +504,45 @@ export default function ZraStockPage() {
                     </table>
                   </div>
                 ) : (
-                  <p className="text-sm text-gray-400">No stock master rows synced yet.</p>
-                )}
-                {(syncedSummary.master.succeeded ?? 0) > (syncedSummary.master.sample?.length ?? 0) && (
-                  <p className="mt-2 text-xs text-gray-400">
-                    Showing first {syncedSummary.master.sample?.length ?? 0} of{' '}
-                    {syncedSummary.master.succeeded} SKUs.
+                  <p className="text-sm text-gray-400">
+                    {masterQ
+                      ? `No synced SKUs matching “${masterQ}”.`
+                      : 'No stock master rows synced yet.'}
                   </p>
                 )}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500">
+                  <span>
+                    {masterQ
+                      ? `${masterMatched} matching of ${syncedSummary.master.succeeded ?? 0} SKUs`
+                      : `${syncedSummary.master.succeeded ?? 0} SKUs`}
+                    {masterRows.length > 0
+                      ? ` · page ${masterPage + 1} of ${masterPageCount}`
+                      : ''}
+                  </span>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="btn-ghost px-2 py-1 text-xs"
+                      disabled={masterLoading || masterPage === 0}
+                      onClick={() => setMasterPage((p) => Math.max(0, p - 1))}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost px-2 py-1 text-xs"
+                      disabled={
+                        masterLoading || (masterPage + 1) * MASTER_PAGE_SIZE >= masterMatched
+                      }
+                      onClick={() => setMasterPage((p) => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
               </>
+            ) : masterLoading ? (
+              <p className="text-sm text-gray-400">Loading synced stock master…</p>
             ) : (
               <p className="text-sm text-gray-400">No synced stock master data yet.</p>
             )}
@@ -436,9 +564,10 @@ export default function ZraStockPage() {
               Stock movements on VSDC (selectStockItems)
             </SectionTitle>
             <p className="mb-2 text-xs text-gray-500">
-              Optional VSDC read of <code className="text-[11px]">saveStockItems</code> movement history
-              (SAR documents — sales, purchases, credits). This is <em>not</em> stock master on-hand qty.
-              VSDC may return &quot;no search result&quot; even after a successful sync.
+              Inbound <em>branch-to-branch</em> stock moves from ZRA (
+              <code className="text-[11px]">selectStockItems</code>
+              ). This is not on-hand qty and not our own sales/purchase movements. Empty (
+              result 001) is normal when no other branch has transferred stock to this device.
             </p>
             {zraStockItems == null ? (
               <p className="text-sm text-gray-400">Not fetched yet — click Fetch from VSDC.</p>
@@ -462,7 +591,7 @@ export default function ZraStockPage() {
                 ) : (
                   <p className="text-sm text-gray-500">
                     {zraStockItems.resultCd === '001'
-                      ? 'VSDC returned no movement history for this branch (result 001). Use the stock master table above to confirm what we pushed.'
+                      ? 'VSDC returned no inbound branch stock moves (result 001). Use the stock master table above to confirm on-hand we pushed.'
                       : zraStockItems.message || 'No movement records returned.'}
                   </p>
                 )}

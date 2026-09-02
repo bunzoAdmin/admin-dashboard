@@ -60,8 +60,7 @@ export default function ZraCodesPage() {
   async function handleSync() {
     if (
       !window.confirm(
-        'Sync ZRA standard / classification codes? Codes are national reference data shared by ' +
-          'every store — this refreshes them from every enabled VSDC device.'
+        'Sync ZRA standard / classification codes? Classification codes are fetched from VSDC in pages of 1000 until the list is complete. Codes are national reference data shared by every store — this refreshes them from every enabled VSDC device.'
       )
     ) {
       return;

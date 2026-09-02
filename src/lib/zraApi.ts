@@ -327,8 +327,13 @@ export type ZraStockSyncedSummary = {
   master?: {
     succeeded?: number;
     failed?: number;
+    matched?: number;
+    page?: number;
+    size?: number;
+    q?: string;
     sampleLimit?: number;
-    sample?: { sku?: string; qty?: number | string; syncedAt?: string | null }[];
+    sample?: { id?: number; sku?: string; qty?: number | string; syncedAt?: string | null }[];
+    rows?: { id?: number; sku?: string; qty?: number | string; syncedAt?: string | null }[];
   };
   movements?: Record<string, { succeeded?: number; failed?: number }>;
 };
@@ -399,9 +404,10 @@ export const zraApi = {
     return req<ZraOverview>(`/admin/zra/overview${qs ? `?${qs}` : ''}`);
   },
 
-  syncCodes: (storeId?: number, adminUser?: string) => {
+  syncCodes: (storeId?: number, adminUser?: string, full?: boolean) => {
     const q = new URLSearchParams();
     if (storeId != null) q.set('storeId', String(storeId));
+    if (full) q.set('full', 'true');
     const qs = q.toString();
     return req<Record<string, unknown>>(
       `/admin/zra/codes/sync${qs ? `?${qs}` : ''}`,
@@ -509,10 +515,16 @@ export const zraApi = {
    * Stock master + movement counts from our sync outbox — what we successfully pushed to VSDC.
    * VSDC has no selectStockMaster read API, so this is the reconciliation view for on-hand qty.
    */
-  getStockSyncedSummary: (storeId: number, masterSampleLimit = 50) =>
-    req<ZraStockSyncedSummary>(
-      `/admin/zra/stock/synced?storeId=${storeId}&masterSampleLimit=${masterSampleLimit}`
-    ),
+  getStockSyncedSummary: (
+    storeId: number,
+    opts: { page?: number; size?: number; q?: string; masterSampleLimit?: number } = {}
+  ) => {
+    const q = new URLSearchParams({ storeId: String(storeId) });
+    q.set('page', String(opts.page ?? 0));
+    q.set('size', String(opts.size ?? opts.masterSampleLimit ?? 50));
+    if (opts.q?.trim()) q.set('q', opts.q.trim());
+    return req<ZraStockSyncedSummary>(`/admin/zra/stock/synced?${q}`);
+  },
 
   syncStock: (storeId: number, adminUser?: string) =>
     req<ZraStockStatus>('/admin/zra/stock/sync', mutateOpts(adminUser, { storeId })),
