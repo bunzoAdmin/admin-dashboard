@@ -187,6 +187,11 @@ export const api = {
       method: 'POST',
       body: driverPhone ? { driver_phone: driverPhone } : {}
     }),
+  adminCompleteOrderPickup: (orderNumber: string) =>
+    request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/pickup/complete`, {
+      method: 'POST',
+      body: {}
+    }),
   getReassignCandidates: (tripId: string) =>
     request<{ candidates: ReassignCandidate[] }>(
       `/admin/trips/${encodeURIComponent(tripId)}/reassign-candidates`

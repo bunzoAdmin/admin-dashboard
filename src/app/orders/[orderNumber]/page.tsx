@@ -14,6 +14,7 @@ import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
 import type { AdminDropPreview } from '@/lib/types';
 import { adminDropConfirmLabel, canConfirmAdminDrop } from '@/lib/adminDropPreview';
+import { orderStatusAdvanceAction, showStatusAdvanceNotes } from '@/lib/orderStatusAdvance';
 import {
   ageToneClass,
   ageUrgencyTone,
@@ -191,11 +192,15 @@ export default function OrderDetailPage() {
     if (!statusTarget) return;
     setUpdatingStatus(true);
     try {
-      if (statusTarget === 'DELIVERED') {
+      const action = orderStatusAdvanceAction(statusTarget);
+      if (action === 'qcom-drop') {
         // DELIVERED is driven by qcom drop completion (closes the trip, frees the
         // rider, and syncs the order), not a direct Java status write.
         if (!dropPreview || !canConfirmAdminDrop(dropPreview.mode, selectedPhone)) return;
         await api.adminCompleteOrderDrop(orderNumber, selectedPhone || undefined);
+        await loadOrder();
+      } else if (action === 'qcom-pickup') {
+        await api.adminCompleteOrderPickup(orderNumber);
         await loadOrder();
       } else {
         const updated = await orderAdminApi.updateStatus(orderNumber, {
@@ -451,7 +456,7 @@ export default function OrderDetailPage() {
               Manual advances into picker-owned states fail if an active pick task still owns fulfillment.
             </p>
           )}
-          {statusTarget !== 'DELIVERED' && (
+          {statusTarget && showStatusAdvanceNotes(statusTarget) && (
             <label className="block space-y-1.5">
               <span className="label">Notes (optional)</span>
               <input
