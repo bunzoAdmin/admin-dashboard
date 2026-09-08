@@ -120,6 +120,7 @@ export const ordersProxy = handlers('/api/v1/orders');
 export const adminOrdersProxy = handlers('/api/v1/admin/orders');
 export const adminZraProxy = handlers('/api/v1/admin/zra');
 export const adminCouponsProxy = handlers('/api/v1/admin/coupons');
+export const adminPromotionsProxy = handlers('/api/v1/admin/promotions');
 export const adminRefundsProxy = handlers('/api/v1/admin/refunds');
 
 // Product-service admin inventory routes (discrepancies, stock-movements)

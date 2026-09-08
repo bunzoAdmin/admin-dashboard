@@ -15,6 +15,7 @@ import {
   Package,
   PackageCheck,
   PackagePlus,
+  Percent,
   Plus,
   QrCode,
   ScanBarcode,
@@ -148,7 +149,8 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Finance',
     items: [
       { href: '/finance/refunds', label: 'Stuck Refunds', icon: RefreshCw },
-      { href: '/finance/coupons', label: 'Coupons', icon: Ticket }
+      { href: '/finance/coupons', label: 'Coupons', icon: Ticket },
+      { href: '/finance/promotions', label: 'Product promotions', icon: Percent }
     ]
   },
   {
