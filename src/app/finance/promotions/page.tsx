@@ -78,6 +78,7 @@ const BLANK: Omit<CreatePromotionRequest, 'items'> & { items: ItemDraft[] } = {
   endsAt: null,
   audience: 'FIRST_N_ORDERS',
   maxCompletedOrders: 0,
+  maxRedemptionsPerCustomer: null,
   couponInteraction: 'STACK_FULL_CART',
   priority: 0,
   badgeText: '',
@@ -164,6 +165,7 @@ export default function PromotionsPage() {
         startsAt: form.startsAt || null,
         endsAt: form.endsAt || null,
         maxCompletedOrders: form.audience === 'FIRST_N_ORDERS' ? form.maxCompletedOrders ?? 0 : null,
+        maxRedemptionsPerCustomer: form.maxRedemptionsPerCustomer ?? null,
         storeId: form.storeId ?? null
       });
       setRows((prev) => (prev ? [created, ...prev] : [created]));
@@ -212,6 +214,8 @@ export default function PromotionsPage() {
         clearEndsAt: !editForm.endsAt,
         audience: editForm.audience,
         maxCompletedOrders: editForm.audience === 'FIRST_N_ORDERS' ? editForm.maxCompletedOrders ?? 0 : null,
+        maxRedemptionsPerCustomer: editForm.maxRedemptionsPerCustomer ?? null,
+        clearMaxRedemptionsPerCustomer: editForm.maxRedemptionsPerCustomer == null,
         ...(editForm.storeId != null ? { storeId: editForm.storeId } : { clearStoreId: true }),
         couponInteraction: editForm.couponInteraction,
         priority: editForm.priority,
@@ -314,6 +318,9 @@ export default function PromotionsPage() {
                       {p.audience === 'FIRST_N_ORDERS'
                         ? `First ${(p.maxCompletedOrders ?? 0) + 1} order(s)`
                         : 'Everyone'}
+                      {p.maxRedemptionsPerCustomer != null
+                        ? ` · ${p.maxRedemptionsPerCustomer} use${p.maxRedemptionsPerCustomer === 1 ? '' : 's'}/customer`
+                        : ''}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">{p.items?.length ?? 0}</td>
                     <td className="max-w-[220px] truncate px-4 py-3 text-xs text-gray-500">
@@ -348,6 +355,7 @@ export default function PromotionsPage() {
                               endsAt: p.endsAt ?? null,
                               audience: p.audience,
                               maxCompletedOrders: p.maxCompletedOrders ?? 0,
+                              maxRedemptionsPerCustomer: p.maxRedemptionsPerCustomer ?? null,
                               couponInteraction: p.couponInteraction,
                               priority: p.priority,
                               badgeText: p.badgeText ?? '',
@@ -521,6 +529,24 @@ function PromotionForm({
             />
           </label>
         )}
+        <label className="block space-y-1.5">
+          <span className="label">Max uses per customer (blank = unlimited)</span>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            value={form.maxRedemptionsPerCustomer ?? ''}
+            onChange={(e) =>
+              set({
+                maxRedemptionsPerCustomer: e.target.value === '' ? null : parseInt(e.target.value, 10)
+              })
+            }
+            placeholder="Unlimited"
+          />
+          <span className="text-xs text-gray-500">
+            1 = this offer on one order only, for every customer. Independent of audience.
+          </span>
+        </label>
         <label className="block space-y-1.5 sm:col-span-2">
           <span className="label">Coupon interaction</span>
           <select

@@ -20,6 +20,7 @@ export interface Promotion {
   endsAt?: string | null;
   audience: PromotionAudience;
   maxCompletedOrders?: number | null;
+  maxRedemptionsPerCustomer?: number | null;
   couponInteraction: CouponInteraction;
   priority: number;
   badgeText?: string | null;
@@ -37,6 +38,7 @@ export interface CreatePromotionRequest {
   endsAt?: string | null;
   audience: PromotionAudience;
   maxCompletedOrders?: number | null;
+  maxRedemptionsPerCustomer?: number | null;
   couponInteraction: CouponInteraction;
   priority?: number;
   badgeText?: string;
@@ -60,6 +62,8 @@ export interface PatchPromotionRequest {
   clearEndsAt?: boolean;
   audience?: PromotionAudience;
   maxCompletedOrders?: number | null;
+  maxRedemptionsPerCustomer?: number | null;
+  clearMaxRedemptionsPerCustomer?: boolean;
   couponInteraction?: CouponInteraction;
   priority?: number;
   badgeText?: string;
