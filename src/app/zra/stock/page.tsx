@@ -208,7 +208,7 @@ export default function ZraStockPage() {
     if (!validStore) return;
     if (
       !window.confirm(
-        `Post opening balance for store ${sid}?\n\nThis saves stock master (current on-hand for every SKU) AND unlocks daily Sync stock. With a large catalog this can take several minutes — it now runs in the background, so it's safe to navigate away and check back.`
+        `Post opening balance for store ${sid}?\n\nThis records the fiscal-stock watermark (no Bunzo shelf dump) and unlocks daily Sync stock. Safe to navigate away; check back for status.`
       )
     ) {
       return;
@@ -230,7 +230,7 @@ export default function ZraStockPage() {
     if (!validStore) return;
     if (
       !window.confirm(
-        `Save stock master for store ${sid}?\n\nThis re-pushes current on-hand quantities to ZRA (saveStockMaster only) in the background — it does NOT change the opening-balance flag or unlock sync.`
+        `Save stock master for store ${sid}?\n\nThis re-pushes fiscal ledger qty for mapped SKUs already on the ZRA master/journal (saveStockMaster only). It does not change the opening-balance flag.`
       )
     ) {
       return;
@@ -266,8 +266,9 @@ export default function ZraStockPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">ZRA Stock Sync</h1>
           <p className="text-sm text-gray-500">
-            Post opening balance once (saves stock master), then sync stock daily. Use Save stock
-            master any time to re-push current on-hand quantities.
+            ZRA stock is fiscal qty for mapped SKUs (purchases, sales, credits). Bunzo shelf
+            stock and internal adjustments stay in inventory. Post opening balance once, then
+            sync missed IO. Save stock master re-pushes ledger qty for mapped SKUs already on ZRA.
           </p>
         </div>
         <div className="flex items-end gap-2">
@@ -298,11 +299,10 @@ export default function ZraStockPage() {
         <Loading label="Loading stock preview…" />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Stat label="Pending sales" value={preview?.pendingSales ?? 0} />
             <Stat label="Pending credits" value={preview?.pendingCredits ?? 0} />
             <Stat label="Pending purchases" value={preview?.pendingPurchases ?? 0} />
-            <Stat label="Pending adjustments" value={preview?.pendingAdjustments ?? 0} />
             <Stat label="Pending total" value={preview?.pendingTotal ?? 0} />
           </div>
 
@@ -349,7 +349,7 @@ export default function ZraStockPage() {
                   className="btn-ghost"
                   disabled={finance.loading || !finance.allowed || !validStore || opening || isRunning}
                   onClick={handleOpeningBalance}
-                  title="saveStockMaster for every SKU, then unlock Sync stock (once)"
+                  title="Set opening watermark and unlock Sync stock (once)"
                 >
                   {opening ? <Spinner className="h-4 w-4" /> : 'Post opening balance (stock master + unlock)'}
                 </button>
@@ -364,13 +364,12 @@ export default function ZraStockPage() {
                 </button>
               </div>
               <p className="text-xs text-gray-500">
-                Both call the same VSDC endpoint (<span className="font-mono">saveStockMaster</span>
-                ) for every SKU — this can take several minutes on a large catalog and now runs in
-                the background.{' '}
-                <span className="font-medium text-gray-700">Opening balance</span> = stock master +
-                unlocks Sync stock (run once first).{' '}
-                <span className="font-medium text-gray-700">Stock master only</span> = re-push
-                quantities anytime (demo / correction) without touching that unlock flag.
+                <span className="font-medium text-gray-700">Opening balance</span> sets the
+                watermark so Sync stock can run (empty journal = no VSDC dump).{' '}
+                <span className="font-medium text-gray-700">Stock master only</span> re-pushes
+                fiscal qty for mapped SKUs that already have a master outbox or journal row.{' '}
+                <span className="font-medium text-gray-700">Sync stock</span> catches up missed
+                purchase/sale/credit IO, then master for those SKUs only.
               </p>
               <ZraFinanceNotice access={finance} />
             </div>
@@ -591,7 +590,7 @@ export default function ZraStockPage() {
                 ) : (
                   <p className="text-sm text-gray-500">
                     {zraStockItems.resultCd === '001'
-                      ? 'VSDC returned no inbound branch stock moves (result 001). Use the stock master table above to confirm on-hand we pushed.'
+                      ? 'VSDC returned no inbound branch stock moves (result 001). Use the stock master table above to confirm fiscal qty we pushed.'
                       : zraStockItems.message || 'No movement records returned.'}
                   </p>
                 )}

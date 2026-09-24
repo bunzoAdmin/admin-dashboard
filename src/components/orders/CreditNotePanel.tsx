@@ -166,10 +166,11 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
         },
         user?.username
       );
-      toast.push(
-        'success',
-        `Credit note ${cn.status ?? 'submitted'} invcNo=${cn.invcNo ?? cn.id}`
-      );
+      if (cn.status !== 'ISSUED') {
+        toast.push('error', cn.lastError || `Credit note ${cn.status ?? 'failed'}`);
+      } else {
+        toast.push('success', `Credit note issued invcNo=${cn.invcNo ?? cn.id}`);
+      }
       setReason('');
       setFullCredit(true);
       await loadPrior();

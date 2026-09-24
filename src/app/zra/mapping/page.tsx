@@ -14,6 +14,8 @@ import {
 } from '@/components/ui';
 import { useAuth } from '@/lib/store';
 import { SkuPicker } from '@/components/zra/SkuPicker';
+import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
+import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import {
   zraApi,
   ZraApiError,
@@ -24,14 +26,22 @@ import {
 export default function ZraMappingPage() {
   const toast = useToast();
   const user = useAuth((s) => s.user);
+  const finance = useZraFinanceAccess();
 
   const [skuQ, setSkuQ] = useState('');
   const [skuRows, setSkuRows] = useState<ZraSkuMapping[] | null>(null);
   const [skuLoading, setSkuLoading] = useState(false);
   const [skuError, setSkuError] = useState<string | null>(null);
 
-  const [skuForm, setSkuForm] = useState({ sku: '', taxTyCd: 'A', itemClsCd: '', notes: '' });
+  const [skuForm, setSkuForm] = useState({
+    sku: '',
+    taxTyCd: 'A',
+    itemClsCd: '',
+    rrpPrice: '',
+    notes: ''
+  });
   const [skuSaving, setSkuSaving] = useState(false);
+  const [rrpSyncing, setRrpSyncing] = useState(false);
 
   const [categories, setCategories] = useState<ZraCategoryMapping[] | null>(null);
   const [catLoading, setCatLoading] = useState(true);
@@ -71,20 +81,41 @@ export default function ZraMappingPage() {
   async function saveSku(e: React.FormEvent) {
     e.preventDefault();
     if (!skuForm.sku.trim()) return;
+    const tax = skuForm.taxTyCd.trim() || 'A';
+    const isMtv = tax.toUpperCase() === 'B';
+    let rrpPrice: number | null = null;
+    if (skuForm.rrpPrice.trim()) {
+      rrpPrice = Number(skuForm.rrpPrice);
+      if (!Number.isFinite(rrpPrice) || rrpPrice <= 0) {
+        toast.push('error', 'RRP must be a positive number.');
+        return;
+      }
+    }
+    if (isMtv && rrpPrice == null) {
+      toast.push('error', 'RRP is required for MTV (tax type B) items.');
+      return;
+    }
     setSkuSaving(true);
     try {
       await zraApi.upsertSkuMapping(
         skuForm.sku.trim(),
         {
-          taxTyCd: skuForm.taxTyCd.trim() || undefined,
+          taxTyCd: tax,
           itemClsCd: skuForm.itemClsCd.trim() || undefined,
           notes: skuForm.notes.trim() || undefined,
-          active: true
+          active: true,
+          rrpPrice: isMtv ? rrpPrice : null
         },
         user?.username
       );
       toast.push('success', `SKU mapping saved for ${skuForm.sku.trim()}.`);
-      setSkuForm({ sku: '', taxTyCd: 'A', itemClsCd: '', notes: '' });
+      setSkuForm({
+        sku: '',
+        taxTyCd: 'A',
+        itemClsCd: '',
+        rrpPrice: '',
+        notes: ''
+      });
       await loadSkus(skuQ);
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Failed to save SKU mapping.');
@@ -126,8 +157,31 @@ export default function ZraMappingPage() {
       sku: row.sku,
       taxTyCd: row.taxTyCd ?? 'A',
       itemClsCd: row.itemClsCd ?? '',
+      rrpPrice: row.rrpPrice != null && row.rrpPrice !== '' ? String(row.rrpPrice) : '',
       notes: row.notes ?? ''
     });
+  }
+
+  async function handleRrpSync() {
+    if (
+      !window.confirm(
+        'Pull manufacturer RRP from VSDC (selectRrpItems) and write it onto tax-B SKU mappings matched by SKU?'
+      )
+    ) {
+      return;
+    }
+    setRrpSyncing(true);
+    try {
+      const result = await zraApi.syncRrp(undefined, user?.username);
+      const updated = Number(result.updated ?? 0);
+      const fetched = Number(result.fetched ?? 0);
+      toast.push('success', `RRP sync finished — fetched ${fetched}, updated ${updated} tax-B mappings.`);
+      await loadSkus(skuQ);
+    } catch (err) {
+      toast.push('error', err instanceof ZraApiError ? err.message : 'RRP sync failed.');
+    } finally {
+      setRrpSyncing(false);
+    }
   }
 
   function editCategory(row: ZraCategoryMapping) {
@@ -141,14 +195,30 @@ export default function ZraMappingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-gray-900">ZRA Mapping</h1>
-        <p className="text-sm text-gray-500">Map SKUs and catalog categories to ZRA tax / item classification codes.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">ZRA Mapping</h1>
+          <p className="text-sm text-gray-500">
+            Map SKUs and catalog categories to ZRA tax / item classification codes. MTV (tax B) SKUs
+            need an RRP.
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleRrpSync}
+            disabled={finance.loading || !finance.allowed || rrpSyncing}
+          >
+            {rrpSyncing ? <Spinner className="h-4 w-4" /> : 'Sync RRP from VSDC'}
+          </button>
+          <ZraFinanceNotice access={finance} />
+        </div>
       </div>
 
       <Card>
         <SectionTitle>SKU mapping</SectionTitle>
-        <form onSubmit={saveSku} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <form onSubmit={saveSku} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <SkuPicker
             value={skuForm.sku}
             onChange={(sku) => setSkuForm((f) => ({ ...f, sku }))}
@@ -167,6 +237,15 @@ export default function ZraMappingPage() {
               value={skuForm.itemClsCd}
               onChange={(e) => setSkuForm((f) => ({ ...f, itemClsCd: e.target.value }))}
               required
+            />
+          </Field>
+          <Field label="RRP (MTV B)">
+            <input
+              className="input font-mono"
+              inputMode="decimal"
+              value={skuForm.rrpPrice}
+              onChange={(e) => setSkuForm((f) => ({ ...f, rrpPrice: e.target.value }))}
+              placeholder={skuForm.taxTyCd.trim().toUpperCase() === 'B' ? 'required' : '—'}
             />
           </Field>
           <Field label="Notes">
@@ -216,6 +295,7 @@ export default function ZraMappingPage() {
                   <th className="px-3 py-2 font-medium">SKU</th>
                   <th className="px-3 py-2 font-medium">taxTyCd</th>
                   <th className="px-3 py-2 font-medium">itemClsCd</th>
+                  <th className="px-3 py-2 font-medium">RRP</th>
                   <th className="px-3 py-2 font-medium">Active</th>
                   <th className="px-3 py-2 font-medium" />
                 </tr>
@@ -226,6 +306,9 @@ export default function ZraMappingPage() {
                     <td className="px-3 py-2 font-mono text-xs">{r.sku}</td>
                     <td className="px-3 py-2 font-mono text-xs">{r.taxTyCd}</td>
                     <td className="px-3 py-2 font-mono text-xs">{r.itemClsCd}</td>
+                    <td className="px-3 py-2 font-mono text-xs">
+                      {r.rrpPrice != null && r.rrpPrice !== '' ? String(r.rrpPrice) : '—'}
+                    </td>
                     <td className="px-3 py-2">
                       <Badge tone={r.isActive ? 'green' : 'gray'}>{r.isActive ? 'Yes' : 'No'}</Badge>
                     </td>

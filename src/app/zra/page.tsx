@@ -13,12 +13,14 @@ import {
   Stat,
   formatDate
 } from '@/components/ui';
+import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { ZraNotEnabledNotice } from '@/components/zra/ZraNotEnabledNotice';
 import { useZraStore, ZraStoreSelector } from '@/components/zra/ZraStoreSelector';
 import { zraApi, ZraApiError, type ZraBranchInfo, type ZraOverview } from '@/lib/zraApi';
 import { CreditNotePanel } from '@/components/orders/CreditNotePanel';
+import { DebitNotePanel } from '@/components/orders/DebitNotePanel';
 
 function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | null }) {
   if (!meta) return 'Never synced';
@@ -29,11 +31,16 @@ function metaSub(meta?: { lastSyncedAt?: string | null; lastError?: string | nul
 
 export default function ZraOverviewPage() {
   const finance = useZraFinanceAccess();
+  const user = useAuth((s) => s.user);
   const { storeId, setStoreId, storeIdParam, storeIdLabel, validStore } = useZraStore();
   const [data, setData] = useState<ZraOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creditOrder, setCreditOrder] = useState('');
+  const [lpoNo, setLpoNo] = useState('');
+  const [lpoNm, setLpoNm] = useState('');
+  const [lpoSaving, setLpoSaving] = useState(false);
+  const [initSaving, setInitSaving] = useState(false);
   const [zraRecord, setZraRecord] = useState<{ resultCd?: string | null; message?: string | null; data?: unknown } | null>(null);
   const [zraRecordLoading, setZraRecordLoading] = useState(false);
   const [userSaving, setUserSaving] = useState(false);
@@ -61,6 +68,47 @@ export default function ZraOverviewPage() {
       setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Failed to register branch user.' });
     } finally {
       setUserSaving(false);
+    }
+  }
+
+  async function selectInitInfo() {
+    if (storeIdParam == null) return;
+    if (
+      !window.confirm(
+        'Call VSDC initializer/selectInitInfo for this device? Do this only once per device — re-init can invalidate keys.'
+      )
+    ) {
+      return;
+    }
+    setInitSaving(true);
+    try {
+      const res = await zraApi.selectInitInfo(storeIdParam, user?.username);
+      setZraRecord({
+        resultCd: res.resultCd,
+        message: res.message ?? 'Initializer response received.',
+        data: res.data
+      });
+    } catch (err) {
+      setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Initializer call failed.' });
+    } finally {
+      setInitSaving(false);
+    }
+  }
+
+  async function attachLpo() {
+    if (!creditOrder.trim() || !lpoNo.trim()) return;
+    setLpoSaving(true);
+    try {
+      await zraApi.attachLpo(
+        creditOrder.trim(),
+        { rlpNo: lpoNo.trim(), rlpNm: lpoNm.trim() || undefined },
+        user?.username
+      );
+      setZraRecord({ message: `LPO ${lpoNo.trim()} attached. Retry invoice issuance if the sale is still PENDING/FAILED.` });
+    } catch (err) {
+      setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Failed to attach LPO.' });
+    } finally {
+      setLpoSaving(false);
     }
   }
 
@@ -200,6 +248,15 @@ export default function ZraOverviewPage() {
                 >
                   {userSaving ? <Spinner className="h-3 w-3" /> : 'Register system user'}
                 </button>
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  disabled={initSaving || !finance.allowed}
+                  title={!finance.allowed ? 'Finance admin only' : 'One-time VSDC device initialization'}
+                  onClick={() => void selectInitInfo()}
+                >
+                  {initSaving ? <Spinner className="h-3 w-3" /> : 'Initialize device (once)'}
+                </button>
                 {zraRecord && (
                   <span className="text-xs text-gray-600">
                     {zraRecord.resultCd ? `[${zraRecord.resultCd}] ` : ''}
@@ -272,7 +329,7 @@ export default function ZraOverviewPage() {
           </div>
 
           <Card>
-            <SectionTitle>Issue credit note</SectionTitle>
+            <SectionTitle>Issue credit / debit / LPO</SectionTitle>
             <Field label="Order number">
               <input
                 className="input font-mono mb-3"
@@ -282,9 +339,49 @@ export default function ZraOverviewPage() {
               />
             </Field>
             {creditOrder.trim() ? (
-              <CreditNotePanel orderNumber={creditOrder.trim()} />
+              <div className="space-y-6">
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">LPO (before issue)</p>
+                  <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <Field label="LPO number (rlpNo)">
+                      <input
+                        className="input font-mono"
+                        value={lpoNo}
+                        onChange={(e) => setLpoNo(e.target.value)}
+                        placeholder="certificate no"
+                      />
+                    </Field>
+                    <Field label="Holder name (rlpNm)">
+                      <input
+                        className="input"
+                        value={lpoNm}
+                        onChange={(e) => setLpoNm(e.target.value)}
+                        placeholder="optional"
+                      />
+                    </Field>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost text-sm"
+                    disabled={lpoSaving || !finance.allowed || !lpoNo.trim()}
+                    onClick={() => void attachLpo()}
+                  >
+                    {lpoSaving ? <Spinner className="h-4 w-4" /> : 'Attach LPO then retry invoice'}
+                  </button>
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Credit note</p>
+                  <CreditNotePanel orderNumber={creditOrder.trim()} />
+                </div>
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Debit note</p>
+                  <DebitNotePanel orderNumber={creditOrder.trim()} />
+                </div>
+              </div>
             ) : (
-              <p className="text-xs text-gray-400">Enter an order number to issue a full or partial credit note.</p>
+              <p className="text-xs text-gray-400">
+                Enter an order number to attach an LPO, or issue a credit or debit note.
+              </p>
             )}
             <ZraFinanceNotice access={finance} className="mt-2" />
           </Card>

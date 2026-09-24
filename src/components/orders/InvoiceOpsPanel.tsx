@@ -8,6 +8,7 @@ import { Badge, Spinner, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { CreditNotePanel } from '@/components/orders/CreditNotePanel';
+import { DebitNotePanel } from '@/components/orders/DebitNotePanel';
 
 type InvoiceInfo = NonNullable<OrderResponse['invoice']>;
 
@@ -43,6 +44,7 @@ export function InvoiceOpsPanel({
   const [retrying, setRetrying] = useState(false);
   const [viewingPdf, setViewingPdf] = useState(false);
   const [showCredit, setShowCredit] = useState(false);
+  const [showDebit, setShowDebit] = useState(false);
 
   const finance = useZraFinanceAccess();
   const canFinance = finance.allowed;
@@ -148,14 +150,24 @@ export function InvoiceOpsPanel({
           </button>
         )}
         {statusLabel === 'ISSUED' && canFinance && (
-          <button
-            type="button"
-            className="btn-ghost text-xs text-red-700"
-            onClick={() => setShowCredit((v) => !v)}
-            title="Finance admin only"
-          >
-            {showCredit ? 'Hide credit note' : 'Credit note'}
-          </button>
+          <>
+            <button
+              type="button"
+              className="btn-ghost text-xs text-red-700"
+              onClick={() => setShowCredit((v) => !v)}
+              title="Finance admin only"
+            >
+              {showCredit ? 'Hide credit note' : 'Credit note'}
+            </button>
+            <button
+              type="button"
+              className="btn-ghost text-xs"
+              onClick={() => setShowDebit((v) => !v)}
+              title="Finance admin only"
+            >
+              {showDebit ? 'Hide debit note' : 'Debit note'}
+            </button>
+          </>
         )}
         {!compact && (
           <Link href={`/orders/${orderNumber}`} className="btn-ghost text-xs">
@@ -167,6 +179,11 @@ export function InvoiceOpsPanel({
       {showCredit && statusLabel === 'ISSUED' && canFinance && (
         <div className="rounded-lg border border-red-100 bg-red-50/40 p-3">
           <CreditNotePanel orderNumber={orderNumber} items={items} compact />
+        </div>
+      )}
+      {showDebit && statusLabel === 'ISSUED' && canFinance && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
+          <DebitNotePanel orderNumber={orderNumber} items={items} />
         </div>
       )}
     </div>

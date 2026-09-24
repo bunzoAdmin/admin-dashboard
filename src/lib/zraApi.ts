@@ -45,7 +45,6 @@ export type ZraStockPreview = {
   pendingSales: number;
   pendingCredits: number;
   pendingPurchases: number;
-  pendingAdjustments: number;
   pendingTotal: number;
   lastSyncAt?: string | null;
   openingBalancePostedAt?: string | null;
@@ -111,6 +110,7 @@ export type ZraSkuMapping = {
   sku: string;
   taxTyCd?: string;
   itemClsCd?: string;
+  rrpPrice?: number | string | null;
   notes?: string | null;
   isActive?: boolean;
   createdAt?: string | null;
@@ -122,6 +122,7 @@ export type ZraMappingBody = {
   itemClsCd?: string;
   notes?: string;
   active?: boolean;
+  rrpPrice?: number | null;
 };
 
 export type ZraPurchase = {
@@ -228,6 +229,36 @@ export type ZraCreditNote = {
   lastError?: string | null;
   issuedBy?: string | null;
   issuedAt?: string | null;
+};
+
+export type ZraDebitNote = {
+  id: number;
+  orderId?: number;
+  orderNumber?: string;
+  seq?: number;
+  invcNo?: number;
+  orgInvcNo?: number;
+  rcptNo?: string;
+  status?: string;
+  debitReasonCd?: string;
+  debitReason?: string;
+  debitedAmount?: number;
+  debitedTaxAmount?: number;
+  lineItemsJson?: string | null;
+  lastError?: string | null;
+  issuedBy?: string | null;
+  issuedAt?: string | null;
+};
+
+export type DebitNoteBody = {
+  reasonCd: string;
+  reason?: string;
+  lines: { sku: string; qty: number }[];
+};
+
+export type LpoBody = {
+  rlpNo: string;
+  rlpNm?: string;
 };
 
 export type ZraAuditLog = {
@@ -468,6 +499,17 @@ export const zraApi = {
       adminUser: adminUser?.trim() || undefined
     }),
 
+  syncRrp: (storeId?: number, adminUser?: string, full?: boolean) => {
+    const q = new URLSearchParams();
+    if (storeId != null) q.set('storeId', String(storeId));
+    if (full) q.set('full', 'true');
+    const qs = q.toString();
+    return req<Record<string, unknown>>(
+      `/admin/zra/rrp/sync${qs ? `?${qs}` : ''}`,
+      mutateOpts(adminUser)
+    );
+  },
+
   fetchPurchases: (storeId: number, adminUser?: string) => {
     const q = new URLSearchParams({ storeId: String(storeId) });
     return req<Record<string, unknown>>(
@@ -512,8 +554,7 @@ export const zraApi = {
     req<ZraStockPreview>(`/admin/zra/stock/preview?storeId=${storeId}`),
 
   /**
-   * Stock master + movement counts from our sync outbox — what we successfully pushed to VSDC.
-   * VSDC has no selectStockMaster read API, so this is the reconciliation view for on-hand qty.
+   * Stock master + movement counts from our sync outbox — fiscal qty we pushed to VSDC.
    */
   getStockSyncedSummary: (
     storeId: number,
@@ -537,9 +578,8 @@ export const zraApi = {
     req<ZraStockStatus>('/admin/zra/stock/opening-balance', mutateOpts(adminUser, { storeId })),
 
   /**
-   * "Save Stock Master" (saveStockMaster) on demand for every SKU currently in stock — same
-   * underlying VSDC call opening balance makes, exposed as its own re-runnable, demoable action.
-   * Also starts in the background — poll status to track progress.
+   * Re-push fiscal ledger qty for mapped SKUs already on master/journal. Background job —
+   * poll status to track progress. Does not change the opening-balance watermark.
    */
   pushStockMaster: (storeId: number, adminUser?: string) =>
     req<ZraStockStatus>('/admin/zra/stock/master', mutateOpts(adminUser, { storeId })),
@@ -574,6 +614,49 @@ export const zraApi = {
     const blob = await res.blob();
     return URL.createObjectURL(blob);
   },
+
+  attachLpo: (orderNumber: string, body: LpoBody, adminUser?: string) =>
+    req<Record<string, unknown>>(
+      `/admin/zra/invoices/${encodeURIComponent(orderNumber)}/lpo`,
+      { method: 'PUT', body, adminUser: adminUser?.trim() || undefined }
+    ),
+
+  issueDebitNote: (orderNumber: string, body: DebitNoteBody, adminUser?: string) =>
+    req<ZraDebitNote>(
+      `/admin/zra/invoices/${encodeURIComponent(orderNumber)}/debit-note`,
+      mutateOpts(adminUser, body)
+    ),
+
+  listDebitNotes: (orderNumber: string) =>
+    req<ZraDebitNote[]>(`/admin/zra/orders/${encodeURIComponent(orderNumber)}/debit-notes`),
+
+  fetchDebitNotePdfBlobUrl: async (id: number): Promise<string> => {
+    const headers: Record<string, string> = {};
+    const token = getStoredToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    let res: Response;
+    try {
+      res = await fetch(inventoryApiUrl(`/admin/zra/debit-notes/${id}/pdf`), { headers });
+    } catch {
+      throw new ZraApiError(0, 'Could not reach the order service.');
+    }
+    if (!res.ok) {
+      const data = await parseResponseBody(res);
+      throw new ZraApiError(
+        res.status,
+        inventoryApiErrorMessage(data, res.status, 'Could not load debit note PDF.')
+      );
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
+
+  selectInitInfo: (storeId: number, adminUser?: string) =>
+    req<ZraBranchRecordResult>(
+      `/admin/zra/initializer/select-init-info?storeId=${storeId}`,
+      mutateOpts(adminUser)
+    ),
 
   checkFinanceAccess: (adminUser: string) =>
     req<ZraFinanceAccess>('/admin/zra/access', { adminUser: adminUser.trim() }),

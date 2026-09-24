@@ -86,6 +86,7 @@ export default function ZraPurchasesPage() {
   const [paperReceiptRef, setPaperReceiptRef] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [lineSkuDraft, setLineSkuDraft] = useState<Record<number, string>>({});
+  const [lineQtyDraft, setLineQtyDraft] = useState<Record<number, string>>({});
   const [lineRegStatus, setLineRegStatus] = useState<
     Record<number, ZraItemRegistrationStatus | 'loading' | 'error'>
   >({});
@@ -158,10 +159,14 @@ export default function ZraPurchasesPage() {
       if (d.purchase.storeId != null) setStoreId(d.purchase.storeId);
       setPaperReceiptRef(d.purchase.paperReceiptRef ?? '');
       const drafts: Record<number, string> = {};
+      const qtys: Record<number, string> = {};
       for (const line of d.lines) {
         drafts[line.id] = line.itemCd ?? '';
+        const q = line.approvedQty ?? line.retrievedQty;
+        qtys[line.id] = q != null ? String(q) : '';
       }
       setLineSkuDraft(drafts);
+      setLineQtyDraft(qtys);
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Failed to load purchase.');
     } finally {
@@ -194,15 +199,50 @@ export default function ZraPurchasesPage() {
       toast.push('error', 'Select a store.');
       return;
     }
-    if (!window.confirm(`Approve purchase #${selectedId} for store ${sid}?`)) return;
+    const qtyByLine: Record<number, number> = {};
+    let accepted = 0;
+    let rejected = 0;
+    for (const line of detail.lines) {
+      const raw = (lineQtyDraft[line.id] ?? '').trim();
+      const retrieved = Number(line.retrievedQty ?? 0);
+      const qty = raw === '' ? retrieved : Number(raw);
+      if (!Number.isFinite(qty) || qty < 0) {
+        toast.push('error', `Line ${line.itemSeq}: accept qty must be 0 or more.`);
+        return;
+      }
+      if (qty > retrieved + 1e-9) {
+        toast.push('error', `Line ${line.itemSeq}: accept qty cannot exceed retrieved ${retrieved}.`);
+        return;
+      }
+      if (qty > 0 && !(line.itemCd || '').trim()) {
+        toast.push('error', `Line ${line.itemSeq} is accepted — map it to a Bunzo SKU first.`);
+        return;
+      }
+      qtyByLine[line.id] = qty;
+      if (qty > 0) accepted += 1;
+      else rejected += 1;
+    }
+    if (accepted === 0) {
+      toast.push('error', 'Every line is qty 0. Use Reject for the whole purchase.');
+      return;
+    }
+    const summary =
+      rejected > 0
+        ? `Approve ${accepted} line(s) and reject ${rejected} line(s) on purchase #${selectedId}?`
+        : `Approve all ${accepted} line(s) on purchase #${selectedId} for store ${sid}?`;
+    if (!window.confirm(summary)) return;
     setBusyAction('approve');
     try {
       await zraApi.approvePurchase(
         selectedId,
-        { storeId: sid, paperReceiptRef: paperReceiptRef.trim() || undefined },
+        {
+          storeId: sid,
+          paperReceiptRef: paperReceiptRef.trim() || undefined,
+          approvedQtyByLineId: qtyByLine
+        },
         user?.username
       );
-      toast.push('success', `Purchase #${selectedId} approved.`);
+      toast.push('success', `Purchase #${selectedId} approved (${accepted} accepted, ${rejected} rejected).`);
       setSelectedId(null);
       setDetail(null);
       await load();
@@ -641,13 +681,18 @@ export default function ZraPurchasesPage() {
                 </div>
               </div>
 
+              <p className="text-xs text-gray-500">
+                Partial accept is one approved purchase: set accept qty below retrieved to take fewer
+                units, or 0 / Skip to reject that line. Use Reject only when the whole document is refused.
+              </p>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-3 py-2 font-medium">#</th>
                       <th className="px-3 py-2 font-medium">Item</th>
-                      <th className="px-3 py-2 font-medium text-right">Qty</th>
+                      <th className="px-3 py-2 font-medium text-right">Retrieved</th>
+                      <th className="px-3 py-2 font-medium text-right">Accept qty</th>
                       <th className="px-3 py-2 font-medium text-right">Unit price</th>
                       <th className="px-3 py-2 font-medium text-right">Line total</th>
                       <th className="px-3 py-2 font-medium">Mapped SKU</th>
@@ -655,20 +700,52 @@ export default function ZraPurchasesPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {detail.lines.map((line) => (
+                    {detail.lines.map((line) => {
+                      const acceptQty = Number((lineQtyDraft[line.id] ?? '').trim() || line.retrievedQty || 0);
+                      const rejectedLine = Number.isFinite(acceptQty) && acceptQty <= 0;
+                      const canEdit =
+                        detail.purchase.status === 'PENDING_APPROVAL' ||
+                        detail.purchase.status === 'FAILED';
+                      return (
                       <tr key={line.id} className="border-b border-gray-50 last:border-0">
                         <td className="px-3 py-2 text-xs">{line.itemSeq}</td>
                         <td className="px-3 py-2">
                           <div>{line.itemNm || line.spplrItemNm}</div>
                           <div className="font-mono text-xs text-gray-400">{line.spplrItemCd}</div>
+                          {rejectedLine && canEdit && (
+                            <div className="mt-0.5 text-xs text-red-600">Rejected (qty 0)</div>
+                          )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{line.retrievedQty ?? '—'}</td>
+                        <td className="px-3 py-2 text-right">
+                          {canEdit ? (
+                            <div className="flex items-center justify-end gap-1">
+                              <input
+                                className="input w-20 py-1 text-right tabular-nums"
+                                inputMode="decimal"
+                                value={lineQtyDraft[line.id] ?? ''}
+                                onChange={(e) =>
+                                  setLineQtyDraft((d) => ({ ...d, [line.id]: e.target.value }))
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="btn-ghost px-1.5 py-1 text-xs text-red-600"
+                                title="Reject this line (qty 0)"
+                                onClick={() => setLineQtyDraft((d) => ({ ...d, [line.id]: '0' }))}
+                              >
+                                Skip
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="tabular-nums">{line.approvedQty ?? line.retrievedQty ?? '—'}</span>
+                          )}
+                        </td>
                         <td className="px-3 py-2 text-right tabular-nums">{money(line.prc)}</td>
                         <td className="px-3 py-2 text-right tabular-nums font-medium">{money(line.totAmt)}</td>
                         <td className="px-3 py-2 font-mono text-xs">{line.itemCd || '—'}</td>
                         <td className="px-3 py-2">
-                          {(detail.purchase.status === 'PENDING_APPROVAL' ||
-                            detail.purchase.status === 'FAILED') && (
+                          {canEdit && !rejectedLine && (
                             <div className="w-56 space-y-1">
                               <div className="flex items-center gap-1">
                                 <div className="w-40">
@@ -738,7 +815,8 @@ export default function ZraPurchasesPage() {
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
