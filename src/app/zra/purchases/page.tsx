@@ -25,7 +25,6 @@ import {
 import {
   zraApi,
   ZraApiError,
-  type ManualPurchaseLine,
   type ZraItemRegistrationStatus,
   type ZraPurchase,
   type ZraPurchaseDetail
@@ -60,12 +59,50 @@ function formatPurchaseDate(pchsDt?: string | null): string {
   return d;
 }
 
-const emptyManualLine = (): ManualPurchaseLine => ({
+const PMT_TYPES = [
+  { cd: '01', label: '01 — Cash' },
+  { cd: '02', label: '02 — Credit' },
+  { cd: '03', label: '03 — Cash / credit' },
+  { cd: '04', label: '04 — Bank / cheque' },
+  { cd: '05', label: '05 — Card' },
+  { cd: '06', label: '06 — Mobile money' }
+] as const;
+
+function todayIsoDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+type ManualFormLine = {
+  itemCd: string;
+  itemNm: string;
+  qty: string;
+  unitPriceInclusive: string;
+};
+
+const emptyManualLine = (): ManualFormLine => ({
   itemCd: '',
   itemNm: '',
-  qty: 1,
-  unitPriceInclusive: 0
+  qty: '1',
+  unitPriceInclusive: ''
 });
+
+/** Digits only; empty while editing so 0 does not trap the caret. */
+function sanitizeQtyDraft(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits === '') return '';
+  return String(parseInt(digits, 10));
+}
+
+function sanitizeMoneyDraft(raw: string): string {
+  const cleaned = raw.replace(/[^\d.]/g, '');
+  const dot = cleaned.indexOf('.');
+  if (dot < 0) return cleaned;
+  return `${cleaned.slice(0, dot + 1)}${cleaned.slice(dot + 1).replace(/\./g, '').slice(0, 2)}`;
+}
 
 export default function ZraPurchasesPage() {
   const toast = useToast();
@@ -95,9 +132,9 @@ export default function ZraPurchasesPage() {
   const [manual, setManual] = useState({
     spplrNm: '',
     spplrTpin: '',
-    spplrBhfId: '',
+    spplrBhfId: '000',
     spplrInvcNo: '',
-    pchsDt: '',
+    pchsDt: todayIsoDate(),
     pmtTyCd: '01',
     remark: '',
     paperReceiptRef: '',
@@ -309,14 +346,36 @@ export default function ZraPurchasesPage() {
       return;
     }
     const sid = storeIdParam;
-    const lines = manual.lines.filter((l) => l.itemCd.trim() && l.itemNm.trim() && l.qty > 0);
-    if (lines.length === 0) {
-      toast.push('error', 'Add at least one line with item code, name, and qty.');
+    if (!manual.spplrNm.trim()) {
+      toast.push('error', 'Supplier name is required.');
       return;
+    }
+    if (!/^\d{10}$/.test(manual.spplrTpin.trim())) {
+      toast.push('error', 'Supplier TPIN must be 10 digits (not the dummy customer TPIN 1000000000).');
+      return;
+    }
+    if (manual.spplrTpin.trim() === '1000000000') {
+      toast.push('error', 'Use the supplier TPIN, not the dummy B2C customer TPIN 1000000000.');
+      return;
+    }
+    if (!/^\d{1,18}$/.test(manual.spplrInvcNo.trim())) {
+      toast.push('error', 'Supplier invoice number must be digits only (e.g. 24501).');
+      return;
+    }
+    const lines = manual.lines.filter((l) => l.itemCd.trim() && Number(l.qty) > 0);
+    if (lines.length === 0) {
+      toast.push('error', 'Add at least one line and pick a Bunzo SKU.');
+      return;
+    }
+    for (const l of lines) {
+      if (!(Number(l.unitPriceInclusive) > 0)) {
+        toast.push('error', `Enter a VAT-inclusive unit price for ${l.itemNm || l.itemCd}.`);
+        return;
+      }
     }
     if (
       !window.confirm(
-        `Submit manual ZRA purchase for store ${sid} (${lines.length} line(s))? This writes to Smart Invoice and cannot be undone.`
+        `Post manual purchase for store ${sid} (${lines.length} line(s)) to Smart Invoice? This also records ZRA stock-in for those SKUs and cannot be undone.`
       )
     ) {
       return;
@@ -336,20 +395,30 @@ export default function ZraPurchasesPage() {
           paperReceiptRef: manual.paperReceiptRef || undefined,
           lines: lines.map((l) => ({
             itemCd: l.itemCd.trim(),
-            itemNm: l.itemNm.trim(),
+            itemNm: (l.itemNm || l.itemCd).trim(),
             qty: Number(l.qty),
             unitPriceInclusive: Number(l.unitPriceInclusive)
           }))
         },
         user?.username
       );
-      toast.push('success', `Manual purchase #${created.id} created (${created.status}).`);
+      if (created.status === 'FAILED') {
+        toast.push(
+          'error',
+          `Purchase #${created.id} saved but ZRA rejected it: ${created.lastError || created.status}`
+        );
+      } else {
+        toast.push(
+          'success',
+          `Manual purchase #${created.id} ${created.status}. ZRA stock-in posted for mapped SKUs.`
+        );
+      }
       setManual({
         spplrNm: '',
         spplrTpin: '',
-        spplrBhfId: '',
+        spplrBhfId: '000',
         spplrInvcNo: '',
-        pchsDt: '',
+        pchsDt: todayIsoDate(),
         pmtTyCd: '01',
         remark: '',
         paperReceiptRef: '',
@@ -425,6 +494,10 @@ export default function ZraPurchasesPage() {
         {tab === 'manual' && (
           <form onSubmit={handleManual} className="mt-4 space-y-4 border-b border-gray-100 pb-5">
             <SectionTitle>Create manual purchase</SectionTitle>
+            <p className="text-sm text-gray-500">
+              Record a supplier invoice that did not come through ZRA fetch. Each line must be a Bunzo SKU
+              already on the ZRA mapping page — that is what lets us post stock-in to Smart Invoice.
+            </p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Field label="Store">
                 <p className="input cursor-default bg-gray-50 text-gray-700">
@@ -434,44 +507,70 @@ export default function ZraPurchasesPage() {
               <Field label="Supplier name">
                 <input
                   className="input"
+                  required
                   value={manual.spplrNm}
                   onChange={(e) => setManual((m) => ({ ...m, spplrNm: e.target.value }))}
+                  placeholder="e.g. Trade Kings"
                 />
               </Field>
-              <Field label="Supplier TPIN">
+              <Field label="Supplier TPIN" hint="10-digit supplier TPIN — not 1000000000">
                 <input
                   className="input font-mono"
+                  required
+                  inputMode="numeric"
+                  maxLength={10}
                   value={manual.spplrTpin}
-                  onChange={(e) => setManual((m) => ({ ...m, spplrTpin: e.target.value }))}
+                  onChange={(e) => setManual((m) => ({ ...m, spplrTpin: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+                  placeholder="1000000001"
                 />
               </Field>
-              <Field label="Supplier invoice #">
+              <Field label="Supplier branch ID" hint="Usually 000">
                 <input
                   className="input font-mono"
+                  maxLength={3}
+                  value={manual.spplrBhfId}
+                  onChange={(e) => setManual((m) => ({ ...m, spplrBhfId: e.target.value }))}
+                  placeholder="000"
+                />
+              </Field>
+              <Field label="Supplier invoice number" hint="Digits only">
+                <input
+                  className="input font-mono"
+                  required
+                  inputMode="numeric"
                   value={manual.spplrInvcNo}
-                  onChange={(e) => setManual((m) => ({ ...m, spplrInvcNo: e.target.value }))}
+                  onChange={(e) => setManual((m) => ({ ...m, spplrInvcNo: e.target.value.replace(/\D/g, '') }))}
+                  placeholder="24501"
                 />
               </Field>
-              <Field label="Purchase date (yyyyMMdd)">
+              <Field label="Purchase date">
                 <input
-                  className="input font-mono"
+                  className="input"
+                  type="date"
+                  required
                   value={manual.pchsDt}
                   onChange={(e) => setManual((m) => ({ ...m, pchsDt: e.target.value }))}
-                  placeholder="20260808"
                 />
               </Field>
               <Field label="Payment type">
-                <input
-                  className="input font-mono"
+                <select
+                  className="input"
                   value={manual.pmtTyCd}
                   onChange={(e) => setManual((m) => ({ ...m, pmtTyCd: e.target.value }))}
-                />
+                >
+                  {PMT_TYPES.map((p) => (
+                    <option key={p.cd} value={p.cd}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
               <Field label="Paper receipt ref">
                 <input
                   className="input"
                   value={manual.paperReceiptRef}
                   onChange={(e) => setManual((m) => ({ ...m, paperReceiptRef: e.target.value }))}
+                  placeholder="Optional"
                 />
               </Field>
               <Field label="Remark">
@@ -479,75 +578,121 @@ export default function ZraPurchasesPage() {
                   className="input"
                   value={manual.remark}
                   onChange={(e) => setManual((m) => ({ ...m, remark: e.target.value }))}
+                  placeholder="Optional"
                 />
               </Field>
             </div>
 
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-700">Lines</div>
-              {manual.lines.map((line, idx) => (
-                <div key={idx} className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-                  <input
-                    className="input font-mono"
-                    placeholder="itemCd"
-                    value={line.itemCd}
-                    onChange={(e) =>
-                      setManual((m) => {
-                        const lines = [...m.lines];
-                        lines[idx] = { ...lines[idx], itemCd: e.target.value };
-                        return { ...m, lines };
-                      })
-                    }
-                  />
-                  <input
-                    className="input sm:col-span-2"
-                    placeholder="item name"
-                    value={line.itemNm}
-                    onChange={(e) =>
-                      setManual((m) => {
-                        const lines = [...m.lines];
-                        lines[idx] = { ...lines[idx], itemNm: e.target.value };
-                        return { ...m, lines };
-                      })
-                    }
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    min={1}
-                    placeholder="qty"
-                    value={line.qty}
-                    onChange={(e) =>
-                      setManual((m) => {
-                        const lines = [...m.lines];
-                        lines[idx] = { ...lines[idx], qty: Number(e.target.value) };
-                        return { ...m, lines };
-                      })
-                    }
-                  />
-                  <input
-                    className="input"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    placeholder="unit price"
-                    value={line.unitPriceInclusive}
-                    onChange={(e) =>
-                      setManual((m) => {
-                        const lines = [...m.lines];
-                        lines[idx] = { ...lines[idx], unitPriceInclusive: Number(e.target.value) };
-                        return { ...m, lines };
-                      })
-                    }
-                  />
-                </div>
-              ))}
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-gray-800">Items</div>
+                <p className="text-xs text-gray-500">
+                  Search and pick a product. Quantity and VAT-inclusive unit price are required.
+                </p>
+              </div>
+              {manual.lines.map((line, idx) => {
+                const qty = Number(line.qty) || 0;
+                const price = Number(line.unitPriceInclusive) || 0;
+                const lineTotal = qty * price;
+                return (
+                  <div key={idx} className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+                    <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
+                      <div className="lg:col-span-4">
+                        <SkuPicker
+                          label="SKU"
+                          value={line.itemCd}
+                          placeholder="Search name or SKU…"
+                          onChange={(sku, product) =>
+                            setManual((m) => {
+                              const lines = [...m.lines];
+                              lines[idx] = {
+                                ...lines[idx],
+                                itemCd: sku,
+                                itemNm: product?.name ?? (sku === lines[idx].itemCd ? lines[idx].itemNm : '')
+                              };
+                              return { ...m, lines };
+                            })
+                          }
+                        />
+                      </div>
+                      <div className="lg:col-span-3">
+                        <Field label="Product name">
+                          <input
+                            className="input bg-white"
+                            value={line.itemNm}
+                            readOnly
+                            placeholder="Filled when you pick a SKU"
+                          />
+                        </Field>
+                      </div>
+                      <div className="lg:col-span-1">
+                        <Field label="Qty">
+                          <input
+                            className="input bg-white"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={line.qty}
+                            onChange={(e) =>
+                              setManual((m) => {
+                                const lines = [...m.lines];
+                                lines[idx] = { ...lines[idx], qty: sanitizeQtyDraft(e.target.value) };
+                                return { ...m, lines };
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <div className="lg:col-span-2">
+                        <Field label="Unit price (K, VAT incl.)">
+                          <input
+                            className="input bg-white"
+                            inputMode="decimal"
+                            autoComplete="off"
+                            value={line.unitPriceInclusive}
+                            onChange={(e) =>
+                              setManual((m) => {
+                                const lines = [...m.lines];
+                                lines[idx] = {
+                                  ...lines[idx],
+                                  unitPriceInclusive: sanitizeMoneyDraft(e.target.value)
+                                };
+                                return { ...m, lines };
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <div className="flex items-end justify-between gap-2 lg:col-span-2">
+                        <Field label="Line total" className="flex-1">
+                          <p className="input cursor-default bg-white tabular-nums text-gray-700">
+                            {money(lineTotal)}
+                          </p>
+                        </Field>
+                        {manual.lines.length > 1 && (
+                          <button
+                            type="button"
+                            className="btn-ghost mb-0.5 px-2 py-2 text-xs text-red-600"
+                            onClick={() =>
+                              setManual((m) => ({
+                                ...m,
+                                lines: m.lines.filter((_, i) => i !== idx)
+                              }))
+                            }
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
               <button
                 type="button"
                 className="btn-ghost text-xs"
                 onClick={() => setManual((m) => ({ ...m, lines: [...m.lines, emptyManualLine()] }))}
               >
-                + Add line
+                + Add item
               </button>
             </div>
 
@@ -595,6 +740,9 @@ export default function ZraPurchasesPage() {
                       <td className="px-3 py-2">{money(p.totAmt)}</td>
                       <td className="px-3 py-2">
                         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                        {p.lastError && (
+                          <div className="mt-1 max-w-xs text-xs text-red-600">{p.lastError}</div>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">{formatPurchaseDate(p.pchsDt)}</td>
                       <td className="px-3 py-2 text-xs text-gray-400">{formatDate(p.createdAt ?? undefined)}</td>
