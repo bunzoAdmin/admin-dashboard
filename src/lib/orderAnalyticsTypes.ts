@@ -30,6 +30,10 @@ export interface OrderAnalyticsResponse {
     withinSlaCount: number;
     fastestEndToEndSeconds?: number | null;
     slowestEndToEndSeconds?: number | null;
+    codTotalValue?: number;
+    codDeliveredCount?: number;
+    prepaidTotalValue?: number;
+    prepaidDeliveredCount?: number;
   };
   stageAverages: {
     avgPlacedToConfirmedSeconds?: number | null;

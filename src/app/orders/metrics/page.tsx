@@ -275,6 +275,16 @@ export default function OrderMetricsPage() {
               <Stat label="GMV" value={money(data.overview.gmv)} sub="Among deliveries in period" />
               <Stat label="AOV" value={data.overview.aov != null ? money(data.overview.aov) : '—'} sub="GMV ÷ delivered" />
               <Stat
+                label="COD total value"
+                value={money(data.overview.codTotalValue ?? 0)}
+                sub={`${data.overview.codDeliveredCount ?? 0} delivered COD orders`}
+              />
+              <Stat
+                label="Prepaid total value"
+                value={money(data.overview.prepaidTotalValue ?? 0)}
+                sub={`${data.overview.prepaidDeliveredCount ?? 0} Airtel/MTN PAID deliveries`}
+              />
+              <Stat
                 label={`Within ${data.slaMinutes}m SLA`}
                 value={pct(data.overview.withinSlaPercent)}
                 sub={`${data.overview.withinSlaCount} of ${data.overview.deliveredOrders} deliveries`}
