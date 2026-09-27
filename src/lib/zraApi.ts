@@ -209,6 +209,8 @@ export type CreditNoteBody = {
   reasonCd?: string;
   reason?: string;
   fullCredit?: boolean;
+  /** Tax credit of delivery/handling/weekend fees. Off by default — Bunzo keeps charges. */
+  includeFees?: boolean;
   lines?: { sku: string; qty: number }[];
 };
 
