@@ -37,9 +37,6 @@ export default function ZraOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creditOrder, setCreditOrder] = useState('');
-  const [lpoNo, setLpoNo] = useState('');
-  const [lpoNm, setLpoNm] = useState('');
-  const [lpoSaving, setLpoSaving] = useState(false);
   const [initSaving, setInitSaving] = useState(false);
   const [zraRecord, setZraRecord] = useState<{ resultCd?: string | null; message?: string | null; data?: unknown } | null>(null);
   const [zraRecordLoading, setZraRecordLoading] = useState(false);
@@ -92,23 +89,6 @@ export default function ZraOverviewPage() {
       setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Initializer call failed.' });
     } finally {
       setInitSaving(false);
-    }
-  }
-
-  async function attachLpo() {
-    if (!creditOrder.trim() || !lpoNo.trim()) return;
-    setLpoSaving(true);
-    try {
-      await zraApi.attachLpo(
-        creditOrder.trim(),
-        { rlpNo: lpoNo.trim(), rlpNm: lpoNm.trim() || undefined },
-        user?.username
-      );
-      setZraRecord({ message: `LPO ${lpoNo.trim()} attached. Retry invoice issuance if the sale is still PENDING/FAILED.` });
-    } catch (err) {
-      setZraRecord({ message: err instanceof ZraApiError ? err.message : 'Failed to attach LPO.' });
-    } finally {
-      setLpoSaving(false);
     }
   }
 
@@ -329,7 +309,7 @@ export default function ZraOverviewPage() {
           </div>
 
           <Card>
-            <SectionTitle>Issue credit / debit / LPO</SectionTitle>
+            <SectionTitle>Issue credit note</SectionTitle>
             <Field label="Order number">
               <input
                 className="input font-mono mb-3"
@@ -340,47 +320,17 @@ export default function ZraOverviewPage() {
             </Field>
             {creditOrder.trim() ? (
               <div className="space-y-6">
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">LPO (before issue)</p>
-                  <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <Field label="LPO number (rlpNo)">
-                      <input
-                        className="input font-mono"
-                        value={lpoNo}
-                        onChange={(e) => setLpoNo(e.target.value)}
-                        placeholder="certificate no"
-                      />
-                    </Field>
-                    <Field label="Holder name (rlpNm)">
-                      <input
-                        className="input"
-                        value={lpoNm}
-                        onChange={(e) => setLpoNm(e.target.value)}
-                        placeholder="optional"
-                      />
-                    </Field>
+                <CreditNotePanel orderNumber={creditOrder.trim()} />
+                {false && (
+                  <div>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Debit note</p>
+                    <DebitNotePanel orderNumber={creditOrder.trim()} />
                   </div>
-                  <button
-                    type="button"
-                    className="btn-ghost text-sm"
-                    disabled={lpoSaving || !finance.allowed || !lpoNo.trim()}
-                    onClick={() => void attachLpo()}
-                  >
-                    {lpoSaving ? <Spinner className="h-4 w-4" /> : 'Attach LPO then retry invoice'}
-                  </button>
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Credit note</p>
-                  <CreditNotePanel orderNumber={creditOrder.trim()} />
-                </div>
-                <div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Debit note</p>
-                  <DebitNotePanel orderNumber={creditOrder.trim()} />
-                </div>
+                )}
               </div>
             ) : (
               <p className="text-xs text-gray-400">
-                Enter an order number to attach an LPO, or issue a credit or debit note.
+                Enter an order number to issue a credit note.
               </p>
             )}
             <ZraFinanceNotice access={finance} className="mt-2" />

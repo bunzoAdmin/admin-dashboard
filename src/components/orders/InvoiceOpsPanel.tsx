@@ -159,14 +159,16 @@ export function InvoiceOpsPanel({
             >
               {showCredit ? 'Hide credit note' : 'Credit note'}
             </button>
-            <button
-              type="button"
-              className="btn-ghost text-xs"
-              onClick={() => setShowDebit((v) => !v)}
-              title="Finance admin only"
-            >
-              {showDebit ? 'Hide debit note' : 'Debit note'}
-            </button>
+            {false && (
+              <button
+                type="button"
+                className="btn-ghost text-xs"
+                onClick={() => setShowDebit((v) => !v)}
+                title="Finance admin only"
+              >
+                {showDebit ? 'Hide debit note' : 'Debit note'}
+              </button>
+            )}
           </>
         )}
         {!compact && (
@@ -181,7 +183,7 @@ export function InvoiceOpsPanel({
           <CreditNotePanel orderNumber={orderNumber} items={items} compact />
         </div>
       )}
-      {showDebit && statusLabel === 'ISSUED' && canFinance && (
+      {false && showDebit && statusLabel === 'ISSUED' && canFinance && (
         <div className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
           <DebitNotePanel orderNumber={orderNumber} items={items} />
         </div>
