@@ -24,6 +24,8 @@ interface ShowcaseGroupFormState {
   subtitle: string;
   priority: string;
   isActive: boolean;
+  showOnHome: boolean;
+  showOnCart: boolean;
 }
 
 const EMPTY_FORM: ShowcaseGroupFormState = {
@@ -33,7 +35,9 @@ const EMPTY_FORM: ShowcaseGroupFormState = {
   displayTitle: '',
   subtitle: '',
   priority: '0',
-  isActive: true
+  isActive: true,
+  showOnHome: true,
+  showOnCart: false
 };
 
 function groupToForm(g: ShowcaseGroupResponse): ShowcaseGroupFormState {
@@ -44,7 +48,9 @@ function groupToForm(g: ShowcaseGroupResponse): ShowcaseGroupFormState {
     displayTitle: g.displayTitle ?? '',
     subtitle: g.subtitle ?? '',
     priority: String(g.priority ?? 0),
-    isActive: g.isActive
+    isActive: g.isActive,
+    showOnHome: g.showOnHome !== false,
+    showOnCart: g.showOnCart === true
   };
 }
 
@@ -93,6 +99,10 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
       return;
     }
     if (Number.isNaN(priority)) { setError('Priority must be a number.'); return; }
+    if (!form.showOnHome && !form.showOnCart) {
+      setError('Choose at least one surface: Home or Cart.');
+      return;
+    }
 
     setBusy(true);
     setError(null);
@@ -106,7 +116,9 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
           displayTitle: form.displayTitle.trim() || undefined,
           subtitle: form.subtitle.trim() || undefined,
           priority,
-          isActive: form.isActive
+          isActive: form.isActive,
+          showOnHome: form.showOnHome,
+          showOnCart: form.showOnCart
         };
         const saved = await catalogApi.updateShowcaseGroup(editing.id, body);
         onSaved?.(saved);
@@ -119,7 +131,9 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
           displayTitle: form.displayTitle.trim() || undefined,
           subtitle: form.subtitle.trim() || undefined,
           priority,
-          isActive: form.isActive
+          isActive: form.isActive,
+          showOnHome: form.showOnHome,
+          showOnCart: form.showOnCart
         };
         const created = await catalogApi.createShowcaseGroup(body);
         router.push(`/catalog/showcases/${created.id}`);
@@ -188,7 +202,7 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
       </Field>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Display title" hint="Optional override shown on home screen">
+        <Field label="Display title" hint="Optional override shown to customers">
           <input
             className="input"
             value={form.displayTitle}
@@ -208,7 +222,7 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Priority" hint="Higher = shown first on home page">
+        <Field label="Priority" hint="Higher = shown first">
           <input
             type="number"
             className="input"
@@ -218,18 +232,41 @@ export function ShowcaseGroupForm({ editing, stayOnPage, onSaved }: ShowcaseGrou
           />
         </Field>
 
-        <Field label="Status">
-          <label className="flex items-center gap-2 cursor-pointer mt-2">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-gray-300"
-              checked={form.isActive}
-              onChange={(e) => set('isActive', e.target.checked)}
-            />
-            <span className="text-sm text-gray-700">Active — visible on home page</span>
-          </label>
+        <Field label="Show on">
+          <div className="mt-2 flex flex-col gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={form.showOnHome}
+                onChange={(e) => set('showOnHome', e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Home</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-gray-300"
+                checked={form.showOnCart}
+                onChange={(e) => set('showOnCart', e.target.checked)}
+              />
+              <span className="text-sm text-gray-700">Cart / checkout</span>
+            </label>
+          </div>
         </Field>
       </div>
+
+      <Field label="Status">
+        <label className="flex items-center gap-2 cursor-pointer mt-2">
+          <input
+            type="checkbox"
+            className="h-4 w-4 rounded border-gray-300"
+            checked={form.isActive}
+            onChange={(e) => set('isActive', e.target.checked)}
+          />
+          <span className="text-sm text-gray-700">Active</span>
+        </label>
+      </Field>
 
       <div className="flex gap-3 pt-2">
         <button type="submit" className="btn-primary" disabled={busy}>

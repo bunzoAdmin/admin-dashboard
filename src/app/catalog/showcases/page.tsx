@@ -45,7 +45,7 @@ export default function ShowcasesPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900">Product Showcases</h1>
           <p className="text-sm text-gray-500">
-            Curated product collections shown on the home screen — Hero Products, Hot Selling, New Arrivals, and more.
+            Curated product collections for the home feed and cart — Hero Products, Hot Selling, New Arrivals, and more.
           </p>
         </div>
         <Link href="/catalog/showcases/new" className="btn-primary">
@@ -78,6 +78,11 @@ export default function ShowcasesPage() {
                 <p>
                   <span className="text-xs font-medium uppercase tracking-wide text-gray-400">Type</span>{' '}
                   <Badge tone="blue">{showcaseTypeLabel(group.type)}</Badge>
+                </p>
+                <p className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs font-medium uppercase tracking-wide text-gray-400">Surfaces</span>
+                  {group.showOnHome !== false && <Badge tone="gray">Home</Badge>}
+                  {group.showOnCart && <Badge tone="gray">Cart</Badge>}
                 </p>
                 {group.displayTitle && (
                   <p>

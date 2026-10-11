@@ -135,6 +135,13 @@ export default function ShowcaseDetailPage() {
               <dd className="mt-0.5 text-gray-800">{group.priority}</dd>
             </div>
             <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Surfaces</dt>
+              <dd className="mt-0.5 flex flex-wrap gap-1.5 text-gray-800">
+                {group.showOnHome !== false && <Badge tone="gray">Home</Badge>}
+                {group.showOnCart && <Badge tone="gray">Cart</Badge>}
+              </dd>
+            </div>
+            <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-gray-400">Products</dt>
               <dd className="mt-0.5 text-gray-800">{orderedProducts.length} assigned</dd>
             </div>

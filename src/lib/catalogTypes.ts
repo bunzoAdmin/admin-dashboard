@@ -409,6 +409,8 @@ export interface ShowcaseGroupResponse {
   subtitle?: string | null;
   priority: number;
   isActive: boolean;
+  showOnHome?: boolean;
+  showOnCart?: boolean;
   products: ProductResponse[];
   createdAt?: string;
   updatedAt?: string;
@@ -422,6 +424,8 @@ export interface CreateShowcaseGroupRequest {
   subtitle?: string;
   priority: number;
   isActive: boolean;
+  showOnHome: boolean;
+  showOnCart: boolean;
 }
 
 export interface UpdateShowcaseGroupRequest {
@@ -432,6 +436,8 @@ export interface UpdateShowcaseGroupRequest {
   subtitle?: string;
   priority?: number;
   isActive?: boolean;
+  showOnHome?: boolean;
+  showOnCart?: boolean;
 }
 
 export interface AddShowcaseItemsRequest {
