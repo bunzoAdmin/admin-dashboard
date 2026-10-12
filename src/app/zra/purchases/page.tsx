@@ -30,7 +30,9 @@ import {
   type ZraPurchaseDetail
 } from '@/lib/zraApi';
 
-type Tab = 'pending' | 'manual';
+type Tab = 'pending' | 'approved' | 'manual';
+
+const PAGE_SIZE = 20;
 
 function statusTone(status?: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -163,12 +165,21 @@ export default function ZraPurchasesPage() {
         const merged = [...(pending.content ?? []), ...(failed.content ?? [])];
         setRows(merged);
         setTotal(merged.length);
+      } else if (tab === 'approved') {
+        const result = await zraApi.listPurchases({
+          status: 'APPROVED',
+          storeId: storeFilter,
+          page,
+          size: PAGE_SIZE
+        });
+        setRows(result.content ?? []);
+        setTotal(result.totalElements ?? 0);
       } else {
         const result = await zraApi.listPurchases({
           source: 'MANUAL',
           storeId: storeFilter,
           page,
-          size: 20
+          size: PAGE_SIZE
         });
         setRows(result.content ?? []);
         setTotal(result.totalElements ?? 0);
@@ -270,7 +281,7 @@ export default function ZraPurchasesPage() {
     if (!window.confirm(summary)) return;
     setBusyAction('approve');
     try {
-      await zraApi.approvePurchase(
+      const updated = await zraApi.approvePurchase(
         selectedId,
         {
           storeId: sid,
@@ -279,10 +290,23 @@ export default function ZraPurchasesPage() {
         },
         user?.username
       );
-      toast.push('success', `Purchase #${selectedId} approved (${accepted} accepted, ${rejected} rejected).`);
-      setSelectedId(null);
-      setDetail(null);
-      await load();
+      if (updated.status === 'APPROVED') {
+        toast.push('success', `Purchase #${selectedId} approved (${accepted} accepted, ${rejected} rejected).`);
+        setSelectedId(null);
+        setDetail(null);
+        setTab('approved');
+        setPage(0);
+      } else {
+        toast.push(
+          'error',
+          updated.lastError
+            ? `Purchase #${selectedId} was not approved: ${updated.lastError}`
+            : `Purchase #${selectedId} was not approved (${updated.status ?? 'unknown status'}).`
+        );
+        setTab('pending');
+        setPage(0);
+        await openDetail(selectedId);
+      }
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Approve failed.');
     } finally {
@@ -465,6 +489,7 @@ export default function ZraPurchasesPage() {
             {(
               [
                 { id: 'pending' as const, label: 'Pending' },
+                { id: 'approved' as const, label: 'Approved' },
                 { id: 'manual' as const, label: 'Manual' }
               ] as const
             ).map((t) => (
@@ -709,7 +734,13 @@ export default function ZraPurchasesPage() {
           {loading && rows == null ? (
             <Loading label="Loading purchases…" />
           ) : !rows || rows.length === 0 ? (
-            <EmptyState>{tab === 'pending' ? 'No pending purchases.' : 'No manual purchases.'}</EmptyState>
+            <EmptyState>
+              {tab === 'pending'
+                ? 'No pending purchases.'
+                : tab === 'approved'
+                  ? 'No approved purchases.'
+                  : 'No manual purchases.'}
+            </EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -721,7 +752,7 @@ export default function ZraPurchasesPage() {
                     <th className="px-3 py-2 font-medium">Total</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Purchase date</th>
-                    <th className="px-3 py-2 font-medium">Fetched</th>
+                    <th className="px-3 py-2 font-medium">{tab === 'approved' ? 'Approved' : 'Fetched'}</th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
                 </thead>
@@ -740,12 +771,24 @@ export default function ZraPurchasesPage() {
                       <td className="px-3 py-2">{money(p.totAmt)}</td>
                       <td className="px-3 py-2">
                         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
+                        {tab === 'approved' && p.source && (
+                          <div className="mt-1 text-xs text-gray-400">{p.source}</div>
+                        )}
                         {p.lastError && (
                           <div className="mt-1 max-w-xs text-xs text-red-600">{p.lastError}</div>
                         )}
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">{formatPurchaseDate(p.pchsDt)}</td>
-                      <td className="px-3 py-2 text-xs text-gray-400">{formatDate(p.createdAt ?? undefined)}</td>
+                      <td className="px-3 py-2 text-xs text-gray-400">
+                        {tab === 'approved' ? (
+                          <>
+                            <div>{formatDate(p.approvedAt ?? undefined)}</div>
+                            {p.approvedBy && <div>{p.approvedBy}</div>}
+                          </>
+                        ) : (
+                          formatDate(p.createdAt ?? undefined)
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-right">
                         <button type="button" className="btn-ghost px-2 py-1 text-xs" onClick={() => openDetail(p.id)}>
                           Open
@@ -773,7 +816,7 @@ export default function ZraPurchasesPage() {
               <button
                 type="button"
                 className="btn-ghost px-2 py-1 text-xs"
-                disabled={loading || (page + 1) * 20 >= total}
+                disabled={loading || tab === 'pending' || (page + 1) * PAGE_SIZE >= total}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Next
@@ -829,10 +872,13 @@ export default function ZraPurchasesPage() {
                 </div>
               </div>
 
-              <p className="text-xs text-gray-500">
-                Partial accept is one approved purchase: set accept qty below retrieved to take fewer
-                units, or 0 / Skip to reject that line. Use Reject only when the whole document is refused.
-              </p>
+              {(detail.purchase.status === 'PENDING_APPROVAL' ||
+                detail.purchase.status === 'FAILED') && (
+                <p className="text-xs text-gray-500">
+                  Partial accept is one approved purchase: set accept qty below retrieved to take fewer
+                  units, or 0 / Skip to reject that line. Use Reject only when the whole document is refused.
+                </p>
+              )}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
