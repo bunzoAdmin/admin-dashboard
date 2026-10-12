@@ -280,7 +280,14 @@ export default function InventoryBrowsePage() {
                         ) : null}
                       </td>
                       <td className="px-5 py-3 font-mono text-xs text-gray-600">{row.sku}</td>
-                      <td className="px-5 py-3 font-medium text-gray-900">{row.productName}</td>
+                      <td className="px-5 py-3 font-medium text-gray-900">
+                        {row.productName}
+                        {row.isActive === false && (
+                          <span className="ml-2">
+                            <Badge tone="gray">Inactive</Badge>
+                          </span>
+                        )}
+                      </td>
                       <td className="px-5 py-3 font-mono text-xs text-gray-500">{row.barcode ?? '—'}</td>
                       <td className="px-5 py-3 text-xs text-gray-600">
                         <span title={locationsPreview(row)}>

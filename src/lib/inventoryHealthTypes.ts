@@ -67,6 +67,7 @@ export interface StoreStockBrowseItem {
   sku: string;
   productName: string;
   barcode?: string | null;
+  isActive?: boolean | null;
   currentStock: number;
   reservedStock: number;
   availableStock: number;
