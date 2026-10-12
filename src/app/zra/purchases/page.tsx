@@ -30,9 +30,22 @@ import {
   type ZraPurchaseDetail
 } from '@/lib/zraApi';
 
-type Tab = 'pending' | 'approved' | 'manual';
+type Tab = 'pending' | 'approved' | 'rejected' | 'manual';
 
 const PAGE_SIZE = 20;
+
+function emptyLabel(tab: Tab): string {
+  switch (tab) {
+    case 'pending':
+      return 'No pending purchases.';
+    case 'approved':
+      return 'No approved purchases.';
+    case 'rejected':
+      return 'No rejected purchases.';
+    default:
+      return 'No manual purchases.';
+  }
+}
 
 function statusTone(status?: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
@@ -168,6 +181,15 @@ export default function ZraPurchasesPage() {
       } else if (tab === 'approved') {
         const result = await zraApi.listPurchases({
           status: 'APPROVED',
+          storeId: storeFilter,
+          page,
+          size: PAGE_SIZE
+        });
+        setRows(result.content ?? []);
+        setTotal(result.totalElements ?? 0);
+      } else if (tab === 'rejected') {
+        const result = await zraApi.listPurchases({
+          status: 'REJECTED',
           storeId: storeFilter,
           page,
           size: PAGE_SIZE
@@ -319,11 +341,31 @@ export default function ZraPurchasesPage() {
     if (!window.confirm(`Reject purchase #${selectedId}?`)) return;
     setBusyAction('reject');
     try {
-      await zraApi.rejectPurchase(selectedId, rejectReason.trim() || 'Rejected by admin', user?.username);
-      toast.push('success', `Purchase #${selectedId} rejected.`);
-      setSelectedId(null);
-      setDetail(null);
-      await load();
+      const updated = await zraApi.rejectPurchase(
+        selectedId,
+        rejectReason.trim() || 'Rejected by admin',
+        user?.username
+      );
+      if (updated.status === 'REJECTED') {
+        toast.push(
+          updated.lastError ? 'error' : 'success',
+          updated.lastError
+            ? `Purchase #${selectedId} marked rejected, but ZRA did not accept it: ${updated.lastError}`
+            : `Purchase #${selectedId} rejected.`
+        );
+        setSelectedId(null);
+        setDetail(null);
+        setTab('rejected');
+        setPage(0);
+      } else {
+        toast.push(
+          'error',
+          updated.lastError
+            ? `Purchase #${selectedId} was not rejected: ${updated.lastError}`
+            : `Purchase #${selectedId} was not rejected (${updated.status ?? 'unknown status'}).`
+        );
+        await openDetail(selectedId);
+      }
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Reject failed.');
     } finally {
@@ -490,6 +532,7 @@ export default function ZraPurchasesPage() {
               [
                 { id: 'pending' as const, label: 'Pending' },
                 { id: 'approved' as const, label: 'Approved' },
+                { id: 'rejected' as const, label: 'Rejected' },
                 { id: 'manual' as const, label: 'Manual' }
               ] as const
             ).map((t) => (
@@ -734,13 +777,7 @@ export default function ZraPurchasesPage() {
           {loading && rows == null ? (
             <Loading label="Loading purchases…" />
           ) : !rows || rows.length === 0 ? (
-            <EmptyState>
-              {tab === 'pending'
-                ? 'No pending purchases.'
-                : tab === 'approved'
-                  ? 'No approved purchases.'
-                  : 'No manual purchases.'}
-            </EmptyState>
+            <EmptyState>{emptyLabel(tab)}</EmptyState>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -752,7 +789,9 @@ export default function ZraPurchasesPage() {
                     <th className="px-3 py-2 font-medium">Total</th>
                     <th className="px-3 py-2 font-medium">Status</th>
                     <th className="px-3 py-2 font-medium">Purchase date</th>
-                    <th className="px-3 py-2 font-medium">{tab === 'approved' ? 'Approved' : 'Fetched'}</th>
+                    <th className="px-3 py-2 font-medium">
+                      {tab === 'approved' ? 'Approved' : tab === 'rejected' ? 'Rejected' : 'Fetched'}
+                    </th>
                     <th className="px-3 py-2 font-medium" />
                   </tr>
                 </thead>
@@ -771,8 +810,11 @@ export default function ZraPurchasesPage() {
                       <td className="px-3 py-2">{money(p.totAmt)}</td>
                       <td className="px-3 py-2">
                         <Badge tone={statusTone(p.status)}>{p.status}</Badge>
-                        {tab === 'approved' && p.source && (
+                        {(tab === 'approved' || tab === 'rejected') && p.source && (
                           <div className="mt-1 text-xs text-gray-400">{p.source}</div>
+                        )}
+                        {tab === 'rejected' && p.remark && (
+                          <div className="mt-1 max-w-xs text-xs text-gray-500">{p.remark}</div>
                         )}
                         {p.lastError && (
                           <div className="mt-1 max-w-xs text-xs text-red-600">{p.lastError}</div>
@@ -780,7 +822,7 @@ export default function ZraPurchasesPage() {
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">{formatPurchaseDate(p.pchsDt)}</td>
                       <td className="px-3 py-2 text-xs text-gray-400">
-                        {tab === 'approved' ? (
+                        {tab === 'approved' || tab === 'rejected' ? (
                           <>
                             <div>{formatDate(p.approvedAt ?? undefined)}</div>
                             {p.approvedBy && <div>{p.approvedBy}</div>}
@@ -865,6 +907,9 @@ export default function ZraPurchasesPage() {
                 <div className="text-sm">
                   <div className="label">Status</div>
                   <Badge tone={statusTone(detail.purchase.status)}>{detail.purchase.status}</Badge>
+                  {detail.purchase.status === 'REJECTED' && detail.purchase.remark && (
+                    <div className="mt-1 text-xs text-gray-500">{detail.purchase.remark}</div>
+                  )}
                 </div>
                 <div className="text-sm">
                   <div className="label">Total</div>
