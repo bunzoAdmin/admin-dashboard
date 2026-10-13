@@ -155,6 +155,11 @@ export default function StockMovementsPage() {
                               adj
                             </span>
                           )}
+                          {m.referenceType === 'DISPOSAL' && (
+                            <span className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-red-500">
+                              dispose
+                            </span>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">{m.referenceType?.replace(/_/g, ' ')}</td>
                         <td className="max-w-[120px] truncate px-4 py-3 font-mono text-xs text-gray-400" title={m.referenceId ?? undefined}>{m.referenceId ?? '—'}</td>

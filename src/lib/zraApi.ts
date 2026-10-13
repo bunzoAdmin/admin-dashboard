@@ -40,6 +40,32 @@ export type ZraStockStatus = {
   pendingOrFailedOutbox?: number;
 };
 
+export type ZraDisposeResult = {
+  sku?: string;
+  storeId?: number;
+  quantityDisposed?: number;
+  previousCurrentStock?: number;
+  newCurrentStock?: number;
+  movementId?: number;
+  locationCode?: string;
+  idempotent?: boolean;
+  zraStatus?: 'SUCCEEDED' | 'FAILED' | 'SKIPPED' | string;
+  zraMessage?: string | null;
+  zraAlreadyPosted?: boolean;
+  sarTyCd?: string | null;
+};
+
+export type ZraDisposeRequest = {
+  storeId: number;
+  sku: string;
+  quantity: number;
+  expectedCurrentStock: number;
+  reason: string;
+  itemName?: string;
+  storeroom?: boolean;
+  locationCode?: string;
+};
+
 export type ZraStockPreview = {
   storeId: number;
   pendingSales: number;
@@ -394,13 +420,14 @@ export type ZraBranchUserResult = {
 
 async function req<T>(
   path: string,
-  opts: { method?: string; body?: unknown; adminUser?: string } = {}
+  opts: { method?: string; body?: unknown; adminUser?: string; idempotencyKey?: string } = {}
 ): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getStoredToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
   if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
   if (opts.adminUser) headers['X-Admin-User'] = opts.adminUser;
+  if (opts.idempotencyKey) headers['Idempotency-Key'] = opts.idempotencyKey;
 
   let res: Response;
   try {
@@ -585,6 +612,14 @@ export const zraApi = {
    */
   pushStockMaster: (storeId: number, adminUser?: string) =>
     req<ZraStockStatus>('/admin/zra/stock/master', mutateOpts(adminUser, { storeId })),
+
+  disposeStock: (body: ZraDisposeRequest, idempotencyKey: string, adminUser?: string) =>
+    req<ZraDisposeResult>('/admin/zra/stock/dispose', {
+      method: 'POST',
+      body,
+      idempotencyKey,
+      adminUser: adminUser?.trim() || undefined
+    }),
 
   issueCreditNote: (orderNumber: string, body: CreditNoteBody, adminUser?: string) =>
     req<ZraCreditNote>(

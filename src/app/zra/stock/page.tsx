@@ -440,7 +440,7 @@ export default function ZraStockPage() {
             </p>
             {syncedSummary?.master ? (
               <>
-                <dl className="mb-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+                <dl className="mb-3 grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
                   <Stat label="Master OK" value={String(syncedSummary.master.succeeded ?? 0)} />
                   <Stat label="Master failed" value={String(syncedSummary.master.failed ?? 0)} />
                   <Stat
@@ -450,6 +450,10 @@ export default function ZraStockPage() {
                   <Stat
                     label="Purchases pushed"
                     value={String(syncedSummary.movements?.PURCHASE?.succeeded ?? 0)}
+                  />
+                  <Stat
+                    label="Disposals pushed"
+                    value={String(syncedSummary.movements?.DISPOSAL?.succeeded ?? 0)}
                   />
                 </dl>
                 <form onSubmit={searchMaster} className="mb-3 flex flex-wrap items-end gap-3">

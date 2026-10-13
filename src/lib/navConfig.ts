@@ -24,6 +24,7 @@ import {
   SlidersHorizontal,
   Timer,
   Ticket,
+  Trash2,
   UserCog,
   UserPlus,
   Users,
@@ -136,6 +137,7 @@ export const NAV_SECTIONS: NavSection[] = [
     label: 'Inventory',
     items: [
       { href: '/inventory', label: 'Inwarding', icon: PackagePlus, exact: true },
+      { href: '/inventory/dispose', label: 'Dispose', icon: Trash2 },
       { href: '/inventory/browse', label: 'Browse stock', icon: LayoutGrid },
       { href: '/inventory/expiry', label: 'Expiry report', icon: Timer },
       { href: '/inventory/audit', label: 'Location audit', icon: MapPin },
