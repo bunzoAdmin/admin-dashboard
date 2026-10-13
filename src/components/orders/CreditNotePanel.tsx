@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { zraApi, ZraApiError, type ZraCreditNote } from '@/lib/zraApi';
-import { Badge, Field, Spinner, useToast } from '@/components/ui';
+import { CREDIT_REASON_CLASS, ZraReasonCodeField } from '@/components/zra/ZraReasonCodeField';
+import { Badge, Spinner, useToast } from '@/components/ui';
 
 const FEE_SKU = 'SVC-FEES';
 
@@ -89,7 +90,8 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
 
   const [fullCredit, setFullCredit] = useState(true);
   const [includeFees, setIncludeFees] = useState(false);
-  const [reason, setReason] = useState('');
+  const [reasonCd, setReasonCd] = useState('');
+  const [reasonName, setReasonName] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingLines, setLoadingLines] = useState(false);
   const [lines, setLines] = useState<LineDraft[]>([]);
@@ -201,12 +203,16 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
             .map((c) => c.creditedAmount ?? '?')
             .join(', ')}).`
         : '';
+    if (!reasonCd || !reasonName.trim()) {
+      toast.push('error', reasonCd ? 'Enter the other reason.' : 'Select a ZRA credit-note reason.');
+      return;
+    }
     const modeLabel = fullCredit
       ? `FULL remaining items (${goodsLabel})`
       : `PARTIAL (${selectedLines.length} line(s): ${goodsLabel})`;
     if (
       !window.confirm(
-        `Issue a ${modeLabel} ZRA credit note for ${orderNumber.trim()}? This writes to Smart Invoice and cannot be undone.${feeLine}${priorHint}`
+        `Issue a ${modeLabel} ZRA credit note for ${orderNumber.trim()}?\nReason: ${reasonCd} — ${reasonName.trim()}\nThis writes to Smart Invoice and cannot be undone.${feeLine}${priorHint}`
       )
     ) {
       return;
@@ -217,8 +223,8 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
       const cn = await zraApi.issueCreditNote(
         orderNumber.trim(),
         {
-          reasonCd: '01',
-          reason: reason.trim() || 'Customer return / refund',
+          reasonCd,
+          reason: reasonName.trim(),
           fullCredit,
           includeFees,
           lines: fullCredit ? undefined : selectedLines
@@ -229,10 +235,11 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
         toast.push('error', cn.lastError || `Credit note ${cn.status ?? 'failed'}`);
       } else {
         toast.push('success', `Credit note issued invcNo=${cn.invcNo ?? cn.id}`);
+        setReasonCd('');
+        setReasonName('');
+        setFullCredit(true);
+        setIncludeFees(false);
       }
-      setReason('');
-      setFullCredit(true);
-      setIncludeFees(false);
       const notes = await loadPrior();
       await loadLines(notes);
       onIssued?.(cn);
@@ -301,15 +308,15 @@ export function CreditNotePanel({ orderNumber, items: itemsProp, compact = false
         </p>
       )}
 
-      <Field label="Reason (optional)">
-        <input
-          className="input"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Customer return / refund"
-          disabled={busy}
-        />
-      </Field>
+      <ZraReasonCodeField
+        cdCls={CREDIT_REASON_CLASS}
+        value={reasonCd}
+        disabled={busy}
+        onChange={(code, name) => {
+          setReasonCd(code);
+          setReasonName(name);
+        }}
+      />
 
       {orderFees > 0 && (
         <div className="rounded-md border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-700">

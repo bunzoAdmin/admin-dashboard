@@ -7,7 +7,8 @@ import { useAuth } from '@/lib/store';
 import { useZraFinanceAccess } from '@/lib/useZraFinanceAccess';
 import { ZraFinanceNotice } from '@/components/zra/ZraFinanceNotice';
 import { zraApi, ZraApiError, type ZraDebitNote } from '@/lib/zraApi';
-import { Badge, Field, Spinner, useToast } from '@/components/ui';
+import { DEBIT_REASON_CLASS, ZraReasonCodeField } from '@/components/zra/ZraReasonCodeField';
+import { Badge, Spinner, useToast } from '@/components/ui';
 
 type LineDraft = { sku: string; productName: string; maxQty: number; qty: number; selected: boolean };
 
@@ -28,7 +29,8 @@ export function DebitNotePanel({ orderNumber, items: itemsProp }: DebitNotePanel
   const finance = useZraFinanceAccess();
   const canFinance = finance.allowed;
 
-  const [reason, setReason] = useState('');
+  const [reasonCd, setReasonCd] = useState('');
+  const [reasonName, setReasonName] = useState('');
   const [busy, setBusy] = useState(false);
   const [loadingLines, setLoadingLines] = useState(false);
   const [lines, setLines] = useState<LineDraft[]>([]);
@@ -112,9 +114,13 @@ export function DebitNotePanel({ orderNumber, items: itemsProp }: DebitNotePanel
       toast.push('error', 'Select at least one line with qty > 0.');
       return;
     }
+    if (!reasonCd || !reasonName.trim()) {
+      toast.push('error', reasonCd ? 'Enter the other reason.' : 'Select a ZRA debit-note reason.');
+      return;
+    }
     if (
       !window.confirm(
-        `Issue a ZRA debit note for ${orderNumber.trim()} (${selectedLines.length} line(s))? This writes to Smart Invoice and cannot be undone.`
+        `Issue a ZRA debit note for ${orderNumber.trim()} (${selectedLines.length} line(s))?\nReason: ${reasonCd} — ${reasonName.trim()}\nThis writes to Smart Invoice and cannot be undone.`
       )
     ) {
       return;
@@ -124,8 +130,8 @@ export function DebitNotePanel({ orderNumber, items: itemsProp }: DebitNotePanel
       const dn = await zraApi.issueDebitNote(
         orderNumber.trim(),
         {
-          reasonCd: '01',
-          reason: reason.trim() || 'Price adjustment',
+          reasonCd,
+          reason: reasonName.trim(),
           lines: selectedLines
         },
         user?.username
@@ -134,8 +140,9 @@ export function DebitNotePanel({ orderNumber, items: itemsProp }: DebitNotePanel
         toast.push('error', dn.lastError || `Debit note ${dn.status ?? 'failed'}`);
       } else {
         toast.push('success', `Debit note issued invcNo=${dn.invcNo ?? dn.id}`);
+        setReasonCd('');
+        setReasonName('');
       }
-      setReason('');
       await loadPrior();
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Debit note failed.');
@@ -171,15 +178,15 @@ export function DebitNotePanel({ orderNumber, items: itemsProp }: DebitNotePanel
 
   return (
     <div className="space-y-4">
-      <Field label="Reason (optional)">
-        <input
-          className="input"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Price adjustment"
-          disabled={busy}
-        />
-      </Field>
+      <ZraReasonCodeField
+        cdCls={DEBIT_REASON_CLASS}
+        value={reasonCd}
+        disabled={busy}
+        onChange={(code, name) => {
+          setReasonCd(code);
+          setReasonName(name);
+        }}
+      />
       <div className="space-y-2">
         <p className="text-xs font-medium text-gray-700">Select lines to debit</p>
         {loadingLines ? (
