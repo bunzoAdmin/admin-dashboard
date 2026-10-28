@@ -144,7 +144,6 @@ export interface AdminDropPreview {
   reason?: string;
   trip_id?: string;
   java_status?: string;
-  trip_status?: string;
   rider?: AdminDropRider;
   candidates?: AdminDropCandidate[];
 }

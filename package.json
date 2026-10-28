@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/orderLegs.test.ts src/lib/orderLegsView.test.ts src/lib/orderLegsLoad.test.ts src/lib/tripDateRange.test.ts src/lib/adminPickupPreview.test.ts"
+    "test": "tsx --test src/lib/orderLegs.test.ts src/lib/orderLegsView.test.ts src/lib/orderLegsLoad.test.ts src/lib/tripDateRange.test.ts"
   },
   "dependencies": {
     "@types/jsbarcode": "^3.11.4",

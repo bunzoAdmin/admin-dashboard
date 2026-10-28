@@ -180,8 +180,6 @@ export const api = {
       method: 'POST',
       body: {}
     }),
-  getAdminPickupPreview: (orderNumber: string) =>
-    request<AdminDropPreview>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/pickup/preview`),
   getAdminDropPreview: (orderNumber: string) =>
     request<AdminDropPreview>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/preview`),
   adminCompleteOrderDrop: (orderNumber: string, driverPhone?: string) =>

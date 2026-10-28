@@ -14,13 +14,6 @@ import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
 import type { AdminDropPreview } from '@/lib/types';
 import { adminDropConfirmLabel, canConfirmAdminDrop } from '@/lib/adminDropPreview';
-import {
-  blockedPickupMessage,
-  canConfirmAdminPickup,
-  forceProgressPickupCopy,
-  javaOnlyPickupCopy,
-  runAdminPickupConfirm
-} from '@/lib/adminPickupPreview';
 import { orderStatusAdvanceAction, showStatusAdvanceNotes } from '@/lib/orderStatusAdvance';
 import {
   ageToneClass,
@@ -73,11 +66,6 @@ export default function OrderDetailPage() {
   const [dropPreview, setDropPreview] = useState<AdminDropPreview | null>(null);
   const [dropPreviewLoading, setDropPreviewLoading] = useState(false);
   const [dropPreviewError, setDropPreviewError] = useState<string | null>(null);
-  const [pickupPreview, setPickupPreview] = useState<AdminDropPreview | null>(null);
-  const [pickupPreviewLoading, setPickupPreviewLoading] = useState(false);
-  const [pickupPreviewError, setPickupPreviewError] = useState<string | null>(null);
-  const [pickupAssignError, setPickupAssignError] = useState<string | null>(null);
-  const [pickupRaceNotice, setPickupRaceNotice] = useState<string | null>(null);
   const [selectedPhone, setSelectedPhone] = useState('');
   const [resolvePickOpen, setResolvePickOpen] = useState(false);
 
@@ -110,64 +98,33 @@ export default function OrderDetailPage() {
   }, [loadOrder, loadEvents]);
 
   useEffect(() => {
-    setSelectedPhone('');
-    setPickupAssignError(null);
-    setPickupRaceNotice(null);
-    if (statusTarget !== 'DELIVERED' && statusTarget !== 'OUT_FOR_DELIVERY') {
+    if (statusTarget !== 'DELIVERED') {
       setDropPreview(null);
       setDropPreviewError(null);
       setDropPreviewLoading(false);
-      setPickupPreview(null);
-      setPickupPreviewError(null);
-      setPickupPreviewLoading(false);
+      setSelectedPhone('');
       return;
     }
     let cancelled = false;
-    if (statusTarget === 'DELIVERED') {
-      setPickupPreview(null);
-      setPickupPreviewError(null);
-      setPickupPreviewLoading(false);
-      setDropPreview(null);
-      setDropPreviewError(null);
-      setDropPreviewLoading(true);
-      api
-        .getAdminDropPreview(orderNumber)
-        .then((preview) => {
-          if (!cancelled) setDropPreview(preview);
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setDropPreviewError(
-              err instanceof ApiClientError ? err.message : 'Failed to load delivery preview.'
-            );
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setDropPreviewLoading(false);
-        });
-    } else {
-      setDropPreview(null);
-      setDropPreviewError(null);
-      setDropPreviewLoading(false);
-      setPickupPreview(null);
-      setPickupPreviewError(null);
-      setPickupPreviewLoading(true);
-      api
-        .getAdminPickupPreview(orderNumber)
-        .then((preview) => {
-          if (!cancelled) setPickupPreview(preview);
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setPickupPreviewError(
-              err instanceof ApiClientError ? err.message : 'Failed to load pickup preview.'
-            );
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setPickupPreviewLoading(false);
-        });
-    }
+    setDropPreview(null);
+    setDropPreviewError(null);
+    setSelectedPhone('');
+    setDropPreviewLoading(true);
+    api
+      .getAdminDropPreview(orderNumber)
+      .then((preview) => {
+        if (!cancelled) setDropPreview(preview);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDropPreviewError(
+            err instanceof ApiClientError ? err.message : 'Failed to load delivery preview.'
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDropPreviewLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -243,34 +200,7 @@ export default function OrderDetailPage() {
         await api.adminCompleteOrderDrop(orderNumber, selectedPhone || undefined);
         await loadOrder();
       } else if (action === 'qcom-pickup') {
-        if (!pickupPreview || pickupRaceNotice || !canConfirmAdminPickup(pickupPreview, selectedPhone)) return;
-        const result = await runAdminPickupConfirm({
-          preview: pickupPreview,
-          selectedPhone,
-          assign: async (phone) => {
-            await api.assignOrder(orderNumber, phone);
-          },
-          complete: async () => {
-            await api.adminCompleteOrderPickup(orderNumber);
-          },
-          reload: () => api.getAdminPickupPreview(orderNumber),
-          errorMessage: (err) =>
-            err instanceof ApiClientError ? err.message : 'Status update failed.'
-        });
-        if (!result.ok) {
-          if (result.preview) setPickupPreview(result.preview);
-          if (result.kind === 'assign_lost') {
-            setPickupRaceNotice(result.message);
-            setPickupAssignError(null);
-            return;
-          }
-          if (result.kind === 'assign_error') {
-            setPickupAssignError(result.preview.mode === 'pick_rider' ? result.message : null);
-            return;
-          }
-          toast.push('error', result.message);
-          return;
-        }
+        await api.adminCompleteOrderPickup(orderNumber);
         await loadOrder();
       } else {
         const updated = await orderAdminApi.updateStatus(orderNumber, {
@@ -519,20 +449,6 @@ export default function OrderDetailPage() {
                 onSelectPhone={setSelectedPhone}
               />
             ) : null
-          ) : statusTarget === 'OUT_FOR_DELIVERY' ? (
-            pickupPreviewLoading ? (
-              <Loading label="Loading pickup preview…" />
-            ) : pickupPreviewError ? (
-              <ErrorBox message={pickupPreviewError} />
-            ) : pickupPreview ? (
-              <AdminPickupPreviewBody
-                preview={pickupPreview}
-                selectedPhone={selectedPhone}
-                onSelectPhone={setSelectedPhone}
-                assignError={pickupAssignError}
-                raceNotice={pickupRaceNotice}
-              />
-            ) : null
           ) : (
             <p className="text-sm text-gray-600">
               Move order from <strong>{order.status.replace(/_/g, ' ')}</strong> to{' '}
@@ -555,25 +471,11 @@ export default function OrderDetailPage() {
             <button type="button" className="btn-ghost" onClick={() => setStatusTarget(null)}>
               Back
             </button>
-            {statusTarget !== 'DELIVERED' && statusTarget !== 'OUT_FOR_DELIVERY' && (
+            {statusTarget !== 'DELIVERED' && (
               <button type="button" className="btn-primary" disabled={updatingStatus} onClick={handleStatusAdvance}>
                 {updatingStatus ? <Spinner className="h-4 w-4" /> : 'Confirm'}
               </button>
             )}
-            {statusTarget === 'OUT_FOR_DELIVERY' &&
-              pickupPreview &&
-              !pickupRaceNotice &&
-              pickupPreview.mode !== 'blocked' &&
-              pickupPreview.mode !== 'already_done' && (
-                <button
-                  type="button"
-                  className="btn-primary"
-                  disabled={updatingStatus || !canConfirmAdminPickup(pickupPreview, selectedPhone)}
-                  onClick={handleStatusAdvance}
-                >
-                  {updatingStatus ? <Spinner className="h-4 w-4" /> : 'Confirm'}
-                </button>
-              )}
             {statusTarget === 'DELIVERED' &&
               dropPreview &&
               dropPreview.mode !== 'blocked' &&
@@ -590,61 +492,6 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </Modal>
-    </div>
-  );
-}
-
-function AdminPickupPreviewBody({
-  preview,
-  selectedPhone,
-  onSelectPhone,
-  assignError,
-  raceNotice
-}: {
-  preview: AdminDropPreview;
-  selectedPhone: string;
-  onSelectPhone: (phone: string) => void;
-  assignError: string | null;
-  raceNotice: string | null;
-}) {
-  if (raceNotice) {
-    return <p className="text-sm text-gray-600">{raceNotice}</p>;
-  }
-  if (preview.mode === 'blocked') {
-    return <ErrorBox message={blockedPickupMessage(preview.reason)} />;
-  }
-  if (preview.mode === 'already_done') {
-    return <p className="text-sm text-gray-600">Already out for delivery.</p>;
-  }
-  if (preview.mode === 'java_only') {
-    return <p className="text-sm text-gray-600">{javaOnlyPickupCopy()}</p>;
-  }
-  if (preview.mode === 'force_progress') {
-    return (
-      <p className="text-sm text-gray-600">
-        {forceProgressPickupCopy(preview.trip_status, preview.rider?.name ?? '')}
-      </p>
-    );
-  }
-  const candidates = preview.candidates ?? [];
-  return (
-    <div className="space-y-3">
-      {assignError && <ErrorBox message={assignError} />}
-      <p className="text-sm text-gray-600">Select an eligible rider. Confirm assigns them, then completes pickup.</p>
-      {candidates.length === 0 ? (
-        <p className="text-sm text-gray-500">No eligible riders at this store.</p>
-      ) : (
-        <Field label="Rider">
-          <select className="input" value={selectedPhone} onChange={(e) => onSelectPhone(e.target.value)}>
-            <option value="">Select rider…</option>
-            {candidates.map((c) => (
-              <option key={c.phone} value={c.phone}>
-                {c.name} — {c.phone} — K{c.in_hand_cash_zmw}
-              </option>
-            ))}
-          </select>
-        </Field>
-      )}
     </div>
   );
 }
