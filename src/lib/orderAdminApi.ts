@@ -97,7 +97,6 @@ export const orderAdminApi = {
       calendarTo?: string;
       utcOffsetMinutes?: number;
       slaMinutes?: number;
-      customerName?: string;
     }
   ) => {
     const q = new URLSearchParams({
@@ -111,9 +110,6 @@ export const orderAdminApi = {
     if (opts.calendarTo) q.set('calendarTo', opts.calendarTo);
     if (opts.utcOffsetMinutes != null) q.set('utcOffsetMinutes', String(opts.utcOffsetMinutes));
     if (opts.slaMinutes != null) q.set('slaMinutes', String(opts.slaMinutes));
-    if (opts.customerName && opts.customerName.trim().length >= 2) {
-      q.set('customerName', opts.customerName.trim());
-    }
     return req<OrderAnalyticsResponse>(`/admin/orders/metrics/analytics?${q}`);
   },
 

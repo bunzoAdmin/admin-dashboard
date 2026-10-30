@@ -59,15 +59,6 @@ function nameQueryToApply(raw: string): string | null {
   return trimmed;
 }
 
-function customerLabel(order: AdminOrderListItem): string {
-  const legal = order.customerName?.trim() || '';
-  const recipient = order.delivery?.recipientName?.trim() || '';
-  if (legal && recipient && legal.toLowerCase() !== recipient.toLowerCase()) {
-    return `${legal} · ${recipient}`;
-  }
-  return legal || recipient || '—';
-}
-
 function pickStatusTone(status?: string | null): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
     case 'PENDING': return 'amber';
@@ -273,7 +264,6 @@ export default function OrdersListPage() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-4 py-3 font-medium">Order #</th>
-                      <th className="px-4 py-3 font-medium">Customer</th>
                       <th className="px-4 py-3 font-medium">Age</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Pick</th>
@@ -304,7 +294,6 @@ export default function OrdersListPage() {
                         onClick={() => router.push(`/orders/${order.orderNumber}`)}
                       >
                         <td className="px-4 py-3 font-mono text-xs font-medium text-blue-600">{order.orderNumber}</td>
-                        <td className="px-4 py-3 text-sm text-gray-800">{customerLabel(order)}</td>
                         <td className="px-4 py-3">
                           <div className={`text-sm ${ageToneClass(waitingTone)}`}>
                             {formatAgeMinutes(ageMinutes)}

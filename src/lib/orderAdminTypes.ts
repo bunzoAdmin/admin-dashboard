@@ -71,8 +71,6 @@ export interface OrderResponse {
   appliedCouponCodes: string[];
   discountBreakdown: DiscountBreakdownItem[];
   delivery?: DeliveryInfo | null;
-  /** Invoice buyer legal name; null when checkout did not send one. */
-  customerName?: string | null;
   items: OrderItemResponse[];
   deliveryZone?: string | null;
   createdAt: string;
