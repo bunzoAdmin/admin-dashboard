@@ -2,6 +2,7 @@ export type OrderAnalyticsPeriod = 'DAY' | 'WEEK' | 'MONTH' | 'CUSTOM';
 
 export interface DeliveredOrderInsight {
   orderNumber: string;
+  customerName?: string | null;
   deliveredAt?: string;
   endToEndSeconds: number;
   gmv: number;

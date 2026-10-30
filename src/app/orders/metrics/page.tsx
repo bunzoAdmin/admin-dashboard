@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BarChart3, Calendar, ChevronLeft, ChevronRight, ExternalLink, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
@@ -20,6 +20,12 @@ const PERIODS: { id: OrderAnalyticsPeriod; label: string; hint: string }[] = [
 ];
 
 const SLA_MINUTES = 15;
+
+function nameQueryToApply(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (trimmed.length === 1) return null;
+  return trimmed;
+}
 
 function fmtDayLabel(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -62,6 +68,7 @@ function DeliveryInsightTable({
             <thead>
               <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs uppercase tracking-wide text-gray-500">
                 <th className="px-4 py-2.5 font-medium">Order</th>
+                <th className="px-4 py-2.5 font-medium">Customer</th>
                 <th className="px-4 py-2.5 font-medium text-right">E2E</th>
                 <th className="px-4 py-2.5 font-medium text-right">GMV</th>
                 <th className="px-4 py-2.5 font-medium">Delivered</th>
@@ -81,6 +88,7 @@ function DeliveryInsightTable({
                     )}
                   >
                     <td className="px-4 py-3 font-mono text-xs font-medium text-gray-900">{row.orderNumber}</td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{row.customerName?.trim() || '—'}</td>
                     <td className={clsx(
                       'px-4 py-3 text-right tabular-nums',
                       breach ? 'font-semibold text-amber-800' : 'text-gray-700'
@@ -126,12 +134,16 @@ export default function OrderMetricsPage() {
   const [anchorDate, setAnchorDate] = useState(todayIsoLocal);
   const [fromDate, setFromDate] = useState(todayIsoLocal);
   const [toDate, setToDate] = useState(todayIsoLocal);
+  const [customerName, setCustomerName] = useState('');
+  const [customerNameQuery, setCustomerNameQuery] = useState('');
   const [data, setData] = useState<OrderAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestSeq = useRef(0);
 
   const load = useCallback(async () => {
     if (storeId == null) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
@@ -141,25 +153,36 @@ export default function OrderMetricsPage() {
         customFrom: fromDate,
         customTo: toDate
       });
-      setData(
-        await orderAdminApi.getAnalytics(storeId, {
-          period: range.period,
-          from: range.from,
-          toExclusive: range.toExclusive,
-          label: range.label,
-          calendarFrom: range.calendarFrom,
-          calendarTo: range.calendarTo,
-          utcOffsetMinutes: range.utcOffsetMinutes,
-          slaMinutes: SLA_MINUTES
-        })
-      );
+      const result = await orderAdminApi.getAnalytics(storeId, {
+        period: range.period,
+        from: range.from,
+        toExclusive: range.toExclusive,
+        label: range.label,
+        calendarFrom: range.calendarFrom,
+        calendarTo: range.calendarTo,
+        utcOffsetMinutes: range.utcOffsetMinutes,
+        slaMinutes: SLA_MINUTES,
+        customerName: customerNameQuery
+      });
+      if (seq !== requestSeq.current) return;
+      setData(result);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       setError(err instanceof OrderAdminApiError ? err.message : err instanceof Error ? err.message : 'Failed to load metrics.');
       setData(null);
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [storeId, period, anchorDate, fromDate, toDate]);
+  }, [storeId, period, anchorDate, fromDate, toDate, customerNameQuery]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = nameQueryToApply(customerName);
+      if (next === null) return;
+      setCustomerNameQuery(next);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [customerName]);
 
   useEffect(() => {
     load();
@@ -239,6 +262,20 @@ export default function OrderMetricsPage() {
             </button>
           </div>
         )}
+
+        <label className="block max-w-sm space-y-1">
+          <span className="label">Customer name</span>
+          <input
+            type="search"
+            className="input w-full"
+            placeholder="Banda, Jon Banda…"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+          />
+          <span className="text-xs text-gray-400">
+            At least 2 letters. Matches a name word or a close spelling. Stats below follow this filter.
+          </span>
+        </label>
       </Card>
 
       {error && <ErrorBox message={error} />}
@@ -258,6 +295,12 @@ export default function OrderMetricsPage() {
                 {data.fromDate}
                 {data.fromDate !== data.toDate ? ` → ${data.toDate}` : ''}
               </span>
+              {customerNameQuery.trim().length >= 2 && (
+                <>
+                  <span className="text-gray-400">·</span>
+                  <span className="text-gray-700">Name: {customerNameQuery.trim()}</span>
+                </>
+              )}
             </div>
             <span className="text-xs text-gray-500">SLA ≤ {data.slaMinutes} min</span>
           </div>

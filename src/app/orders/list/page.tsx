@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
@@ -53,6 +53,21 @@ function googleMapsUrl(delivery: DeliveryInfo): string | null {
   return null;
 }
 
+function nameQueryToApply(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (trimmed.length === 1) return null;
+  return trimmed;
+}
+
+function customerLabel(order: AdminOrderListItem): string {
+  const legal = order.customerName?.trim() || '';
+  const recipient = order.delivery?.recipientName?.trim() || '';
+  if (legal && recipient && legal.toLowerCase() !== recipient.toLowerCase()) {
+    return `${legal} · ${recipient}`;
+  }
+  return legal || recipient || '—';
+}
+
 function pickStatusTone(status?: string | null): 'gray' | 'green' | 'amber' | 'red' | 'blue' {
   switch (status) {
     case 'PENDING': return 'amber';
@@ -71,6 +86,8 @@ export default function OrdersListPage() {
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [paymentStatus, setPaymentStatus] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerNameQuery, setCustomerNameQuery] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
   const [datePreset, setDatePreset] = useState<OrderDatePreset>('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -79,36 +96,51 @@ export default function OrdersListPage() {
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestSeq = useRef(0);
 
   useEffect(() => {
     const fromUrl = searchParams.get('status') ?? '';
     setStatus(fromUrl);
   }, [searchParams]);
 
-  const load = useCallback(async (sid: number | null, pg: number) => {
+  const load = useCallback(async (sid: number | null, pg: number, name = customerNameQuery) => {
     if (sid == null) return;
+    const seq = ++requestSeq.current;
     setLoading(true);
     setError(null);
     try {
       const range = resolveOrderDateRange(datePreset, dateFrom, dateTo);
+      const trimmedName = name.trim();
       const result = await orderAdminApi.listOrders({
         storeId: sid,
         status: status || undefined,
         paymentStatus: paymentStatus || undefined,
         customerPhone: customerPhone.trim() || undefined,
+        customerName: trimmedName.length >= 2 ? trimmedName : undefined,
         orderNumber: orderNumber.trim() || undefined,
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
         page: pg,
         size: 20
       });
+      if (seq !== requestSeq.current) return;
       setData(result);
     } catch (err) {
+      if (seq !== requestSeq.current) return;
       setError(err instanceof OrderAdminApiError ? err.message : 'Failed to load orders.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [status, paymentStatus, customerPhone, orderNumber, datePreset, dateFrom, dateTo]);
+  }, [status, paymentStatus, customerPhone, customerNameQuery, orderNumber, datePreset, dateFrom, dateTo]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = nameQueryToApply(customerName);
+      if (next === null) return;
+      setCustomerNameQuery(next);
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [customerName]);
 
   useEffect(() => {
     setPage(0);
@@ -117,8 +149,14 @@ export default function OrdersListPage() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    const next = nameQueryToApply(customerName);
     setPage(0);
-    load(storeId, 0);
+    if (next === null) {
+      load(storeId, 0, customerNameQuery);
+      return;
+    }
+    setCustomerNameQuery(next);
+    load(storeId, 0, next);
   }
 
   function handlePageChange(newPage: number) {
@@ -158,6 +196,17 @@ export default function OrdersListPage() {
             <label className="block space-y-1.5">
               <span className="label">Customer phone</span>
               <input type="tel" className="input w-full" placeholder="+260…" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="label">Customer name</span>
+              <input
+                type="search"
+                className="input w-full"
+                placeholder="Banda, Jon Banda…"
+                title="At least 2 letters. Matches a name word or a close spelling, on the buyer or the recipient."
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+              />
             </label>
             <label className="block space-y-1.5">
               <span className="label">Order number</span>
@@ -224,6 +273,7 @@ export default function OrdersListPage() {
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
                       <th className="px-4 py-3 font-medium">Order #</th>
+                      <th className="px-4 py-3 font-medium">Customer</th>
                       <th className="px-4 py-3 font-medium">Age</th>
                       <th className="px-4 py-3 font-medium">Status</th>
                       <th className="px-4 py-3 font-medium">Pick</th>
@@ -254,6 +304,7 @@ export default function OrdersListPage() {
                         onClick={() => router.push(`/orders/${order.orderNumber}`)}
                       >
                         <td className="px-4 py-3 font-mono text-xs font-medium text-blue-600">{order.orderNumber}</td>
+                        <td className="px-4 py-3 text-sm text-gray-800">{customerLabel(order)}</td>
                         <td className="px-4 py-3">
                           <div className={`text-sm ${ageToneClass(waitingTone)}`}>
                             {formatAgeMinutes(ageMinutes)}

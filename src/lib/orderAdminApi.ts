@@ -58,6 +58,7 @@ export const orderAdminApi = {
     status?: string;
     paymentStatus?: string;
     customerPhone?: string;
+    customerName?: string;
     orderNumber?: string;
     dateFrom?: string;
     dateTo?: string;
@@ -68,6 +69,9 @@ export const orderAdminApi = {
     if (params.status) q.set('status', params.status);
     if (params.paymentStatus) q.set('paymentStatus', params.paymentStatus);
     if (params.customerPhone) q.set('customerPhone', params.customerPhone.trim());
+    if (params.customerName && params.customerName.trim().length >= 2) {
+      q.set('customerName', params.customerName.trim());
+    }
     if (params.orderNumber) q.set('orderNumber', params.orderNumber.trim());
     if (params.dateFrom) q.set('dateFrom', params.dateFrom);
     if (params.dateTo) q.set('dateTo', params.dateTo);
@@ -93,6 +97,7 @@ export const orderAdminApi = {
       calendarTo?: string;
       utcOffsetMinutes?: number;
       slaMinutes?: number;
+      customerName?: string;
     }
   ) => {
     const q = new URLSearchParams({
@@ -106,6 +111,9 @@ export const orderAdminApi = {
     if (opts.calendarTo) q.set('calendarTo', opts.calendarTo);
     if (opts.utcOffsetMinutes != null) q.set('utcOffsetMinutes', String(opts.utcOffsetMinutes));
     if (opts.slaMinutes != null) q.set('slaMinutes', String(opts.slaMinutes));
+    if (opts.customerName && opts.customerName.trim().length >= 2) {
+      q.set('customerName', opts.customerName.trim());
+    }
     return req<OrderAnalyticsResponse>(`/admin/orders/metrics/analytics?${q}`);
   },
 
