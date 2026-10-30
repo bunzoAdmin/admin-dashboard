@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '@/lib/store';
 import { readStoreId } from '@/lib/storeSession';
+import { isBackgroundPollPaused } from '@/lib/storeTime';
 import { UNSTARTED_PICK_KINDS, useOpsAlerts } from '@/lib/opsAlerts';
 import { pickerApi } from '@/lib/pickerApi';
 import { useToast } from './ui';
@@ -27,6 +28,7 @@ export function OpsWatcher() {
     prevUnstarted.current = null;
 
     async function poll() {
+      if (isBackgroundPollPaused()) return;
       const storeId = PINNED_STORE_ID ?? readStoreId();
       if (storeId == null) {
         if (!active) return;

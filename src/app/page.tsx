@@ -18,7 +18,7 @@ import { orderAdminApi, OrderAdminApiError } from '@/lib/orderAdminApi';
 import { refundAdminApi } from '@/lib/refundAdminApi';
 import { inventoryHealthApi, InventoryHealthApiError } from '@/lib/inventoryHealthApi';
 import { resolveLocalMetricsRange, todayIsoLocal } from '@/lib/pickerMetricsRange';
-import { formatAgeMinutes } from '@/lib/storeTime';
+import { formatAgeMinutes, isBackgroundPollPaused } from '@/lib/storeTime';
 import { useOpsAlerts } from '@/lib/opsAlerts';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
@@ -136,7 +136,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load();
+      if (document.visibilityState === 'visible' && !isBackgroundPollPaused()) load();
     }, 30_000);
     return () => clearInterval(id);
   }, [load]);

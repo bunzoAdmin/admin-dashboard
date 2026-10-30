@@ -6,6 +6,7 @@ import { RefreshCw } from 'lucide-react';
 import { pickerApi, PickerApiError } from '@/lib/pickerApi';
 import type { AttentionItemResponse, TaskListResponse } from '@/lib/pickerTypes';
 import { formatDurationSeconds, formatTime } from '@/lib/pickerUtils';
+import { isBackgroundPollPaused } from '@/lib/storeTime';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
@@ -68,7 +69,7 @@ export default function PickerAttentionPage() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load();
+      if (document.visibilityState === 'visible' && !isBackgroundPollPaused()) load();
     }, 30_000);
     return () => clearInterval(id);
   }, [load]);

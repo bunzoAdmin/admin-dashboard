@@ -14,6 +14,7 @@ import type {
 } from '@/lib/pickerTypes';
 import { PICKER_STATUS_OPTIONS, TASK_STATUS_OPTIONS } from '@/lib/pickerTypes';
 import { formatDurationSeconds, formatPickerStatus, formatTime, pickerStatusTone, taskStatusTone } from '@/lib/pickerUtils';
+import { isBackgroundPollPaused } from '@/lib/storeTime';
 import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelector';
 import { TaskCancelModal } from '@/components/pickers/TaskCancelModal';
 import { TaskReassignModal } from '@/components/pickers/TaskReassignModal';
@@ -80,7 +81,7 @@ export default function PickersLiveOpsPage() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load();
+      if (document.visibilityState === 'visible' && !isBackgroundPollPaused()) load();
     }, 30_000);
     return () => clearInterval(id);
   }, [load]);

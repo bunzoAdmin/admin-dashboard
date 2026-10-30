@@ -10,6 +10,30 @@ export const STORE_TZ_LABEL = 'CAT';
 /** CAT is fixed UTC+2 (no DST). Used for metrics day bucketing. */
 export const STORE_UTC_OFFSET_MINUTES = 120;
 
+/** Background polls pause from 23:00 until 06:00 CAT (ops window is wider; this is the quiet cut). */
+export const POLL_QUIET_START_HOUR = 23;
+export const POLL_QUIET_END_HOUR = 6;
+
+/** Hour 0–23 in Africa/Lusaka. */
+export function storeHour(d: Date = new Date()): number {
+  const raw = new Intl.DateTimeFormat('en-GB', {
+    timeZone: STORE_TIMEZONE,
+    hour: 'numeric',
+    hourCycle: 'h23'
+  })
+    .formatToParts(d)
+    .find((p) => p.type === 'hour')?.value;
+  const n = raw == null ? NaN : Number(raw);
+  if (!Number.isFinite(n)) return (d.getUTCHours() + STORE_UTC_OFFSET_MINUTES / 60) % 24;
+  return n === 24 ? 0 : n;
+}
+
+/** True from 23:00 through 05:59 CAT. Repeating polls resume at 06:00. */
+export function isBackgroundPollPaused(d: Date = new Date()): boolean {
+  const hour = storeHour(d);
+  return hour >= POLL_QUIET_START_HOUR || hour < POLL_QUIET_END_HOUR;
+}
+
 /** Calendar date YYYY-MM-DD in store timezone. */
 export function storeYmd(d: Date = new Date()): string {
   return d.toLocaleDateString('en-CA', { timeZone: STORE_TIMEZONE });

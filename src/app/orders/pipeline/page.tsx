@@ -11,7 +11,8 @@ import {
   ageToneClass,
   ageUrgencyTone,
   formatAgeMinutes,
-  formatStoreDateTimeShort
+  formatStoreDateTimeShort,
+  isBackgroundPollPaused
 } from '@/lib/storeTime';
 
 const STAGE_LABEL: Record<string, string> = {
@@ -48,7 +49,7 @@ export default function OrderPipelinePage() {
 
   useEffect(() => {
     const id = setInterval(() => {
-      if (document.visibilityState === 'visible') load();
+      if (document.visibilityState === 'visible' && !isBackgroundPollPaused()) load();
     }, 30_000);
     return () => clearInterval(id);
   }, [load]);
