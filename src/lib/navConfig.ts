@@ -5,6 +5,7 @@ import {
   BookOpen,
   Database,
   FolderTree,
+  Gift,
   History,
   Home,
   Image,
@@ -152,7 +153,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { href: '/finance/refunds', label: 'Stuck Refunds', icon: RefreshCw },
       { href: '/finance/coupons', label: 'Coupons', icon: Ticket },
-      { href: '/finance/promotions', label: 'Product promotions', icon: Percent }
+      { href: '/finance/promotions', label: 'Product promotions', icon: Percent },
+      { href: '/finance/cart-gifts', label: 'Cart gifts', icon: Gift }
     ]
   },
   {
