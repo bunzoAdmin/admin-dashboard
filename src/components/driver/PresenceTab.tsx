@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ApiClientError } from '@/lib/api';
+import { formatFirstScan } from '@/lib/firstScanDisplay';
 import type { PresenceEndReason, PresenceResponse, PresenceSegment } from '@/lib/types';
 import { Badge, Card, EmptyState, ErrorBox, Field, Loading, Stat } from '@/components/ui';
 
@@ -188,8 +189,9 @@ export function PresenceTab({ phone }: { phone: string }) {
 
       {!loading && !error && data && (
         <>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             <Stat label="Total online time" value={formatMinutes(data.total_online_minutes)} sub={`${date}${isToday ? ' · today' : ''}`} />
+            <Stat label="First scan" value={formatFirstScan(data.first_scan_at)} />
             <Stat label="Online segments" value={segments.length} sub={segments.length ? 'runs of activity' : undefined} />
             <Stat
               label="Missed scans"

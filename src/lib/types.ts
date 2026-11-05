@@ -372,6 +372,7 @@ export interface PresenceResponse {
   date: string; // YYYY-MM-DD
   total_online_minutes: number;
   segments: PresenceSegment[];
+  first_scan_at?: string | null;
 }
 
 export interface TripByOrder {
