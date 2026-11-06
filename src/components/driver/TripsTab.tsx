@@ -7,6 +7,7 @@ import type { DriverTripsResponse } from '@/lib/types';
 import { Card, EmptyState, ErrorBox, Loading, Stat, formatDate } from '@/components/ui';
 import { todayIsoStore } from '@/lib/storeTime';
 import { resolveTripRange, tripRangeError, type TripRangePreset } from '@/lib/tripDateRange';
+import { formatTripMinutes, tripTimingNote } from '@/lib/tripTiming';
 
 function TripRangeControls({
   preset,
@@ -102,7 +103,7 @@ export function TripsTab({ phone }: { phone: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="grid max-w-xl grid-cols-2 gap-3">
+        <div className="grid max-w-3xl grid-cols-2 gap-3 md:grid-cols-4">
           {rangeError ? (
             <ErrorBox message={rangeError} />
           ) : loading ? (
@@ -113,6 +114,20 @@ export function TripsTab({ phone }: { phone: string }) {
             <>
               <Stat label="Trips" value={data.trip_count} />
               <Stat label="Total distance" value={`${data.total_distance_km.toFixed(2)} km`} />
+              <Stat
+                label="Last mile (median)"
+                value={formatTripMinutes(data.last_mile_median_min)}
+                sub={`p90 ${formatTripMinutes(data.last_mile_p90_min)}`}
+              />
+              <Stat
+                label="Return (median)"
+                value={formatTripMinutes(data.return_median_min)}
+                sub={
+                  data.missing_arrival_count > 0
+                    ? `p90 ${formatTripMinutes(data.return_p90_min)} · ${data.missing_arrival_count} missing arrival`
+                    : `p90 ${formatTripMinutes(data.return_p90_min)}`
+                }
+              />
             </>
           ) : null}
         </div>
@@ -162,6 +177,8 @@ export function TripsTab({ phone }: { phone: string }) {
                   <th className="px-5 py-3 font-medium">When</th>
                   <th className="px-5 py-3 font-medium">Order id</th>
                   <th className="px-5 py-3 text-right font-medium">Distance</th>
+                  <th className="px-5 py-3 text-right font-medium">Last mile</th>
+                  <th className="px-5 py-3 text-right font-medium">Return</th>
                 </tr>
               </thead>
               <tbody>
@@ -178,6 +195,12 @@ export function TripsTab({ phone }: { phone: string }) {
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-900">
                       {item.distance_km.toFixed(2)} km
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-700" title={item.missing_arrival ? tripTimingNote(item) : undefined}>
+                      {formatTripMinutes(item.last_mile_min)}
+                    </td>
+                    <td className="px-5 py-3 text-right text-gray-700" title={tripTimingNote(item)}>
+                      {formatTripMinutes(item.return_min)}
                     </td>
                   </tr>
                 ))}

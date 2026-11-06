@@ -303,11 +303,19 @@ export interface DriverTripItem {
   completed_at: string;
   order_id: string;
   distance_km: number;
+  last_mile_min: number | null;
+  return_min: number | null;
+  missing_arrival: boolean;
 }
 
 export interface DriverTripsResponse {
   trip_count: number;
   total_distance_km: number;
+  last_mile_median_min: number | null;
+  last_mile_p90_min: number | null;
+  return_median_min: number | null;
+  return_p90_min: number | null;
+  missing_arrival_count: number;
   items: DriverTripItem[];
   next_cursor: string;
 }
