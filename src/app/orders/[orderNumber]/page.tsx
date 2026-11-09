@@ -12,8 +12,8 @@ import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { pickerApi } from '@/lib/pickerApi';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
-import type { AdminDropPreview } from '@/lib/types';
-import { adminDropConfirmLabel, canConfirmAdminDrop } from '@/lib/adminDropPreview';
+import { ADMIN_DROP_REASON_NOT_LISTED, ADMIN_DROP_REASONS, type AdminDropPreview } from '@/lib/types';
+import { adminDropConfirmLabel, adminDropReasonReady, canConfirmAdminDrop } from '@/lib/adminDropPreview';
 import { orderStatusAdvanceAction, showStatusAdvanceNotes } from '@/lib/orderStatusAdvance';
 import {
   ageToneClass,
@@ -62,6 +62,8 @@ export default function OrderDetailPage() {
   const [showCancelForm, setShowCancelForm] = useState(false);
   const [statusTarget, setStatusTarget] = useState<OrderStatus | null>(null);
   const [statusNotes, setStatusNotes] = useState('');
+  const [dropReason, setDropReason] = useState('');
+  const [dropReasonNote, setDropReasonNote] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [dropPreview, setDropPreview] = useState<AdminDropPreview | null>(null);
   const [dropPreviewLoading, setDropPreviewLoading] = useState(false);
@@ -156,6 +158,8 @@ export default function OrderDetailPage() {
         if (task?.status === 'PICKED') {
           setStatusTarget(target);
           setStatusNotes('');
+          setDropReason('');
+          setDropReasonNote('');
           return;
         }
       } catch {
@@ -166,6 +170,8 @@ export default function OrderDetailPage() {
     }
     setStatusTarget(target);
     setStatusNotes('');
+    setDropReason('');
+    setDropReasonNote('');
   }
 
   async function handleCancel() {
@@ -197,7 +203,20 @@ export default function OrderDetailPage() {
         // DELIVERED is driven by qcom drop completion (closes the trip, frees the
         // rider, and syncs the order), not a direct Java status write.
         if (!dropPreview || !canConfirmAdminDrop(dropPreview.mode, selectedPhone)) return;
-        await api.adminCompleteOrderDrop(orderNumber, selectedPhone || undefined);
+        if (!adminDropReasonReady(dropReason, dropReasonNote)) {
+          toast.push(
+            'error',
+            dropReason === ADMIN_DROP_REASON_NOT_LISTED
+              ? 'Enter a reason.'
+              : 'Select a delivery reason.'
+          );
+          return;
+        }
+        await api.adminCompleteOrderDrop(orderNumber, {
+          driverPhone: selectedPhone || undefined,
+          reasonCode: dropReason,
+          note: dropReason === ADMIN_DROP_REASON_NOT_LISTED ? dropReasonNote.trim() : undefined
+        });
         await loadOrder();
       } else if (action === 'qcom-pickup') {
         await api.adminCompleteOrderPickup(orderNumber);
@@ -213,6 +232,8 @@ export default function OrderDetailPage() {
       toast.push('success', `Status updated to ${statusTarget.replace(/_/g, ' ')}.`);
       setStatusTarget(null);
       setStatusNotes('');
+      setDropReason('');
+      setDropReasonNote('');
     } catch (err) {
       toast.push(
         'error',
@@ -456,6 +477,41 @@ export default function OrderDetailPage() {
               Manual advances into picker-owned states fail if an active pick task still owns fulfillment.
             </p>
           )}
+          {statusTarget === 'DELIVERED' &&
+            dropPreview &&
+            dropPreview.mode !== 'blocked' &&
+            dropPreview.mode !== 'already_done' && (
+              <>
+                <Field label="Reason">
+                  <select
+                    className="input"
+                    value={dropReason}
+                    onChange={(e) => {
+                      setDropReason(e.target.value);
+                      if (e.target.value !== ADMIN_DROP_REASON_NOT_LISTED) setDropReasonNote('');
+                    }}
+                  >
+                    <option value="">Select a reason…</option>
+                    {ADMIN_DROP_REASONS.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {dropReason === ADMIN_DROP_REASON_NOT_LISTED && (
+                  <Field label="Other reason">
+                    <input
+                      className="input w-full"
+                      value={dropReasonNote}
+                      maxLength={500}
+                      onChange={(e) => setDropReasonNote(e.target.value)}
+                      placeholder="Why is this being marked delivered?"
+                    />
+                  </Field>
+                )}
+              </>
+            )}
           {statusTarget && showStatusAdvanceNotes(statusTarget) && (
             <label className="block space-y-1.5">
               <span className="label">Notes (optional)</span>
@@ -483,7 +539,11 @@ export default function OrderDetailPage() {
                 <button
                   type="button"
                   className="btn-primary"
-                  disabled={updatingStatus || !canConfirmAdminDrop(dropPreview.mode, selectedPhone)}
+                  disabled={
+                    updatingStatus ||
+                    !canConfirmAdminDrop(dropPreview.mode, selectedPhone) ||
+                    !adminDropReasonReady(dropReason, dropReasonNote)
+                  }
                   onClick={handleStatusAdvance}
                 >
                   {updatingStatus ? <Spinner className="h-4 w-4" /> : adminDropConfirmLabel(dropPreview.mode)}
