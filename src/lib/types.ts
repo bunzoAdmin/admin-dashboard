@@ -148,6 +148,17 @@ export interface AdminDropPreview {
   candidates?: AdminDropCandidate[];
 }
 
+// Must stay in sync with models.adminDropReasonLabels in the qcom backend —
+// the server rejects anything outside this set with 400 INVALID_REASON_CODE.
+export const ADMIN_DROP_REASONS: { value: string; label: string }[] = [
+  { value: 'otp_not_provided', label: 'OTP Not Provided' },
+  { value: 'internal_purchase', label: 'Internal Purchase' },
+  { value: 'batched_order', label: 'Batched Order' },
+  { value: 'not_listed', label: 'Not Listed' }
+];
+
+export const ADMIN_DROP_REASON_NOT_LISTED = 'not_listed';
+
 // Must stay in sync with models.reassignReasonCodes in the qcom backend —
 // the server rejects anything outside this set with 400 INVALID_REASON_CODE.
 export const REASSIGN_REASONS: { value: string; label: string }[] = [

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canConfirmAdminDrop, adminDropConfirmLabel } from './adminDropPreview.ts';
+import { adminDropReasonReady, canConfirmAdminDrop, adminDropConfirmLabel } from './adminDropPreview.ts';
 
 test('canConfirmAdminDrop: pick_rider without a phone is disabled', () => {
   assert.equal(canConfirmAdminDrop('pick_rider', ''), false);
@@ -28,4 +28,24 @@ test('adminDropConfirmLabel: pick_rider', () => {
 
 test('adminDropConfirmLabel: force_progress', () => {
   assert.equal(adminDropConfirmLabel('force_progress'), 'Mark delivered');
+});
+
+test('adminDropReasonReady: empty is not ready', () => {
+  assert.equal(adminDropReasonReady('', ''), false);
+});
+
+test('adminDropReasonReady: preset is ready without a note', () => {
+  assert.equal(adminDropReasonReady('otp_not_provided', ''), true);
+  assert.equal(adminDropReasonReady('internal_purchase', ''), true);
+  assert.equal(adminDropReasonReady('batched_order', ''), true);
+});
+
+test('adminDropReasonReady: not_listed needs trimmed text', () => {
+  assert.equal(adminDropReasonReady('not_listed', ''), false);
+  assert.equal(adminDropReasonReady('not_listed', '   '), false);
+  assert.equal(adminDropReasonReady('not_listed', 'customer left it'), true);
+});
+
+test('adminDropReasonReady: unknown code is rejected', () => {
+  assert.equal(adminDropReasonReady('something_else', 'text'), false);
 });

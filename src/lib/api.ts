@@ -182,10 +182,17 @@ export const api = {
     }),
   getAdminDropPreview: (orderNumber: string) =>
     request<AdminDropPreview>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/preview`),
-  adminCompleteOrderDrop: (orderNumber: string, driverPhone?: string) =>
+  adminCompleteOrderDrop: (
+    orderNumber: string,
+    opts: { driverPhone?: string; reasonCode: string; note?: string }
+  ) =>
     request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/complete`, {
       method: 'POST',
-      body: driverPhone ? { driver_phone: driverPhone } : {}
+      body: {
+        ...(opts.driverPhone ? { driver_phone: opts.driverPhone } : {}),
+        reason_code: opts.reasonCode,
+        ...(opts.note ? { note: opts.note } : {})
+      }
     }),
   adminCompleteOrderPickup: (orderNumber: string) =>
     request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/pickup/complete`, {
