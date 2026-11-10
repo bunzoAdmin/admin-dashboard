@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { api, ApiClientError } from '@/lib/api';
 import type { DriverTripsResponse } from '@/lib/types';
-import { Card, EmptyState, ErrorBox, Loading, Stat, formatDate } from '@/components/ui';
+import { Badge, Card, EmptyState, ErrorBox, Loading, Stat, formatDate } from '@/components/ui';
 import { todayIsoStore } from '@/lib/storeTime';
 import { resolveTripRange, tripRangeError, type TripRangePreset } from '@/lib/tripDateRange';
-import { formatTripMinutes, tripTimingNote } from '@/lib/tripTiming';
+import { formatTripMinutes, isInactiveTripStatus, tripStatusLabel, tripStatusTone, tripTimingNote } from '@/lib/tripTiming';
 
 function TripRangeControls({
   preset,
@@ -186,15 +186,20 @@ export function TripsTab({ phone }: { phone: string }) {
                   <tr key={`${item.order_id}-${i}`} className="border-b border-gray-50 last:border-0">
                     <td className="px-5 py-3 text-gray-700">{formatDate(item.completed_at)}</td>
                     <td className="px-5 py-3">
-                      <Link
-                        href={`/orders/${encodeURIComponent(item.order_id)}`}
-                        className="font-mono text-xs text-blue-600 hover:underline"
-                      >
-                        {item.order_id}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/orders/${encodeURIComponent(item.order_id)}`}
+                          className="font-mono text-xs text-blue-600 hover:underline"
+                        >
+                          {item.order_id}
+                        </Link>
+                        {item.status && (
+                          <Badge tone={tripStatusTone(item.status)}>{tripStatusLabel(item.status)}</Badge>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-right font-medium text-gray-900">
-                      {item.distance_km.toFixed(2)} km
+                      {isInactiveTripStatus(item.status) ? '—' : `${item.distance_km.toFixed(2)} km`}
                     </td>
                     <td className="px-5 py-3 text-right text-gray-700" title={item.missing_arrival ? tripTimingNote(item) : undefined}>
                       {formatTripMinutes(item.last_mile_min)}

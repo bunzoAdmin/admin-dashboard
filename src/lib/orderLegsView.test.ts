@@ -58,6 +58,12 @@ describe('filterLegRows', () => {
     );
   });
 
+  it('does not treat an in-flight order as cancelled (inactive is a trip status, not an order status)', () => {
+    const ofd = row({ orderNumber: 'I', status: 'OUT_FOR_DELIVERY', hasRed: false });
+    assert.deepEqual(filterLegRows([ofd], 'cancelled'), []);
+    assert.equal(filterLegRows([ofd], 'in_flight')[0].orderNumber, 'I');
+  });
+
   it('has_red is hasRed regardless of status', () => {
     assert.deepEqual(
       filterLegRows(rows, 'has_red').map((r) => r.orderNumber),

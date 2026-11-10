@@ -7,6 +7,7 @@ import {
   formatDurationMmSs,
   legTone,
   e2eTone,
+  tripForLegKm,
   LEG_IDS,
   LEG_THRESHOLDS,
   buildOrderLegRow
@@ -158,6 +159,25 @@ function deliveredFixtures(): {
   };
 }
 
+describe('tripForLegKm', () => {
+  it('ignores inactive trips for km', () => {
+    assert.equal(
+      tripForLegKm({
+        order_id: 'A',
+        distance_km: 4,
+        trip_status: 'inactive',
+        superseded_by_trip_id: 'B'
+      }),
+      null
+    );
+  });
+
+  it('keeps a live trip', () => {
+    const trip = { order_id: 'A', distance_km: 4, trip_status: 'out_for_delivery' };
+    assert.equal(tripForLegKm(trip), trip);
+  });
+});
+
 describe('buildOrderLegRow', () => {
   it('delivered order with all timestamps fills six actuals', () => {
     const { order, events, pick, trip } = deliveredFixtures();
@@ -262,6 +282,34 @@ describe('buildOrderLegRow', () => {
     assert.equal(row.legs[0].actualSeconds, 240);
     assert.equal(row.legs[0].tone, 'preposterous');
     assert.equal(row.hasRed, true);
+  });
+
+  it('inactive trip is ignored for km and is not treated as cancelled', () => {
+    const row = buildOrderLegRow({
+      order: {
+        orderNumber: 'ORD-INACT',
+        status: 'OUT_FOR_DELIVERY',
+        createdAt: '2026-08-26T09:00:00.000Z',
+        items: [{ orderedQuantity: 1 }]
+      },
+      events: [
+        { toStatus: 'CONFIRMED', occurredAt: '2026-08-26T09:00:30.000Z' },
+        { toStatus: 'OUT_FOR_DELIVERY', occurredAt: '2026-08-26T09:03:30.000Z' }
+      ],
+      pick: { startedAt: '2026-08-26T09:01:30.000Z', completedAt: '2026-08-26T09:02:30.000Z' },
+      trip: {
+        order_id: 'ORD-INACT',
+        distance_km: 9.9,
+        reached_at: '2026-08-26T09:05:30.000Z',
+        trip_status: 'inactive',
+        superseded_by_trip_id: 'trip-next'
+      },
+      nowMs: NOW_MS
+    });
+
+    assert.equal(row.status, 'OUT_FOR_DELIVERY');
+    assert.equal(row.distanceKm, null);
+    assert.equal(row.lastMilePredictedMinutes, null);
   });
 
   it('units is the sum of orderedQuantity', () => {
