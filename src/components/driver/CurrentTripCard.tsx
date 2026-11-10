@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Package, MapPin, UserCog } from 'lucide-react';
 import { api, ApiClientError } from '@/lib/api';
 import type { Trip, TripTask, ReassignCandidate } from '@/lib/types';
 import { REASSIGN_REASONS } from '@/lib/types';
+import { tripStatusLabel, tripStatusTone } from '@/lib/tripTiming';
+import { canAdminMarkDrop, canAdminMarkPickup } from '@/lib/adminTripActions';
 import { Modal } from '@/components/Modal';
 import {
   Badge,
@@ -20,17 +23,12 @@ import {
   useToast
 } from '@/components/ui';
 
-const TRIP_STATUS_TONE: Record<string, 'gray' | 'amber' | 'blue' | 'green' | 'red'> = {
-  created: 'gray',
-  assigned: 'amber',
-  accepted: 'blue',
-  out_for_delivery: 'green',
-  completed: 'gray',
-  cancelled: 'red'
-};
-
 function taskLabel(type: TripTask['type']) {
   return type === 'pickup' ? 'Pickup' : 'Drop';
+}
+
+function taskOpen(task: TripTask) {
+  return task.status !== 'completed';
 }
 
 export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: string; refreshKey: number; onTripChanged: () => void }) {
@@ -38,8 +36,8 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
   const [trip, setTrip] = useState<Trip | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pickupBusy, setPickupBusy] = useState(false);
-  const [dropModal, setDropModal] = useState(false);
+  const [pickupBusyId, setPickupBusyId] = useState<string | null>(null);
+  const [dropTask, setDropTask] = useState<TripTask | null>(null);
   const [dropBusy, setDropBusy] = useState(false);
   const [dropError, setDropError] = useState<string | null>(null);
   const [reassignModal, setReassignModal] = useState(false);
@@ -69,12 +67,11 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
     load();
   }, [load, refreshKey]);
 
-  const pickup = trip?.tasks.find((t) => t.type === 'pickup');
-  const drop = trip?.tasks.find((t) => t.type === 'drop');
-  const canMarkPickup = trip?.status === 'accepted' && pickup && pickup.status !== 'completed';
-  const canMarkDrop = trip?.status === 'out_for_delivery' && drop && drop.status !== 'completed';
   const canReassign =
     trip?.status === 'assigned' || trip?.status === 'accepted' || trip?.status === 'out_for_delivery';
+  const anyPickupOpen = Boolean(trip?.tasks.some((t) => t.type === 'pickup' && taskOpen(t)));
+  const orderLabel =
+    trip && (trip.order_ids?.length ? trip.order_ids.join(', ') : trip.order_id);
 
   async function openReassign() {
     if (!trip) return;
@@ -116,29 +113,45 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
     }
   }
 
-  async function markPickupDone() {
-    if (!canMarkPickup) return;
-    setPickupBusy(true);
+  function canMarkPickup(task: TripTask) {
+    return Boolean(trip && canAdminMarkPickup(trip.status, task));
+  }
+
+  function canMarkDrop(task: TripTask) {
+    return Boolean(trip && canAdminMarkDrop(trip.status, task));
+  }
+
+  async function markPickupDone(task: TripTask) {
+    if (!canMarkPickup(task)) return;
+    setPickupBusyId(task.task_id);
     try {
-      await api.adminCompletePickup(phone);
+      if (task.order_id) {
+        await api.adminCompleteOrderPickup(task.order_id);
+      } else {
+        await api.adminCompletePickup(phone);
+      }
       toast.push('success', 'Pickup marked done.');
       await load();
       onTripChanged();
     } catch (err) {
       toast.push('error', err instanceof ApiClientError ? err.message : 'Failed to mark pickup done.');
     } finally {
-      setPickupBusy(false);
+      setPickupBusyId(null);
     }
   }
 
   async function markDropDone() {
-    if (!canMarkDrop) return;
+    if (!dropTask || !canMarkDrop(dropTask)) return;
     setDropBusy(true);
     setDropError(null);
     try {
-      await api.adminCompleteDrop(phone);
+      if (dropTask.order_id) {
+        await api.adminCompleteOrderDrop(dropTask.order_id);
+      } else {
+        await api.adminCompleteDrop(phone);
+      }
       toast.push('success', 'Drop marked done.');
-      setDropModal(false);
+      setDropTask(null);
       await load();
       onTripChanged();
     } catch (err) {
@@ -180,14 +193,14 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
       <Card>
         <SectionTitle
           action={
-            <Badge tone={TRIP_STATUS_TONE[trip.status] ?? 'gray'}>{trip.status.replace(/_/g, ' ')}</Badge>
+            <Badge tone={tripStatusTone(trip.status)}>{tripStatusLabel(trip.status)}</Badge>
           }
         >
           Current trip
         </SectionTitle>
 
         <dl className="mb-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-          <Row label="Order" value={trip.order_id} mono />
+          <Row label="Order" value={orderLabel || '—'} mono />
           <Row label="Trip" value={trip.trip_id} mono />
           <Row label="Store" value={trip.store_id || '—'} />
           <Row label="Assigned" value={formatDate(trip.assigned_at)} />
@@ -200,9 +213,17 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
           {trip.tasks.map((task) => (
             <div key={task.task_id} className="rounded-lg border border-gray-200 p-3">
               <div className="mb-2 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-                  <MapPin className="h-4 w-4 text-gray-400" />
+                <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium text-gray-900">
+                  <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
                   {taskLabel(task.type)}
+                  {task.order_id && (
+                    <Link
+                      href={`/orders/${encodeURIComponent(task.order_id)}`}
+                      className="font-mono text-xs font-normal text-blue-600 hover:underline"
+                    >
+                      {task.order_id}
+                    </Link>
+                  )}
                   {task.recipient_name && <span className="font-normal text-gray-500">· {task.recipient_name}</span>}
                 </div>
                 <Badge tone={task.status === 'completed' ? 'green' : 'amber'}>{task.status}</Badge>
@@ -211,6 +232,32 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
               {task.phone && <p className="mt-1 text-xs text-gray-400">{task.phone}</p>}
               {task.completed_at && (
                 <p className="mt-1 text-xs text-gray-400">Completed {formatDate(task.completed_at)}</p>
+              )}
+              {(canMarkPickup(task) || canMarkDrop(task)) && (
+                <div className="mt-3">
+                  {canMarkPickup(task) && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => markPickupDone(task)}
+                      disabled={pickupBusyId === task.task_id}
+                    >
+                      {pickupBusyId === task.task_id ? <Spinner className="h-4 w-4" /> : 'Mark pickup done'}
+                    </button>
+                  )}
+                  {canMarkDrop(task) && (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => {
+                        setDropError(null);
+                        setDropTask(task);
+                      }}
+                    >
+                      Mark drop done
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           ))}
@@ -233,24 +280,13 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
           </div>
         )}
 
-        {(canMarkPickup || canMarkDrop || canReassign) && (
+        {canReassign && (
           <div className="mt-5 flex flex-wrap gap-2 border-t border-gray-100 pt-4">
-            {canMarkPickup && (
-              <button type="button" className="btn-primary" onClick={markPickupDone} disabled={pickupBusy}>
-                {pickupBusy ? <Spinner className="h-4 w-4" /> : 'Mark pickup done'}
-              </button>
-            )}
-            {canMarkDrop && (
-              <button type="button" className="btn-primary" onClick={() => { setDropError(null); setDropModal(true); }}>
-                Mark drop done
-              </button>
-            )}
-            {canReassign && (
-              <button type="button" className="btn-ghost" onClick={openReassign}>
-                <UserCog className="mr-1.5 inline h-4 w-4" />
-                Reassign to another rider
-              </button>
-            )}
+            <button type="button" className="btn-ghost" onClick={openReassign}>
+              <UserCog className="mr-1.5 inline h-4 w-4" />
+              Reassign to another rider
+            </button>
+            <p className="w-full text-xs text-gray-400">Reassign moves all orders on this trip.</p>
           </div>
         )}
 
@@ -263,19 +299,20 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
           </p>
         )}
 
-        {trip.status === 'assigned' && pickup?.status !== 'completed' && (
+        {trip.status === 'assigned' && anyPickupOpen && (
           <p className="mt-4 text-xs text-gray-400">Driver must accept the trip before pickup can be marked done.</p>
         )}
       </Card>
 
-      <Modal open={dropModal} onClose={() => setDropModal(false)} title="Mark drop done">
+      <Modal open={!!dropTask} onClose={() => setDropTask(null)} title="Mark drop done">
         <div className="space-y-4">
           <p className="text-sm text-gray-500">
-            Mark this drop done? This closes the trip and marks the order delivered.
+            Mark this drop done{dropTask?.order_id ? ` for ${dropTask.order_id}` : ''}? This marks the order
+            delivered.
           </p>
           {dropError && <ErrorBox message={dropError} />}
           <div className="flex justify-end gap-2">
-            <button type="button" className="btn-ghost" onClick={() => setDropModal(false)} disabled={dropBusy}>
+            <button type="button" className="btn-ghost" onClick={() => setDropTask(null)} disabled={dropBusy}>
               Cancel
             </button>
             <button type="button" className="btn-primary" disabled={dropBusy} onClick={markDropDone}>
@@ -289,6 +326,7 @@ export function CurrentTripCard({ phone, refreshKey, onTripChanged }: { phone: s
         <form onSubmit={submitReassign} className="flex min-h-0 flex-1 flex-col gap-4">
           {reassignError && <ErrorBox message={reassignError} />}
           {candidatesError && <ErrorBox message={candidatesError} />}
+          <p className="text-sm text-gray-500">This moves all orders on this trip to the selected rider.</p>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
             {candidates === null ? (

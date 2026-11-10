@@ -18,6 +18,7 @@ export const PAGE_SIZE = 50;
 export function filterLegRows(rows: OrderLegRow[], chip: LegChip): OrderLegRow[] {
   if (chip === 'all') return rows;
   if (chip === 'delivered') return rows.filter((row) => row.status === 'DELIVERED');
+  // Order Java status only — trip `inactive` is not customer-cancelled.
   if (chip === 'cancelled') return rows.filter((row) => row.status === 'CANCELLED');
   if (chip === 'in_flight') {
     return rows.filter((row) => row.status !== 'DELIVERED' && row.status !== 'CANCELLED');

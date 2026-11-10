@@ -5,6 +5,9 @@ import type {
   AdminDispute,
   AdminDisputeDetail,
   AdminDropPreview,
+  BatchCandidatesResponse,
+  BatchOrderBody,
+  BatchOrderResponse,
   CashCollectionsResponse,
   CashLedger,
   Darkstore,
@@ -184,13 +187,13 @@ export const api = {
     request<AdminDropPreview>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/preview`),
   adminCompleteOrderDrop: (
     orderNumber: string,
-    opts: { driverPhone?: string; reasonCode: string; note?: string }
+    opts: { driverPhone?: string; reasonCode?: string; note?: string } = {}
   ) =>
     request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/drop/complete`, {
       method: 'POST',
       body: {
         ...(opts.driverPhone ? { driver_phone: opts.driverPhone } : {}),
-        reason_code: opts.reasonCode,
+        ...(opts.reasonCode ? { reason_code: opts.reasonCode } : {}),
         ...(opts.note ? { note: opts.note } : {})
       }
     }),
@@ -198,6 +201,15 @@ export const api = {
     request<{ status: string }>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/pickup/complete`, {
       method: 'POST',
       body: {}
+    }),
+  getBatchCandidates: (orderNumber: string) =>
+    request<BatchCandidatesResponse>(
+      `/admin/orders/${encodeURIComponent(orderNumber.trim())}/batch/candidates`
+    ),
+  batchOrder: (orderNumber: string, body: BatchOrderBody) =>
+    request<BatchOrderResponse>(`/admin/orders/${encodeURIComponent(orderNumber.trim())}/batch`, {
+      method: 'POST',
+      body
     }),
   getReassignCandidates: (tripId: string) =>
     request<{ candidates: ReassignCandidate[] }>(

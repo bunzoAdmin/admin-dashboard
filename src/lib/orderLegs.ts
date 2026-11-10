@@ -26,7 +26,20 @@ export const LEG_THRESHOLDS = {
 
 export type OrderEventLike = { toStatus?: string | null; occurredAt: string };
 export type PickTaskLike = { startedAt?: string | null; completedAt?: string | null };
-export type TripLike = { order_id: string; distance_km: number; reached_at?: string; trip_status: string };
+export type TripLike = {
+  order_id: string;
+  distance_km: number;
+  reached_at?: string;
+  trip_status: string;
+  superseded_by_trip_id?: string;
+};
+
+/** Inactive trips are superseded — ignore them for km. Prefer a live successor if the caller passed one. */
+export function tripForLegKm(trip: TripLike | null | undefined): TripLike | null {
+  if (!trip) return null;
+  if (trip.trip_status === 'inactive') return null;
+  return trip;
+}
 export type OrderLike = {
   orderNumber: string;
   status: string;
@@ -156,7 +169,8 @@ export function buildOrderLegRow(input: {
   trip: TripLike | null;
   nowMs: number;
 }): OrderLegRow {
-  const { order, events, pick, trip, nowMs } = input;
+  const { order, events, pick, nowMs } = input;
+  const trip = tripForLegKm(input.trip);
   const units = sumUnits(order.items);
   const distanceKm = trip == null ? null : trip.distance_km;
   const itemMin = itemPredictedMinutes(units);

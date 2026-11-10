@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTripMinutes, tripTimingNote } from './tripTiming';
+import { formatTripMinutes, tripPayoutDisplay, tripStatusLabel, tripStatusTone, tripTimingNote } from './tripTiming';
 
 describe('formatTripMinutes', () => {
   it('rounds to whole minutes', () => {
@@ -26,5 +26,24 @@ describe('tripTimingNote', () => {
 
   it('has no note when both timings exist', () => {
     assert.equal(tripTimingNote({ missing_arrival: false, return_min: 15 }), undefined);
+  });
+});
+
+describe('inactive trip status', () => {
+  it('labels inactive as Inactive, not Cancelled or Completed', () => {
+    assert.equal(tripStatusLabel('inactive'), 'Inactive');
+    assert.equal(tripStatusLabel('cancelled'), 'cancelled');
+    assert.equal(tripStatusLabel('completed'), 'completed');
+  });
+
+  it('does not use the cancelled red tone for inactive', () => {
+    assert.equal(tripStatusTone('inactive'), 'gray');
+    assert.equal(tripStatusTone('cancelled'), 'red');
+  });
+
+  it('does not treat empty payout as paid', () => {
+    assert.equal(tripPayoutDisplay(undefined), null);
+    assert.equal(tripPayoutDisplay(null), null);
+    assert.equal(tripPayoutDisplay(0), '0');
   });
 });

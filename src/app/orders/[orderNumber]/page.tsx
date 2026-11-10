@@ -8,6 +8,7 @@ import type { OrderEventResponse, OrderResponse, OrderStatus } from '@/lib/order
 import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdminTypes';
 import { Badge, Card, ErrorBox, Field, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
+import { BatchOrderModal } from '@/components/orders/BatchOrderModal';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { pickerApi } from '@/lib/pickerApi';
 import { Modal } from '@/components/Modal';
@@ -70,6 +71,9 @@ export default function OrderDetailPage() {
   const [dropPreviewError, setDropPreviewError] = useState<string | null>(null);
   const [selectedPhone, setSelectedPhone] = useState('');
   const [resolvePickOpen, setResolvePickOpen] = useState(false);
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchVisible, setBatchVisible] = useState(false);
+  const [batchEmpty, setBatchEmpty] = useState(false);
 
   const loadOrder = useCallback(async () => {
     setLoadingOrder(true);
@@ -98,6 +102,35 @@ export default function OrderDetailPage() {
     loadOrder();
     loadEvents();
   }, [loadOrder, loadEvents]);
+
+  const orderBatchable = Boolean(
+    order &&
+    order.orderNumber === orderNumber &&
+    order.status !== 'CANCELLED' &&
+    order.status !== 'DELIVERED'
+  );
+
+  const loadBatchGate = useCallback(async () => {
+    if (!orderBatchable) {
+      setBatchVisible(false);
+      setBatchEmpty(false);
+      return;
+    }
+    try {
+      const res = await api.getBatchCandidates(orderNumber);
+      setBatchVisible(true);
+      setBatchEmpty((res.candidates ?? []).length === 0);
+    } catch {
+      // Spec: show Batch only when candidates GET succeeded. 403 BATCHING_DISABLED
+      // and any other failure (404 before qcom ships, network) hide the button.
+      setBatchVisible(false);
+      setBatchEmpty(false);
+    }
+  }, [orderBatchable, orderNumber]);
+
+  useEffect(() => {
+    loadBatchGate();
+  }, [loadBatchGate]);
 
   useEffect(() => {
     if (statusTarget !== 'DELIVERED') {
@@ -301,6 +334,20 @@ export default function OrderDetailPage() {
               Advance to {s.replace(/_/g, ' ')}
             </button>
           ))}
+          {batchVisible && (
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              disabled={batchEmpty}
+              title={batchEmpty ? 'No riders on a live trip at this store.' : undefined}
+              onClick={() => setBatchOpen(true)}
+            >
+              Batch
+            </button>
+          )}
+          {batchVisible && batchEmpty && (
+            <span className="self-center text-xs text-gray-400">No riders on a live trip at this store.</span>
+          )}
           {canCancel && (
             <button className="btn-danger text-sm" onClick={() => setShowCancelForm(v => !v)}>
               Cancel Order
@@ -552,6 +599,21 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </Modal>
+
+      <BatchOrderModal
+        open={batchOpen}
+        onClose={() => setBatchOpen(false)}
+        orderNumber={order.orderNumber}
+        onBatched={() => {
+          loadOrder();
+          loadEvents();
+          loadBatchGate();
+        }}
+        onBatchingDisabled={() => {
+          setBatchVisible(false);
+          setBatchEmpty(false);
+        }}
+      />
     </div>
   );
 }

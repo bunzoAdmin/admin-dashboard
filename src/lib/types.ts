@@ -48,7 +48,8 @@ export type TripStatus =
   | 'accepted'
   | 'out_for_delivery'
   | 'completed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'inactive';
 
 export type TaskType = 'pickup' | 'drop';
 export type TaskStatus = 'created' | 'reached' | 'completed';
@@ -69,6 +70,13 @@ export interface TripTask {
   lat: number;
   lng: number;
   recipient_name?: string;
+  order_id?: string;
+  otp?: string;
+  delivery_zone?: string;
+  items?: TripItem[];
+  payment?: TripPayment;
+  drop_deadline?: number;
+  reached_at?: string;
 }
 
 export interface TripItem {
@@ -100,6 +108,10 @@ export interface Trip {
   updated_at: string;
   assigned_at?: string;
   reassignments?: TripReassignment[];
+  order_ids?: string[];
+  superseded_by_trip_id?: string;
+  supersedes_trip_ids?: string[];
+  distance_method?: string;
 }
 
 export interface TripReassignment {
@@ -146,6 +158,35 @@ export interface AdminDropPreview {
   java_status?: string;
   rider?: AdminDropRider;
   candidates?: AdminDropCandidate[];
+}
+
+export interface BatchCandidate {
+  phone: string;
+  name: string;
+  trip_id: string;
+  trip_updated_at: string;
+  app_ok: boolean;
+  cash_exceeds: boolean;
+}
+
+export interface BatchCandidatesResponse {
+  source_trip_id?: string;
+  source_trip_updated_at?: string;
+  source_rider_name?: string;
+  candidates: BatchCandidate[];
+}
+
+export interface BatchOrderBody {
+  target_de_phone: string;
+  expected_updated_at: Record<string, string>;
+}
+
+export interface BatchOrderResponse {
+  trip_id: string;
+  order_ids: string[];
+  status: string;
+  distance_method: 'google' | 'haversine';
+  warnings?: Array<'cash_exceeds' | 'haversine_fallback'>;
 }
 
 // Must stay in sync with models.adminDropReasonLabels in the qcom backend —
@@ -317,6 +358,8 @@ export interface DriverTripItem {
   last_mile_min: number | null;
   return_min: number | null;
   missing_arrival: boolean;
+  status?: TripStatus | string;
+  payout_zmw?: number;
 }
 
 export interface DriverTripsResponse {
@@ -399,6 +442,7 @@ export interface TripByOrder {
   distance_km: number;
   reached_at?: string;
   trip_status: string;
+  superseded_by_trip_id?: string;
 }
 
 export interface ApiError {

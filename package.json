@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/lib/orderLegs.test.ts src/lib/orderLegsView.test.ts src/lib/orderLegsLoad.test.ts src/lib/tripDateRange.test.ts src/lib/storeTime.poll.test.ts src/lib/firstScanDisplay.test.ts src/lib/tripTiming.test.ts src/lib/adminDropPreview.test.mjs"
+    "test": "tsx --test src/lib/orderLegs.test.ts src/lib/orderLegsView.test.ts src/lib/orderLegsLoad.test.ts src/lib/tripDateRange.test.ts src/lib/storeTime.poll.test.ts src/lib/firstScanDisplay.test.ts src/lib/tripTiming.test.ts src/lib/adminDropPreview.test.mjs src/lib/batchOrder.test.ts src/lib/adminTripActions.test.ts"
   },
   "dependencies": {
     "@types/jsbarcode": "^3.11.4",
