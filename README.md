@@ -37,7 +37,7 @@ npm run dev                 # http://localhost:3100
 | Section | Routes |
 |---------|--------|
 | Home | `/` |
-| Orders | `/orders/disputes`, `/orders/assign` |
+| Orders | `/orders/disputes`, `/orders/list` |
 | Riders | `/riders`, `/riders/onboard`, `/riders/payout-rules` |
 | Catalog | `/catalog/categories`, `/catalog/products`, `/catalog/products/browse` |
 | Stores | `/stores/qr` |
@@ -50,7 +50,7 @@ Legacy flat URLs (`/drivers`, `/disputes`, etc.) redirect to the new paths.
 - **Disputes** — triage customer disputes with order evidence and status actions
 - **Riders** — lookup, onboard, trip overview, earnings, cash, disbursements, referrals
 - **Payout rules** — rate modifier / accumulator / ranking editor with version history
-- **Assign order** — force-assign pooled orders to on-duty drivers
+- **Assign rider** — from the order page, force-assign a pooled order to an eligible rider
 - **Categories** — category tree view and create root/subcategory
 - **Products** — barcode scan → lookup → create or edit via sync API
 - **Store QR** — hourly duty QR display for darkstores

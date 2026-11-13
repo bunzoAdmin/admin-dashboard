@@ -14,7 +14,6 @@ import {
   List,
   Medal,
   Package,
-  PackageCheck,
   PackagePlus,
   Percent,
   Plus,
@@ -75,8 +74,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { href: '/orders/invoices', label: 'Missing Invoices', icon: FileText },
       { href: '/orders/pipeline', label: 'Pipeline', icon: BarChart2 },
       { href: '/orders/metrics', label: 'Metrics', icon: BarChart2 },
-      { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true },
-      { href: '/orders/assign', label: 'Assign Order', icon: PackageCheck }
+      { href: '/orders/disputes', label: 'Disputes', icon: AlertTriangle, disputeBadge: true }
     ]
   },
   {

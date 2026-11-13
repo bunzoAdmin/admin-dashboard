@@ -29,7 +29,8 @@ import type {
   Rule,
   StoreQR,
   TripByOrder,
-  TripReachedConfig
+  TripReachedConfig,
+  LiveTrip
 } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.bunzodelivery.com';
@@ -307,6 +308,8 @@ export const api = {
   // --- Assignment ---
   assignOrder: (order_id: string, driver_phone: string) =>
     request<{ status: string }>(`/admin/assign`, { method: 'POST', body: { order_id, driver_phone } }),
+  getLiveTrip: (orderId: string) =>
+    request<LiveTrip>(`/admin/orders/${encodeURIComponent(orderId.trim())}/live-trip`),
 
   // --- Cash + disbursement ---
   recordCashDeposit: (phone: string, body: { amount_zmw: number; deposit_id: string }) =>

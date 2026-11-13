@@ -437,6 +437,13 @@ export interface PresenceResponse {
   first_scan_at?: string | null;
 }
 
+export interface LiveTrip {
+  order_id: string;
+  trip_id: string;
+  status: string;
+  store_id: string;
+}
+
 export interface TripByOrder {
   order_id: string;
   distance_km: number;

@@ -9,13 +9,15 @@ import { CANCELLABLE_ORDER_STATUSES, ORDER_NEXT_STATUSES } from '@/lib/orderAdmi
 import { Badge, Card, ErrorBox, Field, Loading, Spinner, SectionTitle, money, useToast } from '@/components/ui';
 import { InvoiceOpsPanel } from '@/components/orders/InvoiceOpsPanel';
 import { BatchOrderModal } from '@/components/orders/BatchOrderModal';
+import { AssignRiderModal } from '@/components/orders/AssignRiderModal';
 import { PickerOpsCard } from '@/components/pickers/PickerOpsCard';
 import { pickerApi } from '@/lib/pickerApi';
 import { Modal } from '@/components/Modal';
 import { ArrowLeft } from 'lucide-react';
-import { ADMIN_DROP_REASON_NOT_LISTED, ADMIN_DROP_REASONS, type AdminDropPreview } from '@/lib/types';
+import { ADMIN_DROP_REASON_NOT_LISTED, ADMIN_DROP_REASONS, type AdminDropPreview, type LiveTrip } from '@/lib/types';
 import { adminDropConfirmLabel, adminDropReasonReady, canConfirmAdminDrop } from '@/lib/adminDropPreview';
 import { orderStatusAdvanceAction, showStatusAdvanceNotes } from '@/lib/orderStatusAdvance';
+import { showAssignRider } from '@/lib/assignRider';
 import {
   ageToneClass,
   ageUrgencyTone,
@@ -74,6 +76,8 @@ export default function OrderDetailPage() {
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchVisible, setBatchVisible] = useState(false);
   const [batchEmpty, setBatchEmpty] = useState(false);
+  const [liveTrip, setLiveTrip] = useState<LiveTrip | null>(null);
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const loadOrder = useCallback(async () => {
     setLoadingOrder(true);
@@ -131,6 +135,29 @@ export default function OrderDetailPage() {
   useEffect(() => {
     loadBatchGate();
   }, [loadBatchGate]);
+
+  useEffect(() => {
+    if (!order || order.orderNumber !== orderNumber) {
+      setLiveTrip(null);
+      return;
+    }
+    if (order.status === 'DELIVERED' || order.status === 'CANCELLED') {
+      setLiveTrip(null);
+      return;
+    }
+    let cancelled = false;
+    api
+      .getLiveTrip(order.orderNumber)
+      .then((trip) => {
+        if (!cancelled) setLiveTrip(trip);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveTrip(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [order, orderNumber]);
 
   useEffect(() => {
     if (statusTarget !== 'DELIVERED') {
@@ -334,6 +361,11 @@ export default function OrderDetailPage() {
               Advance to {s.replace(/_/g, ' ')}
             </button>
           ))}
+          {showAssignRider(order.status, liveTrip) && (
+            <button type="button" className="btn-primary text-sm" onClick={() => setAssignOpen(true)}>
+              Assign rider
+            </button>
+          )}
           {batchVisible && (
             <button
               type="button"
@@ -612,6 +644,17 @@ export default function OrderDetailPage() {
         onBatchingDisabled={() => {
           setBatchVisible(false);
           setBatchEmpty(false);
+        }}
+      />
+
+      <AssignRiderModal
+        open={assignOpen}
+        onClose={() => setAssignOpen(false)}
+        orderNumber={order.orderNumber}
+        storeId={liveTrip?.store_id ?? ''}
+        onAssigned={() => {
+          setLiveTrip(null);
+          api.getLiveTrip(order.orderNumber).then(setLiveTrip).catch(() => setLiveTrip(null));
         }}
       />
     </div>
