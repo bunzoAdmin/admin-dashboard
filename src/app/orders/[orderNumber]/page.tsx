@@ -367,18 +367,21 @@ export default function OrderDetailPage() {
             </button>
           )}
           {batchVisible && (
-            <button
-              type="button"
-              className="btn-ghost text-sm"
-              disabled={batchEmpty}
-              title={batchEmpty ? 'No riders on a live trip at this store.' : undefined}
-              onClick={() => setBatchOpen(true)}
-            >
-              Batch
-            </button>
-          )}
-          {batchVisible && batchEmpty && (
-            <span className="self-center text-xs text-gray-400">No riders on a live trip at this store.</span>
+            <span className="group relative inline-flex">
+              <button
+                type="button"
+                className="btn-ghost text-sm disabled:pointer-events-none"
+                disabled={batchEmpty}
+                onClick={() => setBatchOpen(true)}
+              >
+                Batch
+              </button>
+              {batchEmpty && (
+                <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md bg-gray-900 px-2 py-1 text-xs font-normal text-white shadow-lg group-hover:block">
+                  No riders on a live trip at this store.
+                </span>
+              )}
+            </span>
           )}
           {canCancel && (
             <button className="btn-danger text-sm" onClick={() => setShowCancelForm(v => !v)}>
