@@ -354,6 +354,8 @@ export interface CashCollectionsResponse {
 export interface DriverTripItem {
   completed_at: string;
   order_id: string;
+  /** Drop order on a batched trip. Absent on trips written before batching. */
+  order_ids?: string[];
   distance_km: number;
   last_mile_min: number | null;
   return_min: number | null;

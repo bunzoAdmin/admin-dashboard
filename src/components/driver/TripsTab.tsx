@@ -7,7 +7,7 @@ import type { DriverTripsResponse } from '@/lib/types';
 import { Badge, Card, EmptyState, ErrorBox, Loading, Stat, formatDate } from '@/components/ui';
 import { todayIsoStore } from '@/lib/storeTime';
 import { resolveTripRange, tripRangeError, type TripRangePreset } from '@/lib/tripDateRange';
-import { formatTripMinutes, isInactiveTripStatus, tripStatusLabel, tripStatusTone, tripTimingNote } from '@/lib/tripTiming';
+import { formatTripMinutes, isInactiveTripStatus, tripOrderIds, tripStatusLabel, tripStatusTone, tripTimingNote } from '@/lib/tripTiming';
 
 function TripRangeControls({
   preset,
@@ -171,46 +171,59 @@ export function TripsTab({ phone }: { phone: string }) {
           </div>
         ) : (
           <>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-100 text-left text-xs uppercase tracking-wide text-gray-400">
-                  <th className="px-5 py-3 font-medium">When</th>
-                  <th className="px-5 py-3 font-medium">Order id</th>
-                  <th className="px-5 py-3 text-right font-medium">Distance</th>
-                  <th className="px-5 py-3 text-right font-medium">Last mile</th>
-                  <th className="px-5 py-3 text-right font-medium">Return</th>
+                  <th className="whitespace-nowrap px-5 py-3 font-medium">When</th>
+                  <th className="whitespace-nowrap px-5 py-3 font-medium">Order id</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-right font-medium">Distance</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-right font-medium">Last mile</th>
+                  <th className="whitespace-nowrap px-5 py-3 text-right font-medium">Return</th>
                 </tr>
               </thead>
               <tbody>
-                {data.items.map((item, i) => (
-                  <tr key={`${item.order_id}-${i}`} className="border-b border-gray-50 last:border-0">
-                    <td className="px-5 py-3 text-gray-700">{formatDate(item.completed_at)}</td>
-                    <td className="px-5 py-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Link
-                          href={`/orders/${encodeURIComponent(item.order_id)}`}
-                          className="font-mono text-xs text-blue-600 hover:underline"
-                        >
-                          {item.order_id}
-                        </Link>
-                        {item.status && (
-                          <Badge tone={tripStatusTone(item.status)}>{tripStatusLabel(item.status)}</Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3 text-right font-medium text-gray-900">
-                      {isInactiveTripStatus(item.status) ? '—' : `${item.distance_km.toFixed(2)} km`}
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-700" title={item.missing_arrival ? tripTimingNote(item) : undefined}>
-                      {formatTripMinutes(item.last_mile_min)}
-                    </td>
-                    <td className="px-5 py-3 text-right text-gray-700" title={tripTimingNote(item)}>
-                      {formatTripMinutes(item.return_min)}
-                    </td>
-                  </tr>
-                ))}
+                {data.items.map((item, i) => {
+                  const orderIds = tripOrderIds(item);
+                  return (
+                    <tr key={`${orderIds.join(',')}-${i}`} className="border-b border-gray-50 last:border-0">
+                      <td className="whitespace-nowrap px-5 py-3 text-gray-700">{formatDate(item.completed_at)}</td>
+                      <td className="whitespace-nowrap px-5 py-3">
+                        <div className="flex items-center gap-2">
+                          {orderIds.map((id, idx) => (
+                            <span key={id} className="inline-flex items-center gap-2">
+                              {idx > 0 && <span className="text-gray-300">·</span>}
+                              <Link
+                                href={`/orders/${encodeURIComponent(id)}`}
+                                className="font-mono text-xs text-blue-600 hover:underline"
+                              >
+                                {id}
+                              </Link>
+                            </span>
+                          ))}
+                          {item.status && (
+                            <Badge tone={tripStatusTone(item.status)}>{tripStatusLabel(item.status)}</Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td
+                        className="whitespace-nowrap px-5 py-3 text-right font-medium text-gray-900"
+                        title={orderIds.length > 1 ? 'Store to first drop, then drop to drop' : 'Store to drop'}
+                      >
+                        {isInactiveTripStatus(item.status) ? '—' : `${item.distance_km.toFixed(2)} km`}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right text-gray-700" title={item.missing_arrival ? tripTimingNote(item) : undefined}>
+                        {formatTripMinutes(item.last_mile_min)}
+                      </td>
+                      <td className="whitespace-nowrap px-5 py-3 text-right text-gray-700" title={tripTimingNote(item)}>
+                        {formatTripMinutes(item.return_min)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+            </div>
             {data.next_cursor && (
               <div className="p-5 pt-0">
                 <button className="btn-ghost" onClick={loadMore} disabled={loadingMore}>

@@ -1,6 +1,16 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatTripMinutes, tripPayoutDisplay, tripStatusLabel, tripStatusTone, tripTimingNote } from './tripTiming';
+import { formatTripMinutes, tripOrderIds, tripPayoutDisplay, tripStatusLabel, tripStatusTone, tripTimingNote } from './tripTiming';
+
+describe('tripOrderIds', () => {
+  it('lists every order on a batched trip, in the order the API sent', () => {
+    assert.deepEqual(tripOrderIds({ order_id: 'ORD-A', order_ids: ['ORD-B', 'ORD-A'] }), ['ORD-B', 'ORD-A']);
+  });
+
+  it('falls back to the single order id', () => {
+    assert.deepEqual(tripOrderIds({ order_id: 'ORD-A' }), ['ORD-A']);
+  });
+});
 
 describe('formatTripMinutes', () => {
   it('rounds to whole minutes', () => {
