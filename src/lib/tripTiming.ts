@@ -1,5 +1,12 @@
 import type { DriverTripItem } from './types';
 
+/** Orders on a completed trip, in drop order. One id for a trip written before batching. */
+export function tripOrderIds(item: Pick<DriverTripItem, 'order_id' | 'order_ids'>): string[] {
+  const ids = (item.order_ids ?? []).map((id) => id.trim()).filter(Boolean);
+  if (ids.length > 0) return ids;
+  return item.order_id ? [item.order_id] : [];
+}
+
 /** Whole minutes for a last-mile / return duration, or a dash when unreliable. */
 export function formatTripMinutes(minutes: number | null | undefined): string {
   return minutes == null ? '—' : `${Math.round(minutes)} min`;
