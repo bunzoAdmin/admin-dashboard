@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeLegAverages, filterLegRows, legAverageHint, pageLegRows } from './orderLegsView';
+import { computeLegAverages, filterLegRows, legAverageHint, nextLegSort, pageLegRows, sortLegRows } from './orderLegsView';
 import type { LegId, OrderLegRow } from './orderLegs';
 import { LEG_IDS } from './orderLegs';
 
@@ -168,6 +168,79 @@ describe('legAverageHint', () => {
     assert.equal(legAverageHint({ avgSeconds: 90, sampleCount: 38 }, 42), '38 of 42 delivered orders have this leg');
     assert.equal(legAverageHint({ avgSeconds: 90, sampleCount: 42 }, 42), '42 delivered orders');
     assert.equal(legAverageHint({ avgSeconds: null, sampleCount: 0 }, 42), undefined);
+  });
+});
+
+describe('sortLegRows', () => {
+  const slow = row({
+    orderNumber: 'SLOW',
+    status: 'DELIVERED',
+    createdAt: '2026-11-15T07:30:00.000Z',
+    units: 1,
+    distanceKm: 1.4,
+    legs: legs({ ofd_to_reached: 400, created_to_confirmed: 10 }),
+    actualE2eSeconds: 900
+  });
+  const fast = row({
+    orderNumber: 'FAST',
+    status: 'PACKING',
+    createdAt: '2026-11-15T08:00:00.000Z',
+    units: 4,
+    distanceKm: null,
+    legs: legs({ ofd_to_reached: 30, created_to_confirmed: 5 }),
+    actualE2eSeconds: 80
+  });
+  const blank = row({
+    orderNumber: 'BLANK',
+    status: 'CANCELLED',
+    createdAt: '2026-11-15T07:00:00.000Z',
+    units: 2,
+    distanceKm: 9,
+    legs: legs({ ofd_to_reached: null, created_to_confirmed: 20 }),
+    actualE2eSeconds: null
+  });
+  const rows = [slow, fast, blank];
+
+  it('leaves the loaded order when no sort is selected', () => {
+    assert.deepEqual(
+      sortLegRows(rows, null).map((r) => r.orderNumber),
+      ['SLOW', 'FAST', 'BLANK']
+    );
+  });
+
+  it('sorts a time leg slowest first, with missing times last', () => {
+    assert.deepEqual(
+      sortLegRows(rows, { key: 'ofd_to_reached', dir: 'desc' }).map((r) => r.orderNumber),
+      ['SLOW', 'FAST', 'BLANK']
+    );
+  });
+
+  it('sorts a time leg fastest first, still keeping missing times last', () => {
+    assert.deepEqual(
+      sortLegRows(rows, { key: 'ofd_to_reached', dir: 'asc' }).map((r) => r.orderNumber),
+      ['FAST', 'SLOW', 'BLANK']
+    );
+  });
+
+  it('sorts km with an empty distance last', () => {
+    assert.deepEqual(
+      sortLegRows(rows, { key: 'km', dir: 'desc' }).map((r) => r.orderNumber),
+      ['BLANK', 'SLOW', 'FAST']
+    );
+  });
+
+  it('sorts created newest first', () => {
+    assert.deepEqual(
+      sortLegRows(rows, { key: 'created', dir: 'desc' }).map((r) => r.orderNumber),
+      ['FAST', 'SLOW', 'BLANK']
+    );
+  });
+
+  it('toggles the same column and starts a time column at descending', () => {
+    const first = nextLegSort(null, 'ofd_to_reached');
+    assert.deepEqual(first, { key: 'ofd_to_reached', dir: 'desc' });
+    assert.deepEqual(nextLegSort(first, 'ofd_to_reached'), { key: 'ofd_to_reached', dir: 'asc' });
+    assert.deepEqual(nextLegSort(first, 'order'), { key: 'order', dir: 'asc' });
   });
 });
 

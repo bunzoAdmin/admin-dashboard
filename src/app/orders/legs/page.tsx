@@ -9,7 +9,17 @@ import { StoreSelector, useStoreContext } from '@/components/pickers/StoreSelect
 import { Badge, Card, EmptyState, ErrorBox, Loading, Stat } from '@/components/ui';
 import { LEG_IDS, formatDurationMmSs, type OrderLegRow, type Tone } from '@/lib/orderLegs';
 import { loadDayLegRows } from '@/lib/orderLegsLoad';
-import { computeLegAverages, filterLegRows, legAverageHint, pageLegRows, type LegChip } from '@/lib/orderLegsView';
+import {
+  computeLegAverages,
+  filterLegRows,
+  legAverageHint,
+  nextLegSort,
+  pageLegRows,
+  sortLegRows,
+  type LegChip,
+  type LegSort,
+  type LegSortKey
+} from '@/lib/orderLegsView';
 import { nudgeAnchorDate, resolveLocalMetricsRange } from '@/lib/pickerMetricsRange';
 import { formatStoreDateTime, todayIsoStore } from '@/lib/storeTime';
 
@@ -49,6 +59,43 @@ function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | '
   }
 }
 
+function SortHeader({
+  label,
+  sortKey,
+  sort,
+  align = 'left',
+  onSort
+}: {
+  label: string;
+  sortKey: LegSortKey;
+  sort: LegSort | null;
+  align?: 'left' | 'right';
+  onSort: (key: LegSortKey) => void;
+}) {
+  const active = sort?.key === sortKey;
+  const arrow = !active ? '' : sort.dir === 'asc' ? '↑' : '↓';
+  return (
+    <th
+      className={clsx('px-4 py-2.5 font-medium', align === 'right' && 'text-right')}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <button
+        type="button"
+        className={clsx(
+          'inline-flex items-center gap-1 uppercase tracking-wide hover:text-gray-900',
+          align === 'right' && 'w-full justify-end'
+        )}
+        onClick={() => onSort(sortKey)}
+      >
+        {label}
+        <span className={clsx('w-3 text-[10px]', active ? 'text-gray-900' : 'text-transparent')} aria-hidden>
+          {arrow || '↑'}
+        </span>
+      </button>
+    </th>
+  );
+}
+
 function toneClass(tone: Tone | null): string {
   if (tone === 'ok') return 'text-gray-900';
   if (tone === 'absurd') return 'text-amber-500';
@@ -69,6 +116,7 @@ export default function DayLegsPage() {
   const { storeId, setStoreId } = useStoreContext();
   const [anchorDate, setAnchorDate] = useState(todayIsoStore);
   const [chip, setChip] = useState<LegChip>('all');
+  const [sort, setSort] = useState<LegSort | null>(null);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState<OrderLegRow[]>([]);
   const [truncated, setTruncated] = useState(false);
@@ -114,7 +162,8 @@ export default function DayLegsPage() {
   }, [storeId, anchorDate]);
 
   const filtered = useMemo(() => filterLegRows(rows, chip), [rows, chip]);
-  const paged = useMemo(() => pageLegRows(filtered, page), [filtered, page]);
+  const sorted = useMemo(() => sortLegRows(filtered, sort), [filtered, sort]);
+  const paged = useMemo(() => pageLegRows(sorted, page), [sorted, page]);
   const averages = useMemo(() => computeLegAverages(rows), [rows]);
 
   const averagesCaption =
@@ -131,6 +180,11 @@ export default function DayLegsPage() {
 
   function changeChip(next: LegChip) {
     setChip(next);
+    setPage(0);
+  }
+
+  function changeSort(key: LegSortKey) {
+    setSort((current) => nextLegSort(current, key));
     setPage(0);
   }
 
@@ -260,20 +314,25 @@ export default function DayLegsPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/80 text-left text-xs uppercase tracking-wide text-gray-500">
-                      <th className="px-4 py-2.5 font-medium">Order</th>
-                      <th className="px-4 py-2.5 font-medium">Status</th>
-                      <th className="px-4 py-2.5 font-medium">Created</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Units</th>
-                      <th className="px-4 py-2.5 font-medium text-right">km</th>
+                      <SortHeader label="Order" sortKey="order" sort={sort} onSort={changeSort} />
+                      <SortHeader label="Status" sortKey="status" sort={sort} onSort={changeSort} />
+                      <SortHeader label="Created" sortKey="created" sort={sort} onSort={changeSort} />
+                      <SortHeader label="Units" sortKey="units" sort={sort} align="right" onSort={changeSort} />
+                      <SortHeader label="km" sortKey="km" sort={sort} align="right" onSort={changeSort} />
                       {LEG_IDS.map((id) => (
-                        <th key={id} className="px-4 py-2.5 font-medium text-right">
-                          {LEG_HEADERS[id]}
-                        </th>
+                        <SortHeader
+                          key={id}
+                          label={LEG_HEADERS[id]}
+                          sortKey={id}
+                          sort={sort}
+                          align="right"
+                          onSort={changeSort}
+                        />
                       ))}
-                      <th className="px-4 py-2.5 font-medium text-right">Item pred</th>
-                      <th className="px-4 py-2.5 font-medium text-right">LM pred</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Pred e2e</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Actual e2e</th>
+                      <SortHeader label="Item pred" sortKey="item_pred" sort={sort} align="right" onSort={changeSort} />
+                      <SortHeader label="LM pred" sortKey="lm_pred" sort={sort} align="right" onSort={changeSort} />
+                      <SortHeader label="Pred e2e" sortKey="pred_e2e" sort={sort} align="right" onSort={changeSort} />
+                      <SortHeader label="Actual e2e" sortKey="actual_e2e" sort={sort} align="right" onSort={changeSort} />
                     </tr>
                   </thead>
                   <tbody>
