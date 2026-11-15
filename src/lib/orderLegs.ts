@@ -28,10 +28,12 @@ export type OrderEventLike = { toStatus?: string | null; occurredAt: string };
 export type PickTaskLike = { startedAt?: string | null; completedAt?: string | null };
 export type TripLike = {
   order_id: string;
-  distance_km: number;
+  /** This order's km. Omitted when a batched order has no solo distance. */
+  distance_km?: number | null;
   reached_at?: string;
   trip_status: string;
   superseded_by_trip_id?: string;
+  batched?: boolean;
 };
 
 /** Inactive trips are superseded — ignore them for km. Prefer a live successor if the caller passed one. */
@@ -59,6 +61,7 @@ export type OrderLegRow = {
   createdAt: string;
   units: number;
   distanceKm: number | null;
+  batched: boolean;
   legs: BuiltLeg[];
   itemPredictedMinutes: number;
   lastMilePredictedMinutes: number | null;
@@ -172,7 +175,7 @@ export function buildOrderLegRow(input: {
   const { order, events, pick, nowMs } = input;
   const trip = tripForLegKm(input.trip);
   const units = sumUnits(order.items);
-  const distanceKm = trip == null ? null : trip.distance_km;
+  const distanceKm = trip == null || trip.distance_km == null ? null : trip.distance_km;
   const itemMin = itemPredictedMinutes(units);
   const lastMileMin = lastMilePredictedMinutes(distanceKm);
   const predE2e = predictedE2eMinutes(itemMin, lastMileMin);
@@ -184,8 +187,11 @@ export function buildOrderLegRow(input: {
 
   const createdAt = order.createdAt;
   const confirmedAt = firstEventAt(events, 'CONFIRMED');
-  const pickStartedAt = pick?.startedAt ?? null;
-  const pickCompletedAt = pick?.completedAt ?? null;
+  // Status events are this order's own timeline. Pick-task times are only a
+  // fallback when PACKING / READY_FOR_DELIVERY was not recorded. Reached is
+  // this order's drop, not another stop on a shared trip.
+  const pickStartedAt = firstEventAt(events, 'PACKING') ?? pick?.startedAt ?? null;
+  const pickCompletedAt = firstEventAt(events, 'READY_FOR_DELIVERY') ?? pick?.completedAt ?? null;
   const ofdAt = firstEventAt(events, 'OUT_FOR_DELIVERY');
   const reachedAt = trip?.reached_at || null;
   const deliveredAt = firstEventAt(events, 'DELIVERED');
@@ -236,6 +242,7 @@ export function buildOrderLegRow(input: {
     createdAt: order.createdAt,
     units,
     distanceKm,
+    batched: trip?.batched === true,
     legs,
     itemPredictedMinutes: itemMin,
     lastMilePredictedMinutes: lastMileMin,

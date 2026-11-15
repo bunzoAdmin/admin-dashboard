@@ -1,6 +1,6 @@
 import { LEG_IDS, type LegId, type OrderLegRow } from './orderLegs';
 
-export type LegChip = 'all' | 'delivered' | 'cancelled' | 'in_flight' | 'has_red';
+export type LegChip = 'all' | 'delivered' | 'cancelled' | 'in_flight' | 'has_red' | 'batched';
 
 export type LegAverage = {
   avgSeconds: number | null;
@@ -23,6 +23,7 @@ export function filterLegRows(rows: OrderLegRow[], chip: LegChip): OrderLegRow[]
   if (chip === 'in_flight') {
     return rows.filter((row) => row.status !== 'DELIVERED' && row.status !== 'CANCELLED');
   }
+  if (chip === 'batched') return rows.filter((row) => row.batched);
   return rows.filter((row) => row.hasRed);
 }
 

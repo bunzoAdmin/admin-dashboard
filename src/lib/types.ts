@@ -448,10 +448,13 @@ export interface LiveTrip {
 
 export interface TripByOrder {
   order_id: string;
-  distance_km: number;
+  /** This order's km. Absent when a batched order has no solo distance. */
+  distance_km?: number;
   reached_at?: string;
   trip_status: string;
   superseded_by_trip_id?: string;
+  /** True when this order shares its trip with other orders. */
+  batched?: boolean;
 }
 
 export interface ApiError {

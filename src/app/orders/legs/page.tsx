@@ -27,7 +27,8 @@ const CHIPS: { id: LegChip; label: string }[] = [
   { id: 'delivered', label: 'Delivered' },
   { id: 'cancelled', label: 'Cancelled' },
   { id: 'in_flight', label: 'In flight' },
-  { id: 'has_red', label: 'Has red' }
+  { id: 'has_red', label: 'Has red' },
+  { id: 'batched', label: 'Batched' }
 ];
 
 function orderStatusTone(status: string): 'gray' | 'green' | 'amber' | 'red' | 'blue' {

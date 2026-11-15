@@ -312,6 +312,70 @@ describe('buildOrderLegRow', () => {
     assert.equal(row.lastMilePredictedMinutes, null);
   });
 
+  it('keeps a batched trip km and marks the row batched', () => {
+    const { order, events, pick } = deliveredFixtures();
+    const row = buildOrderLegRow({
+      order,
+      events,
+      pick,
+      trip: {
+        order_id: order.orderNumber,
+        distance_km: 1.396,
+        reached_at: '2026-08-26T09:05:30.000Z',
+        trip_status: 'completed',
+        batched: true
+      },
+      nowMs: NOW_MS
+    });
+
+    assert.equal(row.batched, true);
+    assert.equal(row.distanceKm, 1.396);
+    assert.equal(row.legs.find((leg) => leg.id === 'ofd_to_reached')?.actualSeconds, 120);
+  });
+
+  it('times a batched order from its own status events, not another stop', () => {
+    const row = buildOrderLegRow({
+      order: {
+        orderNumber: 'ORD-BATCH',
+        status: 'DELIVERED',
+        createdAt: '2026-11-15T07:30:00.000Z',
+        items: [{ orderedQuantity: 1 }]
+      },
+      events: [
+        { toStatus: 'CONFIRMED', occurredAt: '2026-11-15T07:30:10.000Z' },
+        { toStatus: 'PACKING', occurredAt: '2026-11-15T07:31:00.000Z' },
+        { toStatus: 'READY_FOR_DELIVERY', occurredAt: '2026-11-15T07:32:00.000Z' },
+        { toStatus: 'OUT_FOR_DELIVERY', occurredAt: '2026-11-15T07:33:00.000Z' },
+        { toStatus: 'DELIVERED', occurredAt: '2026-11-15T07:40:00.000Z' }
+      ],
+      pick: {
+        startedAt: '2026-11-15T07:00:00.000Z',
+        completedAt: '2026-11-15T07:05:00.000Z'
+      },
+      trip: {
+        order_id: 'ORD-BATCH',
+        distance_km: 1.396,
+        reached_at: '2026-11-15T07:37:46.000Z',
+        trip_status: 'completed',
+        batched: true
+      },
+      nowMs: NOW_MS
+    });
+
+    assert.equal(row.distanceKm, 1.396);
+    assert.deepEqual(
+      row.legs.map((leg) => [leg.id, leg.actualSeconds]),
+      [
+        ['created_to_confirmed', 10],
+        ['confirmed_to_pick_start', 50],
+        ['pick_start_to_pick_end', 60],
+        ['pick_end_to_ofd', 60],
+        ['ofd_to_reached', 286],
+        ['reached_to_delivered', 134]
+      ]
+    );
+  });
+
   it('units is the sum of orderedQuantity', () => {
     const { events, pick, trip } = deliveredFixtures();
     const row = buildOrderLegRow({

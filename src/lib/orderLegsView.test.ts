@@ -11,6 +11,7 @@ function row(overrides: Partial<OrderLegRow> = {}): OrderLegRow {
     createdAt: '2026-08-26T00:00:00.000Z',
     units: 1,
     distanceKm: 1,
+    batched: false,
     legs: [],
     itemPredictedMinutes: 1,
     lastMilePredictedMinutes: 2,
@@ -68,6 +69,15 @@ describe('filterLegRows', () => {
     assert.deepEqual(
       filterLegRows(rows, 'has_red').map((r) => r.orderNumber),
       ['R', 'DR']
+    );
+  });
+
+  it('batched is the trip batch flag regardless of status', () => {
+    const batchDelivered = row({ orderNumber: 'BD', status: 'DELIVERED', batched: true });
+    const batchFlight = row({ orderNumber: 'BF', status: 'OUT_FOR_DELIVERY', batched: true });
+    assert.deepEqual(
+      filterLegRows([...rows, batchDelivered, batchFlight], 'batched').map((r) => r.orderNumber),
+      ['BD', 'BF']
     );
   });
 });
