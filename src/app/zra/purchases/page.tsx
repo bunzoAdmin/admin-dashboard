@@ -180,6 +180,7 @@ export default function ZraPurchasesPage() {
   const [manualSaving, setManualSaving] = useState(false);
 
   const storeFilter = storeIdParam;
+  const listPage = tab === 'pending' ? 0 : page;
 
   const load = useCallback(async () => {
     if (storeFilter == null) {
@@ -233,11 +234,31 @@ export default function ZraPurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, [tab, page, storeFilter]);
+  }, [tab, listPage, storeFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  function closeDetail() {
+    setSelectedId(null);
+    setDetail(null);
+  }
+
+  function changeStore(nextStoreId: number | null) {
+    setStoreId(nextStoreId);
+    setPage(0);
+    closeDetail();
+  }
+
+  useEffect(() => {
+    if (selectedId == null) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') closeDetail();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedId]);
 
   async function openDetail(id: number) {
     setSelectedId(id);
@@ -531,7 +552,7 @@ export default function ZraPurchasesPage() {
         </div>
         <div className="flex flex-col items-end gap-1">
           <div className="flex items-end gap-2">
-            <ZraStoreSelector storeId={storeId} onStoreChange={setStoreId} />
+            <ZraStoreSelector storeId={storeId} onStoreChange={changeStore} />
             <button
               type="button"
               className="btn-primary"
@@ -818,7 +839,7 @@ export default function ZraPurchasesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((p) => (
+                  {(tab === 'pending' ? rows.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) : rows).map((p) => (
                     <tr
                       key={p.id}
                       className={`border-b border-gray-50 last:border-0 ${selectedId === p.id ? 'bg-green-50/40' : ''}`}
@@ -866,7 +887,7 @@ export default function ZraPurchasesPage() {
           )}
           <div className="mt-3 flex items-center justify-between text-sm text-gray-500">
             <span>
-              {total} total · page {page + 1}
+              {total} total · page {page + 1} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}
             </span>
             <div className="flex gap-2">
               <button
@@ -880,7 +901,7 @@ export default function ZraPurchasesPage() {
               <button
                 type="button"
                 className="btn-ghost px-2 py-1 text-xs"
-                disabled={loading || tab === 'pending' || (page + 1) * PAGE_SIZE >= total}
+                disabled={loading || (page + 1) * PAGE_SIZE >= total}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Next
@@ -891,16 +912,17 @@ export default function ZraPurchasesPage() {
       </Card>
 
       {selectedId != null && (
+        <div
+          className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/40 p-4 sm:p-8"
+        >
+        <div className="w-full max-w-6xl">
         <Card>
           <SectionTitle
             action={
               <button
                 type="button"
                 className="btn-ghost text-xs"
-                onClick={() => {
-                  setSelectedId(null);
-                  setDetail(null);
-                }}
+                onClick={closeDetail}
               >
                 Close
               </button>
@@ -1133,6 +1155,8 @@ export default function ZraPurchasesPage() {
             </div>
           )}
         </Card>
+        </div>
+        </div>
       )}
     </div>
   );
