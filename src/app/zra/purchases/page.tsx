@@ -33,6 +33,28 @@ import {
 type Tab = 'pending' | 'approved' | 'rejected' | 'manual';
 
 const PAGE_SIZE = 20;
+const FETCH_PAGE_SIZE = 200;
+
+function byPurchaseDateDesc(a: ZraPurchase, b: ZraPurchase): number {
+  const byDate = (b.pchsDt ?? '').localeCompare(a.pchsDt ?? '');
+  if (byDate !== 0) return byDate;
+  return (a.spplrInvcNo ?? '').localeCompare(b.spplrInvcNo ?? '', undefined, { numeric: true });
+}
+
+async function listAllPurchases(
+  params: { status?: string; source?: string; storeId?: number }
+): Promise<ZraPurchase[]> {
+  const first = await zraApi.listPurchases({ ...params, page: 0, size: FETCH_PAGE_SIZE });
+  const rows = [...(first.content ?? [])];
+  const total = first.totalElements ?? rows.length;
+  for (let page = 1; rows.length < total; page += 1) {
+    const next = await zraApi.listPurchases({ ...params, page, size: FETCH_PAGE_SIZE });
+    const chunk = next.content ?? [];
+    if (chunk.length === 0) break;
+    rows.push(...chunk);
+  }
+  return rows;
+}
 
 function emptyLabel(tab: Tab): string {
   switch (tab) {
@@ -172,10 +194,10 @@ export default function ZraPurchasesPage() {
       if (tab === 'pending') {
         // Include FAILED so VSDC transmit failures can be retried.
         const [pending, failed] = await Promise.all([
-          zraApi.listPurchases({ status: 'PENDING_APPROVAL', storeId: storeFilter, page: 0, size: 50 }),
-          zraApi.listPurchases({ status: 'FAILED', storeId: storeFilter, page: 0, size: 50 })
+          listAllPurchases({ status: 'PENDING_APPROVAL', storeId: storeFilter }),
+          listAllPurchases({ status: 'FAILED', storeId: storeFilter })
         ]);
-        const merged = [...(pending.content ?? []), ...(failed.content ?? [])];
+        const merged = [...failed.sort(byPurchaseDateDesc), ...pending.sort(byPurchaseDateDesc)];
         setRows(merged);
         setTotal(merged.length);
       } else if (tab === 'approved') {
