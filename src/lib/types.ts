@@ -256,6 +256,10 @@ export interface DriverSummary {
   profile_url: string;
   profile_view_url: string;
   assigned_store_id: string;
+  shift_start_time?: string;
+  open_punctuality_minutes?: number;
+  last_scored_date?: string;
+  last_scored_minutes?: number;
 }
 
 export interface DriverListResponse {
@@ -437,6 +441,30 @@ export interface PresenceResponse {
   total_online_minutes: number;
   segments: PresenceSegment[];
   first_scan_at?: string | null;
+}
+
+export interface PunctualityDay {
+  date: string;
+  shift_start: string;
+  first_scan: string;
+  signed_minutes: number;
+  settled: boolean;
+}
+
+export interface PunctualitySettlement {
+  at: string;
+  total: number;
+  note: string;
+  admin: string;
+}
+
+export interface PunctualityReport {
+  shift_start: string;
+  shift_starts?: string[];
+  date: string;
+  open_minutes: number;
+  day: PunctualityDay | null;
+  settlements: PunctualitySettlement[];
 }
 
 export interface LiveTrip {

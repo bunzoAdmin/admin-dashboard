@@ -8,6 +8,7 @@ import { PhoneInput } from '@/components/PhoneInput';
 import { api, ApiClientError } from '@/lib/api';
 import { buildPhoneNumber, DEFAULT_COUNTRY_DIAL } from '@/lib/phone';
 import { Card, ErrorBox, Spinner, Loading, StatusBadge } from '@/components/ui';
+import { punctualityClass, riderListPunctuality, zambiaToday } from '@/lib/punctualityDisplay';
 import type { Darkstore, DriverSummary } from '@/lib/types';
 
 const UNASSIGNED = 'UNASSIGNED';
@@ -208,6 +209,12 @@ export default function DriversLookupPage() {
                           <div className="truncate font-medium text-gray-900">{d.name || '—'}</div>
                           <div className="text-sm text-gray-500">{d.phone_number}</div>
                         </div>
+                        <RiderPunctuality
+                          shiftStart={d.shift_start_time}
+                          lastScoredDate={d.last_scored_date}
+                          lastScoredMinutes={d.last_scored_minutes}
+                          openMinutes={d.open_punctuality_minutes}
+                        />
                         <StatusBadge status={d.status} />
                       </Link>
                     </li>
@@ -226,6 +233,32 @@ export default function DriversLookupPage() {
           )}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function RiderPunctuality({
+  shiftStart,
+  lastScoredDate,
+  lastScoredMinutes,
+  openMinutes
+}: {
+  shiftStart?: string;
+  lastScoredDate?: string;
+  lastScoredMinutes?: number;
+  openMinutes?: number;
+}) {
+  const cell = riderListPunctuality({
+    shiftStart,
+    lastScoredDate,
+    lastScoredMinutes,
+    openMinutes,
+    today: zambiaToday()
+  });
+  return (
+    <div className="shrink-0 text-right text-xs">
+      <div className={punctualityClass(cell.todayTone)}>Today {cell.today}</div>
+      <div className={punctualityClass(cell.openTone)}>Open {cell.open}</div>
     </div>
   );
 }

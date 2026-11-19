@@ -24,6 +24,7 @@ import type {
   LoginResponse,
   PresenceResponse,
   PresignResponse,
+  PunctualityReport,
   ReassignCandidate,
   ReferralScreen,
   Rule,
@@ -249,6 +250,33 @@ export const api = {
     }),
   getDriverPresence: (phone: string, date?: string) =>
     request<PresenceResponse>(`/admin/drivers/${encodePhone(phone)}/presence`, { query: { date } }),
+  getDriverPunctuality: (phone: string, date?: string) =>
+    request<PunctualityReport>(`/admin/drivers/${encodePhone(phone)}/punctuality`, { query: { date } }),
+  setDriverShiftStart: (phone: string, shiftStart: string) =>
+    request<{ phone_number: string; shift_start: string }>(`/admin/drivers/${encodePhone(phone)}/shift-start`, {
+      method: 'PUT',
+      body: { shift_start: shiftStart }
+    }),
+  addDriverShiftStart: (phone: string, shiftStart: string) =>
+    request<{ phone_number: string; shift_start: string }>(`/admin/drivers/${encodePhone(phone)}/shift-starts`, {
+      method: 'POST',
+      body: { shift_start: shiftStart }
+    }),
+  replaceDriverShiftStart: (phone: string, from: string, to: string) =>
+    request<{ phone_number: string; shift_start: string }>(`/admin/drivers/${encodePhone(phone)}/shift-starts`, {
+      method: 'PUT',
+      body: { from, to }
+    }),
+  removeDriverShiftStart: (phone: string, shiftStart: string) =>
+    request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/shift-starts`, {
+      method: 'DELETE',
+      body: { shift_start: shiftStart }
+    }),
+  clearDriverPunctuality: (phone: string, note: string) =>
+    request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/punctuality/clear`, {
+      method: 'POST',
+      body: { note }
+    }),
   recordInKindDisbursement: (phone: string, body: { sku: string; quantity: number; notes?: string }) =>
     request<{ disbursement_id: string; sku: string; quantity: number; disbursed_at: string }>(
       `/admin/drivers/${encodePhone(phone)}/inkind-disbursements`,
