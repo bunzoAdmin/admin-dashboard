@@ -5,6 +5,7 @@ import { api, ApiClientError } from '@/lib/api';
 import { formatFirstScan } from '@/lib/firstScanDisplay';
 import type { PresenceEndReason, PresenceResponse, PresenceSegment } from '@/lib/types';
 import { Badge, Card, EmptyState, ErrorBox, Field, Loading, Stat } from '@/components/ui';
+import { PunctualityCard } from '@/components/driver/PunctualityCard';
 
 const ZAMBIA_TZ = 'Africa/Lusaka';
 const DAY_MINUTES = 24 * 60;
@@ -183,6 +184,8 @@ export function PresenceTab({ phone }: { phone: string }) {
           )}
         </div>
       </Card>
+
+      <PunctualityCard phone={phone} date={date} />
 
       {loading && <Loading label="Loading presence…" />}
       {error && !loading && <ErrorBox message={error} />}
