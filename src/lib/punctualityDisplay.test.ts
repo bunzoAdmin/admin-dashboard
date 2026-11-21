@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canClearAmount,
+  dayStartLabel,
   signedClearAmount,
   canClearPunctuality,
   canRemoveShiftStart,
@@ -10,6 +11,16 @@ import {
   punctualityTone,
   riderListPunctuality
 } from './punctualityDisplay';
+
+describe('dayStartLabel', () => {
+  it('shows Not scanned when the start has no score', () => {
+    assert.equal(dayStartLabel({ scored: false, signed_minutes: 0 }), 'Not scanned');
+  });
+
+  it('shows the signed minutes when the start has a score', () => {
+    assert.equal(dayStartLabel({ scored: true, signed_minutes: -10 }), '−10m');
+  });
+});
 
 describe('formatSignedMinutes', () => {
   it('shows early time in hours and minutes with a plus', () => {

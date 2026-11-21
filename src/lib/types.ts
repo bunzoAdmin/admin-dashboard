@@ -443,14 +443,6 @@ export interface PresenceResponse {
   first_scan_at?: string | null;
 }
 
-export interface PunctualityDay {
-  date: string;
-  shift_start: string;
-  first_scan: string;
-  signed_minutes: number;
-  settled: boolean;
-}
-
 export interface PunctualitySettlement {
   at: string;
   total: number;
@@ -463,7 +455,13 @@ export interface PunctualityReport {
   shift_starts?: string[];
   date: string;
   open_minutes: number;
-  day: PunctualityDay | null;
+  day_starts: Array<{
+    shift_start: string;
+    first_scan?: string;
+    signed_minutes: number;
+    scored: boolean;
+    settled: boolean;
+  }>;
   settlements: PunctualitySettlement[];
 }
 

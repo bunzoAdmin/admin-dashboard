@@ -33,6 +33,11 @@ export function formatSignedMinutes(minutes: number): string {
   return `${sign}${mins}m`;
 }
 
+export function dayStartLabel(row: { scored: boolean; signed_minutes: number }): string {
+  if (!row.scored) return 'Not scanned';
+  return formatSignedMinutes(row.signed_minutes);
+}
+
 export function punctualityTone(minutes: number): PunctualityTone {
   if (minutes > 0) return 'green';
   if (minutes < 0) return 'red';
