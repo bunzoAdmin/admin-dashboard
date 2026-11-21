@@ -6,7 +6,10 @@ import {
   canClearAmount,
   canClearPunctuality,
   canRemoveShiftStart,
+  dayStartLabel,
   formatSignedMinutes,
+  noShiftStartMessage,
+  presenceRowStart,
   signedClearAmount,
   listedShiftStarts,
   punctualityClass,
@@ -125,7 +128,8 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
   const starts = listedShiftStarts(data.shift_starts, data.shift_start);
   const canRemove = canRemoveShiftStart(starts.length);
   const openTone = punctualityTone(data.open_minutes);
-  const dayTone = data.day ? punctualityTone(data.day.signed_minutes) : 'neutral';
+  const dayStarts = data.day_starts ?? [];
+  const emptyDay = noShiftStartMessage(dayStarts.length);
   const typedHours = Number(clearHours);
   const typedMinutes = Number(clearMinutes);
   const canClear = canClearPunctuality(data.open_minutes) && note.trim().length > 0 && !clearing;
@@ -194,18 +198,30 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
 
         <div>
           <div className="label">This day</div>
-          {data.day ? (
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-              <span className={`text-lg font-bold tabular-nums ${punctualityClass(dayTone)}`}>
-                {formatSignedMinutes(data.day.signed_minutes)}
-              </span>
-              <span className="text-gray-500">
-                scanned {data.day.first_scan} against {data.day.shift_start}
-              </span>
-              {data.day.settled && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Settled</span>}
-            </div>
+          {emptyDay ? (
+            <p className="mt-1 text-sm text-gray-500">{emptyDay}</p>
           ) : (
-            <p className="mt-1 text-sm text-gray-500">Not scanned</p>
+            <ul className="mt-1 space-y-2">
+              {dayStarts.map((row) => {
+                const tone = row.scored ? punctualityTone(row.signed_minutes) : 'neutral';
+                return (
+                  <li key={row.shift_start} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium tabular-nums text-gray-900">{presenceRowStart(row)}</span>
+                    <span className={`text-lg font-bold tabular-nums ${punctualityClass(tone)}`}>
+                      {dayStartLabel(row)}
+                    </span>
+                    {row.scored && (
+                      <span className="text-gray-500">
+                        scanned {row.first_scan} against {row.shift_start}
+                      </span>
+                    )}
+                    {row.settled && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Settled</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 

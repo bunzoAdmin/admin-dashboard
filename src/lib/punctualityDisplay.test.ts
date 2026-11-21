@@ -2,6 +2,9 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canClearAmount,
+  dayStartLabel,
+  noShiftStartMessage,
+  presenceRowStart,
   signedClearAmount,
   canClearPunctuality,
   canRemoveShiftStart,
@@ -10,6 +13,40 @@ import {
   punctualityTone,
   riderListPunctuality
 } from './punctualityDisplay';
+
+describe('dayStartLabel', () => {
+  it('shows Not scanned when the start has no score', () => {
+    assert.equal(dayStartLabel({ scored: false, signed_minutes: 0 }), 'Not scanned');
+  });
+
+  it('shows the signed minutes when the start has a score', () => {
+    assert.equal(dayStartLabel({ scored: true, signed_minutes: -10 }), '−10m');
+  });
+});
+
+describe('presenceRowStart', () => {
+  it('names the shift start when the row is unscored', () => {
+    const row = { shift_start: '08:00', scored: false, signed_minutes: 0 };
+    assert.equal(presenceRowStart(row), '08:00');
+    assert.equal(dayStartLabel(row), 'Not scanned');
+  });
+
+  it('names the shift start when the row is scored', () => {
+    const row = { shift_start: '16:00', scored: true, signed_minutes: -10 };
+    assert.equal(presenceRowStart(row), '16:00');
+    assert.equal(dayStartLabel(row), '−10m');
+  });
+});
+
+describe('noShiftStartMessage', () => {
+  it('says there is no shift start when the day has none', () => {
+    assert.equal(noShiftStartMessage(0), 'There is no shift start.');
+  });
+
+  it('stays blank when the day has a start', () => {
+    assert.equal(noShiftStartMessage(1), '');
+  });
+});
 
 describe('formatSignedMinutes', () => {
   it('shows early time in hours and minutes with a plus', () => {
