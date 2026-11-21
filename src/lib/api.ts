@@ -272,10 +272,10 @@ export const api = {
       method: 'DELETE',
       body: { shift_start: shiftStart }
     }),
-  clearDriverPunctuality: (phone: string, note: string) =>
+  clearDriverPunctuality: (phone: string, note: string, amount?: { hours: number; minutes: number }) =>
     request<{ status: string }>(`/admin/drivers/${encodePhone(phone)}/punctuality/clear`, {
       method: 'POST',
-      body: { note }
+      body: amount ? { note, hours: amount.hours, minutes: amount.minutes } : { note }
     }),
   recordInKindDisbursement: (phone: string, body: { sku: string; quantity: number; notes?: string }) =>
     request<{ disbursement_id: string; sku: string; quantity: number; disbursed_at: string }>(

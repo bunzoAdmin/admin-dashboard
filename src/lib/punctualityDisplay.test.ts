@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  canClearAmount,
+  signedClearAmount,
   canClearPunctuality,
   canRemoveShiftStart,
   formatSignedMinutes,
@@ -40,6 +42,20 @@ describe('canClearPunctuality', () => {
     assert.equal(canClearPunctuality(15), true);
     assert.equal(canClearPunctuality(-20), true);
     assert.equal(canClearPunctuality(0), false);
+  });
+});
+
+describe('canClearAmount', () => {
+  it('accepts hours and minutes toward zero and refuses zero or more than the open total', () => {
+    assert.equal(canClearAmount(-150, 1, 30), true);
+    assert.equal(canClearAmount(150, 1, 30), true);
+    assert.equal(canClearAmount(-60, 1, 0), true);
+    assert.equal(canClearAmount(-150, 0, 0), false);
+    assert.equal(canClearAmount(0, 1, 0), false);
+    assert.equal(canClearAmount(-150, 3, 0), false);
+    assert.equal(canClearAmount(-150, 1, 60), false);
+    assert.equal(signedClearAmount(-150, 1, 30), -90);
+    assert.equal(signedClearAmount(150, 1, 30), 90);
   });
 });
 

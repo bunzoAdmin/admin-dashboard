@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { api, ApiClientError } from '@/lib/api';
 import {
+  canClearAmount,
   canClearPunctuality,
   canRemoveShiftStart,
   formatSignedMinutes,
+  signedClearAmount,
   listedShiftStarts,
   punctualityClass,
   punctualityTone
@@ -24,6 +26,8 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
   const [addDraft, setAddDraft] = useState('');
   const [replaceDrafts, setReplaceDrafts] = useState<Record<string, string>>({});
   const [note, setNote] = useState('');
+  const [clearHours, setClearHours] = useState('0');
+  const [clearMinutes, setClearMinutes] = useState('0');
   const [saving, setSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -79,8 +83,7 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
     await run(() => api.removeDriverShiftStart(phone, time), 'Failed to remove the shift start.');
   }
 
-  async function clearAggregate(e: FormEvent) {
-    e.preventDefault();
+  async function clearAggregate() {
     if (!data || !canClearPunctuality(data.open_minutes) || !note.trim()) return;
     setClearing(true);
     setActionError(null);
@@ -95,6 +98,26 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
     }
   }
 
+  async function clearTypedAmount(e: FormEvent) {
+    e.preventDefault();
+    const hours = Number(clearHours);
+    const minutes = Number(clearMinutes);
+    if (!data || !canClearAmount(data.open_minutes, hours, minutes) || !note.trim()) return;
+    setClearing(true);
+    setActionError(null);
+    try {
+      await api.clearDriverPunctuality(phone, note.trim(), { hours, minutes });
+      setNote('');
+      setClearHours('0');
+      setClearMinutes('0');
+      await load();
+    } catch (err) {
+      setActionError(err instanceof ApiClientError ? err.message : 'Failed to clear that amount.');
+    } finally {
+      setClearing(false);
+    }
+  }
+
   if (loading && !data) return <Loading label="Loading punctuality…" />;
   if (error && !data) return <ErrorBox message={error} />;
   if (!data) return null;
@@ -103,7 +126,14 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
   const canRemove = canRemoveShiftStart(starts.length);
   const openTone = punctualityTone(data.open_minutes);
   const dayTone = data.day ? punctualityTone(data.day.signed_minutes) : 'neutral';
+  const typedHours = Number(clearHours);
+  const typedMinutes = Number(clearMinutes);
   const canClear = canClearPunctuality(data.open_minutes) && note.trim().length > 0 && !clearing;
+  const canClearTyped =
+    canClearAmount(data.open_minutes, typedHours, typedMinutes) && note.trim().length > 0 && !clearing;
+  const typedLabel = canClearAmount(data.open_minutes, typedHours, typedMinutes)
+    ? formatSignedMinutes(signedClearAmount(data.open_minutes, typedHours, typedMinutes))
+    : '';
 
   return (
     <Card>
@@ -179,19 +209,49 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
           )}
         </div>
 
-        <form onSubmit={clearAggregate} className="space-y-2 border-t border-gray-100 pt-4">
+        <form onSubmit={clearTypedAmount} className="space-y-2 border-t border-gray-100 pt-4">
           <Field label="Clear note">
             <input
               className="input"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Why this total is being settled"
+              placeholder="Why this time is being settled"
             />
           </Field>
-          <button type="submit" className="btn-ghost" disabled={!canClear}>
-            {clearing ? 'Clearing…' : `Clear ${formatSignedMinutes(data.open_minutes)}`}
-          </button>
-          <p className="text-xs text-gray-400">Clearing restarts the aggregate. It does not move money.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <Field label="Hours" className="w-24">
+              <input
+                className="input"
+                type="number"
+                min={0}
+                step={1}
+                value={clearHours}
+                onChange={(e) => setClearHours(e.target.value)}
+                aria-label="Hours to clear"
+              />
+            </Field>
+            <Field label="Minutes" className="w-24">
+              <input
+                className="input"
+                type="number"
+                min={0}
+                max={59}
+                step={1}
+                value={clearMinutes}
+                onChange={(e) => setClearMinutes(e.target.value)}
+                aria-label="Minutes to clear"
+              />
+            </Field>
+            <button type="submit" className="btn-ghost" disabled={!canClearTyped}>
+              {clearing ? 'Clearing…' : typedLabel ? `Clear ${typedLabel}` : 'Clear amount'}
+            </button>
+            <button type="button" className="btn-ghost" disabled={!canClear} onClick={() => void clearAggregate()}>
+              {clearing ? 'Clearing…' : `Clear ${formatSignedMinutes(data.open_minutes)}`}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400">
+            Clearing a smaller amount leaves the rest open. Clearing the whole total marks the days settled. Neither moves money.
+          </p>
         </form>
 
         {actionError && <ErrorBox message={actionError} />}
