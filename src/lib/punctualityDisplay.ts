@@ -43,6 +43,21 @@ export function canClearPunctuality(openMinutes: number): boolean {
   return openMinutes !== 0;
 }
 
+/** Hours and minutes toward zero, not past it. Minutes are 0–59. */
+export function canClearAmount(openMinutes: number, hours: number, minutes: number): boolean {
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return false;
+  if (hours < 0 || minutes < 0 || minutes > 59) return false;
+  const amount = hours * 60 + minutes;
+  if (amount === 0 || openMinutes === 0) return false;
+  return amount <= Math.abs(openMinutes);
+}
+
+/** The signed minutes a valid amount takes off the open total. */
+export function signedClearAmount(openMinutes: number, hours: number, minutes: number): number {
+  const amount = hours * 60 + minutes;
+  return openMinutes < 0 ? -amount : amount;
+}
+
 /** Saved start times, earliest first. A legacy single time is the list of one. */
 export function listedShiftStarts(starts?: string[] | null, legacy?: string | null): string[] {
   const list = (starts ?? []).map((start) => start.trim()).filter(Boolean);
