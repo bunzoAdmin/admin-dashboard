@@ -8,6 +8,8 @@ import {
   canRemoveShiftStart,
   dayStartLabel,
   formatSignedMinutes,
+  noShiftStartMessage,
+  presenceRowStart,
   signedClearAmount,
   listedShiftStarts,
   punctualityClass,
@@ -127,6 +129,7 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
   const canRemove = canRemoveShiftStart(starts.length);
   const openTone = punctualityTone(data.open_minutes);
   const dayStarts = data.day_starts ?? [];
+  const emptyDay = noShiftStartMessage(dayStarts.length);
   const typedHours = Number(clearHours);
   const typedMinutes = Number(clearMinutes);
   const canClear = canClearPunctuality(data.open_minutes) && note.trim().length > 0 && !clearing;
@@ -195,26 +198,31 @@ export function PunctualityCard({ phone, date }: { phone: string; date: string }
 
         <div>
           <div className="label">This day</div>
-          <ul className="mt-1 space-y-2">
-            {dayStarts.map((row) => {
-              const tone = row.scored ? punctualityTone(row.signed_minutes) : 'neutral';
-              return (
-                <li key={row.shift_start} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span className={`text-lg font-bold tabular-nums ${punctualityClass(tone)}`}>
-                    {dayStartLabel(row)}
-                  </span>
-                  {row.scored && (
-                    <span className="text-gray-500">
-                      scanned {row.first_scan} against {row.shift_start}
+          {emptyDay ? (
+            <p className="mt-1 text-sm text-gray-500">{emptyDay}</p>
+          ) : (
+            <ul className="mt-1 space-y-2">
+              {dayStarts.map((row) => {
+                const tone = row.scored ? punctualityTone(row.signed_minutes) : 'neutral';
+                return (
+                  <li key={row.shift_start} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="font-medium tabular-nums text-gray-900">{presenceRowStart(row)}</span>
+                    <span className={`text-lg font-bold tabular-nums ${punctualityClass(tone)}`}>
+                      {dayStartLabel(row)}
                     </span>
-                  )}
-                  {row.settled && (
-                    <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Settled</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    {row.scored && (
+                      <span className="text-gray-500">
+                        scanned {row.first_scan} against {row.shift_start}
+                      </span>
+                    )}
+                    {row.settled && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">Settled</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         <form onSubmit={clearTypedAmount} className="space-y-2 border-t border-gray-100 pt-4">

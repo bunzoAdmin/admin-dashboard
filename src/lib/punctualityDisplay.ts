@@ -38,6 +38,16 @@ export function dayStartLabel(row: { scored: boolean; signed_minutes: number }):
   return formatSignedMinutes(row.signed_minutes);
 }
 
+/** Clock shown on every Presence row, including one that is not scored yet. */
+export function presenceRowStart(row: { shift_start?: string | null }): string {
+  return (row.shift_start ?? '').trim();
+}
+
+/** Shown under This day when the selected day has no shift starts. */
+export function noShiftStartMessage(rowCount: number): string {
+  return rowCount === 0 ? 'There is no shift start.' : '';
+}
+
 export function punctualityTone(minutes: number): PunctualityTone {
   if (minutes > 0) return 'green';
   if (minutes < 0) return 'red';
