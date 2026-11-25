@@ -117,6 +117,7 @@ type ManualFormLine = {
   itemCd: string;
   itemNm: string;
   qty: string;
+  stockQty: string;
   unitPriceInclusive: string;
 };
 
@@ -124,14 +125,28 @@ const emptyManualLine = (): ManualFormLine => ({
   itemCd: '',
   itemNm: '',
   qty: '1',
+  stockQty: '1',
   unitPriceInclusive: ''
 });
 
-/** Digits only; empty while editing so 0 does not trap the caret. */
+/** Whole number. A pasted decimal keeps the integer part, so 24.0 does not become 240. */
 function sanitizeQtyDraft(raw: string): string {
-  const digits = raw.replace(/\D/g, '');
+  const cut = raw.search(/[.,]/);
+  const whole = cut >= 0 ? raw.slice(0, cut) : raw;
+  const digits = whole.replace(/\D/g, '');
   if (digits === '') return '';
   return String(parseInt(digits, 10));
+}
+
+/** Stock stays in step with accept qty until the admin types a different stock qty. */
+function stockFollowsAccept(stock: string, accept: string): boolean {
+  const stockText = stock.trim();
+  const acceptText = accept.trim();
+  if (stockText === '') return true;
+  if (acceptText === '') return false;
+  const stockQty = Number(stockText);
+  const acceptQty = Number(acceptText);
+  return Number.isFinite(stockQty) && Number.isFinite(acceptQty) && stockQty === acceptQty;
 }
 
 function sanitizeMoneyDraft(raw: string): string {
@@ -161,6 +176,7 @@ export default function ZraPurchasesPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [lineSkuDraft, setLineSkuDraft] = useState<Record<number, string>>({});
   const [lineQtyDraft, setLineQtyDraft] = useState<Record<number, string>>({});
+  const [lineStockDraft, setLineStockDraft] = useState<Record<number, string>>({});
   const [lineRegStatus, setLineRegStatus] = useState<
     Record<number, ZraItemRegistrationStatus | 'loading' | 'error'>
   >({});
@@ -273,13 +289,17 @@ export default function ZraPurchasesPage() {
       setPaperReceiptRef(d.purchase.paperReceiptRef ?? '');
       const drafts: Record<number, string> = {};
       const qtys: Record<number, string> = {};
+      const stocks: Record<number, string> = {};
       for (const line of d.lines) {
         drafts[line.id] = line.itemCd ?? '';
         const q = line.approvedQty ?? line.retrievedQty;
         qtys[line.id] = q != null ? String(q) : '';
+        const stock = line.stockQty ?? q;
+        stocks[line.id] = stock != null ? String(stock) : '';
       }
       setLineSkuDraft(drafts);
       setLineQtyDraft(qtys);
+      setLineStockDraft(stocks);
     } catch (err) {
       toast.push('error', err instanceof ZraApiError ? err.message : 'Failed to load purchase.');
     } finally {
@@ -313,6 +333,7 @@ export default function ZraPurchasesPage() {
       return;
     }
     const qtyByLine: Record<number, number> = {};
+    const stockByLine: Record<number, number> = {};
     let accepted = 0;
     let rejected = 0;
     for (const line of detail.lines) {
@@ -332,17 +353,43 @@ export default function ZraPurchasesPage() {
         return;
       }
       qtyByLine[line.id] = qty;
-      if (qty > 0) accepted += 1;
-      else rejected += 1;
+      if (qty > 0) {
+        const stockRaw = (lineStockDraft[line.id] ?? '').trim();
+        const stock = stockRaw === '' ? qty : Number(stockRaw);
+        if (!Number.isFinite(stock) || stock < 1 || !Number.isInteger(stock)) {
+          toast.push(
+            'error',
+            `Line ${line.itemSeq}: stock qty must be a whole number of at least 1.`
+          );
+          return;
+        }
+        stockByLine[line.id] = stock;
+        accepted += 1;
+      } else {
+        rejected += 1;
+      }
     }
     if (accepted === 0) {
       toast.push('error', 'Every line is qty 0. Use Reject for the whole purchase.');
       return;
     }
-    const summary =
+    const stockNotes = detail.lines
+      .filter((line) => {
+        const qty = qtyByLine[line.id];
+        const stock = stockByLine[line.id];
+        return qty > 0 && stock != null && stock !== qty;
+      })
+      .map(
+        (line) =>
+          `Line ${line.itemSeq}: invoice qty ${qtyByLine[line.id]}, stock ${stockByLine[line.id]}`
+      );
+    let summary =
       rejected > 0
         ? `Approve ${accepted} line(s) and reject ${rejected} line(s) on purchase #${selectedId}?`
         : `Approve all ${accepted} line(s) on purchase #${selectedId} for store ${sid}?`;
+    if (stockNotes.length > 0) {
+      summary += `\n\nStock qty differs from the invoice qty:\n${stockNotes.join('\n')}`;
+    }
     if (!window.confirm(summary)) return;
     setBusyAction('approve');
     try {
@@ -351,7 +398,8 @@ export default function ZraPurchasesPage() {
         {
           storeId: sid,
           paperReceiptRef: paperReceiptRef.trim() || undefined,
-          approvedQtyByLineId: qtyByLine
+          approvedQtyByLineId: qtyByLine,
+          stockQtyByLineId: stockByLine
         },
         user?.username
       );
@@ -476,17 +524,40 @@ export default function ZraPurchasesPage() {
       toast.push('error', 'Add at least one line and pick a Bunzo SKU.');
       return;
     }
+    const manualLines: { itemCd: string; itemNm: string; qty: number; stockQty: number; unitPriceInclusive: number }[] =
+      [];
     for (const l of lines) {
       if (!(Number(l.unitPriceInclusive) > 0)) {
         toast.push('error', `Enter a VAT-inclusive unit price for ${l.itemNm || l.itemCd}.`);
         return;
       }
+      const qty = Number(l.qty);
+      const stockRaw = (l.stockQty ?? '').trim();
+      const stock = stockRaw === '' ? qty : Number(stockRaw);
+      if (!Number.isInteger(qty) || qty < 1) {
+        toast.push('error', `Quantity must be a whole number of at least 1 for ${l.itemNm || l.itemCd}.`);
+        return;
+      }
+      if (!Number.isInteger(stock) || stock < 1) {
+        toast.push('error', `Stock qty must be a whole number of at least 1 for ${l.itemNm || l.itemCd}.`);
+        return;
+      }
+      manualLines.push({
+        itemCd: l.itemCd.trim(),
+        itemNm: (l.itemNm || l.itemCd).trim(),
+        qty,
+        stockQty: stock,
+        unitPriceInclusive: Number(l.unitPriceInclusive)
+      });
     }
-    if (
-      !window.confirm(
-        `Post manual purchase for store ${sid} (${lines.length} line(s)) to Smart Invoice? This also records ZRA stock-in for those SKUs and cannot be undone.`
-      )
-    ) {
+    const stockNotes = manualLines
+      .filter((l) => l.stockQty !== l.qty)
+      .map((l) => `${l.itemNm}: invoice qty ${l.qty}, stock ${l.stockQty}`);
+    let manualConfirm = `Post manual purchase for store ${sid} (${manualLines.length} line(s)) to Smart Invoice? This also records ZRA stock-in for those SKUs and cannot be undone.`;
+    if (stockNotes.length > 0) {
+      manualConfirm += `\n\nStock qty differs from the invoice qty:\n${stockNotes.join('\n')}`;
+    }
+    if (!window.confirm(manualConfirm)) {
       return;
     }
     setManualSaving(true);
@@ -502,11 +573,12 @@ export default function ZraPurchasesPage() {
           pmtTyCd: manual.pmtTyCd || undefined,
           remark: manual.remark || undefined,
           paperReceiptRef: manual.paperReceiptRef || undefined,
-          lines: lines.map((l) => ({
-            itemCd: l.itemCd.trim(),
-            itemNm: (l.itemNm || l.itemCd).trim(),
-            qty: Number(l.qty),
-            unitPriceInclusive: Number(l.unitPriceInclusive)
+          lines: manualLines.map((l) => ({
+            itemCd: l.itemCd,
+            itemNm: l.itemNm,
+            qty: l.qty,
+            stockQty: l.stockQty,
+            unitPriceInclusive: l.unitPriceInclusive
           }))
         },
         user?.username
@@ -698,7 +770,9 @@ export default function ZraPurchasesPage() {
               <div>
                 <div className="text-sm font-medium text-gray-800">Items</div>
                 <p className="text-xs text-gray-500">
-                  Search and pick a product. Quantity and VAT-inclusive unit price are required.
+                  Search and pick a product. Qty is the supplier invoice quantity. Stock qty is how
+                  many units of that SKU to add. For a bundle invoiced as 1, leave qty at 1 and set
+                  stock qty to the bottle count. The line total stays qty times the unit price.
                 </p>
               </div>
               {manual.lines.map((line, idx) => {
@@ -708,7 +782,7 @@ export default function ZraPurchasesPage() {
                 return (
                   <div key={idx} className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
                     <div className="grid grid-cols-1 gap-3 lg:grid-cols-12 lg:items-end">
-                      <div className="lg:col-span-4">
+                      <div className="lg:col-span-3">
                         <SkuPicker
                           label="SKU"
                           value={line.itemCd}
@@ -726,7 +800,7 @@ export default function ZraPurchasesPage() {
                           }
                         />
                       </div>
-                      <div className="lg:col-span-3">
+                      <div className="lg:col-span-2">
                         <Field label="Product name">
                           <input
                             className="input bg-white"
@@ -746,7 +820,34 @@ export default function ZraPurchasesPage() {
                             onChange={(e) =>
                               setManual((m) => {
                                 const lines = [...m.lines];
-                                lines[idx] = { ...lines[idx], qty: sanitizeQtyDraft(e.target.value) };
+                                const previous = lines[idx].qty;
+                                const next = sanitizeQtyDraft(e.target.value);
+                                const stock = lines[idx].stockQty ?? '';
+                                lines[idx] = {
+                                  ...lines[idx],
+                                  qty: next,
+                                  stockQty: stockFollowsAccept(stock, previous) ? next : stock
+                                };
+                                return { ...m, lines };
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <div className="lg:col-span-2">
+                        <Field label="Stock qty">
+                          <input
+                            className="input bg-white"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            value={line.stockQty}
+                            onChange={(e) =>
+                              setManual((m) => {
+                                const lines = [...m.lines];
+                                lines[idx] = {
+                                  ...lines[idx],
+                                  stockQty: sanitizeQtyDraft(e.target.value)
+                                };
                                 return { ...m, lines };
                               })
                             }
@@ -965,7 +1066,10 @@ export default function ZraPurchasesPage() {
                 detail.purchase.status === 'FAILED') && (
                 <p className="text-xs text-gray-500">
                   Partial accept is one approved purchase: set accept qty below retrieved to take fewer
-                  units, or 0 / Skip to reject that line. Use Reject only when the whole document is refused.
+                  units, or 0 / Skip to reject that line. Stock qty is how many units of the mapped SKU
+                  to add. It stays equal to accept qty until you change it, and it can be higher for a
+                  bundle broken into bottles. The purchase sent to ZRA uses the accept quantity and the
+                  supplier unit price. Use Reject only when the whole document is refused.
                 </p>
               )}
               <div className="overflow-x-auto">
@@ -976,6 +1080,7 @@ export default function ZraPurchasesPage() {
                       <th className="px-3 py-2 font-medium">Item</th>
                       <th className="px-3 py-2 font-medium text-right">Retrieved</th>
                       <th className="px-3 py-2 font-medium text-right">Accept qty</th>
+                      <th className="px-3 py-2 font-medium text-right">Stock qty</th>
                       <th className="px-3 py-2 font-medium text-right">Unit price</th>
                       <th className="px-3 py-2 font-medium text-right">Line total</th>
                       <th className="px-3 py-2 font-medium">Mapped SKU</th>
@@ -1007,21 +1112,53 @@ export default function ZraPurchasesPage() {
                                 className="input w-20 py-1 text-right tabular-nums"
                                 inputMode="decimal"
                                 value={lineQtyDraft[line.id] ?? ''}
-                                onChange={(e) =>
-                                  setLineQtyDraft((d) => ({ ...d, [line.id]: e.target.value }))
-                                }
+                                onChange={(e) => {
+                                  const next = e.target.value;
+                                  const previous = lineQtyDraft[line.id] ?? '';
+                                  const stock = lineStockDraft[line.id] ?? '';
+                                  setLineQtyDraft((d) => ({ ...d, [line.id]: next }));
+                                  if (stockFollowsAccept(stock, previous)) {
+                                    setLineStockDraft((d) => ({ ...d, [line.id]: next }));
+                                  }
+                                }}
                               />
                               <button
                                 type="button"
                                 className="btn-ghost px-1.5 py-1 text-xs text-red-600"
                                 title="Reject this line (qty 0)"
-                                onClick={() => setLineQtyDraft((d) => ({ ...d, [line.id]: '0' }))}
+                                onClick={() => {
+                                  const previous = lineQtyDraft[line.id] ?? '';
+                                  const stock = lineStockDraft[line.id] ?? '';
+                                  setLineQtyDraft((d) => ({ ...d, [line.id]: '0' }));
+                                  if (stockFollowsAccept(stock, previous)) {
+                                    setLineStockDraft((d) => ({ ...d, [line.id]: '0' }));
+                                  }
+                                }}
                               >
                                 Skip
                               </button>
                             </div>
                           ) : (
                             <span className="tabular-nums">{line.approvedQty ?? line.retrievedQty ?? '—'}</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {canEdit && !rejectedLine ? (
+                            <input
+                              className="input w-20 py-1 text-right tabular-nums"
+                              inputMode="numeric"
+                              value={lineStockDraft[line.id] ?? ''}
+                              onChange={(e) =>
+                                setLineStockDraft((d) => ({
+                                  ...d,
+                                  [line.id]: sanitizeQtyDraft(e.target.value)
+                                }))
+                              }
+                            />
+                          ) : (
+                            <span className="tabular-nums">
+                              {rejectedLine ? '—' : (line.stockQty ?? line.approvedQty ?? line.retrievedQty ?? '—')}
+                            </span>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right tabular-nums">{money(line.prc)}</td>

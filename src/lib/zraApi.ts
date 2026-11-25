@@ -188,6 +188,8 @@ export type ZraPurchaseLine = {
   itemNm?: string;
   retrievedQty?: number;
   approvedQty?: number | null;
+  /** Units of the mapped SKU added to stock. The purchase keeps approvedQty. */
+  stockQty?: number | null;
   prc?: number;
   totAmt?: number;
   taxTyCd?: string | null;
@@ -209,12 +211,16 @@ export type ApprovePurchaseBody = {
   storeId: number;
   paperReceiptRef?: string;
   approvedQtyByLineId?: Record<number, number>;
+  /** Units of the mapped SKU to stock. May be higher than the supplier quantity. */
+  stockQtyByLineId?: Record<number, number>;
 };
 
 export type ManualPurchaseLine = {
   itemCd: string;
   itemNm: string;
   qty: number;
+  /** Units of this SKU to stock. Omit to stock qty. */
+  stockQty?: number;
   unitPriceInclusive: number;
 };
 
